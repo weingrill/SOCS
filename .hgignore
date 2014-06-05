@@ -1,7 +1,5 @@
-
-syntax: glob
-*.*~
-syntax: glob
-*.*~
-syntax: glob
-*.*~
+glob:src/*.pyc
+glob:.project
+glob:.pydevproject
+glob:*.*~
+glob:.settings
