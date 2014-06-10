@@ -51,5 +51,5 @@ def do_bvi(transfer=False):
 if __name__ == '__main__':
     import matplotlib
     matplotlib.use('WXAgg')
-    do_rot(transfer=True)
-    #do_bvi(transfer=True)
+    #do_rot(transfer=True)
+    do_bvi(transfer=True)
