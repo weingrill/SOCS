@@ -3,7 +3,7 @@ Created on May 3, 2013
 
 @author: jwe <jweingrill@aip.de>
 
-get files from 1647 field 1 in rp
+get files from M 48BVI
 '''
 def getframes(targetdir='/work2/jwe/stella/wifsip/m48'):
     from datasource import DataSource
