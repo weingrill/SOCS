@@ -73,6 +73,14 @@ CREATE TABLE ngc1647stars (
  bv real,
  period real,
  period_err real,
+ theta	real,
+ ra double precision,
+ dec double precision,
+ vmag_err real,
+ bmag real,
+ bmag_err real,
+ nv integer,
+ nb integer,
  PRIMARY KEY (id)
 );
 
@@ -81,10 +89,6 @@ from frames
 where object like '%1647%' 
  and filter like 'rp'
 group by object, expt;
-
-update frames
-set good=true
-where
 
 insert into ngc1647stars (id, ra, dec)
 select distinct matched.id "id", ppmxl.ra "ra", ppmxl.dec "dec"
