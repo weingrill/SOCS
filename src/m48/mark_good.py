@@ -30,14 +30,14 @@ if __name__ == '__main__':
     from datasource import DataSource
     
     wifsip = DataSource(host = 'pina', database = 'wifsip', user = 'sro')
-    pngs = glob('/work2/jwe/stella/wifsip/m48/science*.png')
+    pngs = glob('/work2/jwe/stella/wifsip/m48/rot/science*.png')
     for p in pngs:
         #print p
         objid = filename2objid(p)
         print objid
         set_good(objid)
 
-    pngs = glob('/work2/jwe/stella/wifsip/m48/bad/science*.png')
+    pngs = glob('/work2/jwe/stella/wifsip/m48/rot/bad/science*.png')
     for p in pngs:
         #print p
         objid = filename2objid(p)
