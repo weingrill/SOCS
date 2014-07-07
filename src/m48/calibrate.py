@@ -53,7 +53,7 @@ class Calibrate(object):
         
         query = """SELECT object,max(matched)
             FROM frames
-            WHERE object LIKE 'M 48 BVI %%'
+            WHERE object LIKE 'M 48 rot%%'
             AND filter = '%s'
             GROUP BY object
             ORDER BY object;""" % self.filtercol
@@ -120,7 +120,7 @@ class Calibrate(object):
     def resetframes(self):
         query = """UPDATE frames
         SET corr=NULL
-        WHERE object LIKE 'M 48 BVI %%'
+        WHERE object LIKE 'M 48 rot%%'
         AND filter like '%s';""" % self.filtercol
         self.wifsip.execute(query)
         
@@ -135,12 +135,12 @@ if __name__ == '__main__':
         calv.getframes(ref)
         calv.corrframes(ref)
         
-    calb = Calibrate(filtercol='B')
-    calb.resetframes()
-    calb.getrefframes()
-    for r in calb.ref: print r
-    
-    for ref in calb.ref:
-        print 'reference:', ref
-        calb.getframes(ref)
-        calb.corrframes(ref)
+#     calb = Calibrate(filtercol='B')
+#     calb.resetframes()
+#     calb.getrefframes()
+#     for r in calb.ref: print r
+#     
+#     for ref in calb.ref:
+#         print 'reference:', ref
+#         calb.getframes(ref)
+#         calb.corrframes(ref)
