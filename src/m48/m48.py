@@ -55,7 +55,7 @@ class M48(object):
         self.age = 10**8.557/1e6 # in Gyr from Webda
         self.ebv = 0.031 # from Webda
         self.dm = 9.53 # from Webda
-        logging.basicConfig(filename='m48_analysis.log', 
+        logging.basicConfig(filename='/work2/jwe/m48/m48_analysis.log', 
                             format='%(asctime)s %(message)s',
                             level=logging.INFO)
         
@@ -174,7 +174,7 @@ class M48(object):
             query += " SET period=%f" % period
         if not theta is None:
             query += ",  theta=%f" % theta
-        query += " WHERE id like '%s';" %star
+        query += " WHERE starid like '%s';" %star
         self.wifsip.execute(query)
                     
     def analysis(self):
@@ -183,10 +183,10 @@ class M48(object):
         
         for star in self.stars: 
             #i = self.stars.index(star)
-            t, m, _ = self.lightcurve_fromdb(star)
             try:
+                t, m, _ = self.lightcurve_fromdb(star)
                 t -= min(t)
-            except ValueError:
+            except (ValueError, TypeError):
                 comment = '%s\t no data' % star
             # look at ten days or at most at the length of dataset
             else:
@@ -283,6 +283,6 @@ if __name__ == '__main__':
     m48.getstars()
     print '\n'.join(m48.stars)
     logging.info('periodsearch ...')
-    m48.periods()
+    #m48.periods()
     m48.analysis()
     #ngc1647.make_cpd()
