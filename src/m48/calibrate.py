@@ -11,6 +11,7 @@ Tasks:
 * 
 
 '''
+import logging
 
 class Calibrate(object):
     '''
@@ -20,7 +21,10 @@ class Calibrate(object):
 
     def __init__(self, filtercol='V'):
         '''
-        Constructor
+        Constructor:
+        
+        Initialize database
+        set filtercolor
         '''
         from datasource import DataSource
         
@@ -31,11 +35,17 @@ class Calibrate(object):
             self.filtercol = filtercol
         else:
             raise(ValueError)
+        logging.basicConfig(filename='/work2/jwe/m48/m48_calibration.log', 
+                            format='%(asctime)s %(levelname)s %(message)s',
+                            level=logging.INFO)
+        logging.info('Setting filtercolor=%s',self.filtercol)
     
     def getframes(self, refframe):
+        logging.info('getframes ...')
         query = "SELECT object FROM frames WHERE objid='%s';" % refframe
         obj = self.wifsip.query(query)[0][0]
         print refframe,'-->',obj
+        logging.info('%s --> %s' % (refframe, obj))
         query = """SELECT objid
          FROM frames
          WHERE object LIKE '%s'
@@ -43,14 +53,14 @@ class Calibrate(object):
         
         result = self.wifsip.query(query)
         self.frames = [r[0] for r in result]
-        
+        logging.info('%d frames' % len(self.frames))
 
     def getrefframes(self):
         '''
         choose the frames with the highest number of matched stars for each 
         field and filter 
         '''
-        
+        logging.info('getrefframes ...')
         query = """SELECT object,max(matched)
             FROM frames
             WHERE object LIKE 'M 48 rot%%'
@@ -58,7 +68,7 @@ class Calibrate(object):
             GROUP BY object
             ORDER BY object;""" % self.filtercol
         result = self.wifsip.query(query)
-        
+        logging.info('%d frames' % len(result))
         for r in result:
             print r[0],'\t',r[1]
         
@@ -73,12 +83,17 @@ class Calibrate(object):
                 AND matched = %d;""" % \
                 (m['object'], self.filtercol, m['matched'])
             self.ref.append(self.wifsip.query(query)[0][0])
-
+        logging.info('%d frames' % len(self.ref))
+        
     def corrframes(self, refframe=''):
         from numpy import array, mean, average, std
-        
+        logging.info('create view phot1')
         query = """CREATE VIEW phot1 AS 
-            SELECT * FROM phot WHERE objid='%s'
+            SELECT * 
+            FROM phot 
+            WHERE objid='%s'
+             AND phot.mag_auto>10 and phot.mag_auto<16
+             AND flags=0
             ORDER BY phot.mag_auto LIMIT 500;""" % (refframe)
         self.wifsip.execute(query)
         
@@ -90,7 +105,8 @@ class Calibrate(object):
             """ % frame
             
             result = self.wifsip.query(query)
-            
+            if len(result)==0:
+                logging.warn('no data for frame %s' % frame)
             omag = array([r[0] for r in result])
             cmag = array([r[1] for r in result])
             wts = 1./(2.512*cmag)
@@ -100,10 +116,12 @@ class Calibrate(object):
                 corr = average(omag-cmag, weights=wts)
             except ZeroDivisionError:
                 corr = mean(omag-cmag)
-            
-            print '%s: %.3f %.3f (%d)' % (frame, corr, mstd, len(omag))
+            s = '%s: %.3f %.3f (%d)' % (frame, corr, mstd, len(omag))
+            print s
+            logging.info(s)
             self.updateframe(frame, corr)
                 
+        logging.info('drop view phot1')
         self.wifsip.dropview('phot1')
         
     def updateframe(self, frame, corr):
@@ -118,6 +136,7 @@ class Calibrate(object):
         self.wifsip.execute(query)
         
     def resetframes(self):
+        logging.info('reset frames')
         query = """UPDATE frames
         SET corr=NULL
         WHERE object LIKE 'M 48 rot%%'
