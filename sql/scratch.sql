@@ -42,3 +42,29 @@ SELECT phot.mag_auto, phot.magerr_auto, vmag, bv
  AND circle(ngc2281ref.coord,3./3600.) @> circle(phot.coord,.0)
  AND bv>0.0;
 
+SELECT frames.hjd, phot.mag_auto, phot.magerr_auto
+FROM frames, matched, phot
+WHERE matched.id LIKE 'PPMXL2860071617461126379'
+AND frames.object like 'M 48 rot%%'
+AND filter LIKE 'V'
+AND frames.objid = matched.objid
+AND (phot.objid,phot.star) = (matched.objid,matched.star)
+AND phot.flags<8
+ORDER BY hjd;
+
+
+SELECT id 
+FROM matched
+WHERE (matched.objid, matched.star) = ('20140303A-0074-0013',2052);
+
+SELECT frames.hjd, phot.mag_auto-corr, phot.magerr_auto, phot.flags
+FROM frames, matched, phot
+WHERE matched.id LIKE 'PPMXL2859922316456747397'
+AND frames.object like 'M 48 rot%%'
+AND filter LIKE 'V'
+AND frames.good
+AND NOT corr IS NULL
+AND frames.objid = matched.objid
+AND (phot.objid,phot.star) = (matched.objid,matched.star)
+AND phot.flags<4
+ORDER BY hjd;
