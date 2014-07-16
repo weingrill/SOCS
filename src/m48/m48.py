@@ -175,7 +175,7 @@ class M48Star(object):
         return (hjd, mag, err)
             
 
-class M48(object):
+class M48Analysis(object):
     '''
     classdocs
     '''
@@ -397,17 +397,23 @@ class M48(object):
         import pylab as plt
         import numpy as np
         query = "SELECT vmag+0.06, bv FROM m48stars;"
-        
         data = self.wifsip.query(query)
         vmag = np.array([d[0] for d in data])
         bv = np.array([d[1] for d in data])
+        
+        query = "SELECT vmag+0.06, bv FROM m48stars where good;"
+        data = self.wifsip.query(query)
+        vmag_good = np.array([d[0] for d in data])
+        bv_good = np.array([d[1] for d in data])
+        
         plt.scatter(bv,vmag, edgecolor='none', alpha=0.75, s=4, c='k')
+        plt.scatter(bv_good,vmag_good, edgecolor='none', alpha=0.75, s=30, c='g')
         
         k = 4
         d = 13
         x = np.linspace(-0.5, 2.5, 10)
         y = k*x+d
-        plt.plot(x, y, linestyle='dashed', color='k')
+        plt.plot(x, y, linestyle='dashed', color='b')
         plt.ylim(21.0, 8.0)
         plt.xlim(-0.2, 2.0)
         plt.xlabel('B - V')
@@ -422,21 +428,20 @@ class M48(object):
         import numpy as np
         query = """SELECT bv, period, theta 
                     FROM m48stars 
-                    WHERE vmag>4*bv + 13 AND theta<0.65
+                    WHERE NOT good
                     AND NOT bv IS NULL
                     AND period>0;"""
         data = self.wifsip.query(query)
         
         bv = np.array([d[0] for d in data])
         period = np.array([d[1] for d in data])
-        theta = np.array([d[2] for d in data])
-
+        
         query = """SELECT bv, period, theta 
                     FROM m48stars 
                     WHERE vmag<4*bv + 13 
-                    AND theta<0.65
                     AND NOT bv IS NULL
-                    AND period>0;"""
+                    AND period>0
+                    AND good;"""
         data = self.wifsip.query(query)
         bv_ms = np.array([d[0] for d in data])
         period_ms = np.array([d[1] for d in data])
@@ -446,20 +451,21 @@ class M48(object):
         import gyroage
         from functions import logspace
         
-        bv360 = logspace(0.4, 1.5, num=20)
-        P = gyroage.gyroperiod(bv360, 360.0, version=2007)
-        
+        bv360 = logspace(0.5, 2.0, num=100)
+        #P = gyroage.gyroperiod(bv360, 360.0, version=2007)
+        P, pc = gyroage.gyroperiod(bv360, 360.0, version=2003)
+        plt.plot(bv360, pc, color='b', linestyle='--')
         plt.plot(bv360, P, color='r')
         
-        plt.scatter(bv-self.ebv, period, s=(1.0-theta)*40., 
-                    edgecolor='none',alpha=0.15)
-        plt.scatter(bv_ms-self.ebv, period_ms, s=(1.0-theta_ms)*40., 
+        plt.scatter(bv-self.ebv, period, s=1, 
+                    edgecolor='none', c='k')
+        plt.scatter(bv_ms-self.ebv, period_ms, s=(1.0-theta_ms)*50., 
                     edgecolor='none',
                     alpha=0.75, facecolor='green')
         plt.xlabel('(B - V)$_0$')
         plt.ylabel('period [days]')
         plt.ylim(0.0, 20.0)
-        plt.xlim(0.0, 1.5)
+        plt.xlim(0.0, 2.0)
         plt.grid()
         plt.savefig('/work2/jwe/m48/plots/m48cpd.pdf')
         if show: plt.show()
@@ -472,16 +478,16 @@ if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser(description='M48 analysis')
     parser.add_argument('--clear', action='store_true', help='clear periods')
-    parser.add_argument('-a', '--analysis', action='store_true', default='store_false', help='analysis')
-    parser.add_argument('-cmd', action='store_true', default='store_false', help='plot cmd')
-    parser.add_argument('-cpd', action='store_true', default='store_false', help='plot cpd')
+    parser.add_argument('-a', '--analysis', action='store_true', help='analysis')
+    parser.add_argument('-cmd', action='store_true', help='plot cmd')
+    parser.add_argument('-cpd', action='store_true', help='plot cpd')
     args = parser.parse_args()
     
-    m48 =  M48('/work2/jwe/m48/data/')
+    m48 =  M48Analysis('/work2/jwe/m48/data/')
     if args.clear: m48.clearperiods()
     m48.getstars(allstars=False, maglimit=21)
     
     #m48.set_simbad()
-    if args.analysis: m48.analysis()
+    #if args.analysis: m48.analysis()
     if args.cmd: m48.make_cmd()
     if args.cpd: m48.make_cpd()
