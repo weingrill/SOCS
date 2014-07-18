@@ -13,52 +13,6 @@ logging.basicConfig(filename='/work2/jwe/m48/m48_analysis.log',
                     level=logging.INFO)
 logger = logging.getLogger('M48 analysis')
 
-def autocorrelate(t, y):
-    """
-    calculate the autocorrelation on irregular data
-    """
-    import numpy as np
-    from scipy.interpolate import interp1d
-
-    #determine the median time step dt:
-    dt = np.median(t-np.roll(t, 1))
-    t0 = min(t)
-    t1 = max(t)
-    n = int((t1-t0)/dt)
-    nt = np.linspace(t0, t1, n)
-    f = interp1d(t, y, kind='linear')
-    fn = f(nt)
-    
-    m = np.mean(fn)
-    # we do padding
-    k = 2
-    x = fn - m
-    # complex FFT, since we need the conjugate
-    s = np.fft.fft(x, k*n)
-    ac = np.real(np.fft.ifft(s*s.conjugate()))
-    ac /= ac[0]
-    lag = nt-nt[0]
-    return ac[:n], lag[:n]
-
-def sigma_clip(t, y, sigmas=3.0):
-    """
-    performs sigma clipping on a lightcurve
-    """
-    from numpy import mean, std, compress
-    m = mean(y)
-    s = std(y)
-    valid = abs(y-m)<sigmas*s
-    t_clipped = compress(valid,t)
-    y_clipped = compress(valid,y)
-    return t_clipped, y_clipped
-
-def phase(t, y, period):
-    """
-    returns the phased lightcurve
-    """
-    tp = t % period
-    i = tp.argsort()
-    return tp[i], y[i]
 
 
 class M48Star(object):
@@ -285,7 +239,7 @@ class M48Analysis(object):
         from pdm import pdm
         from psd import ppsd
         from matplotlib import rcParams
-        
+        from functions import sigma_clip, phase
         print 'Analysis'
 
         fig_width = 18.3/2.54  # width in inches, was 7.48in
@@ -419,8 +373,11 @@ class M48Analysis(object):
         plt.xlabel('B - V')
         plt.ylabel('V [mag]')
         plt.grid()
-        plt.savefig('/work2/jwe/m48/plots/m48cmd.pdf')
-        if show: plt.show()
+        if show:
+            plt.show()
+        else:
+            plt.savefig('/work2/jwe/m48/plots/m48cmd.eps')
+            plt.savefig('/work2/jwe/m48/plots/m48cmd.pdf')
         plt.close()
 
     def make_cpd(self, show=False):
@@ -446,7 +403,7 @@ class M48Analysis(object):
         bv_ms = np.array([d[0] for d in data])
         period_ms = np.array([d[1] for d in data])
         theta_ms = np.array([d[2] for d in data])
-
+        np.savetxt('/work1/jwe/Dropbox/M48/data/periods.txt', data, fmt='%6.3f')
         
         import gyroage
         from functions import logspace
@@ -467,8 +424,11 @@ class M48Analysis(object):
         plt.ylim(0.0, 20.0)
         plt.xlim(0.0, 2.0)
         plt.grid()
-        plt.savefig('/work2/jwe/m48/plots/m48cpd.pdf')
-        if show: plt.show()
+        if show:
+            plt.show()
+        else:
+            plt.savefig('/work2/jwe/m48/plots/m48cpd.eps')
+            plt.savefig('/work2/jwe/m48/plots/m48cpd.pdf')
         plt.close()
     
     def __exit__(self):
@@ -488,6 +448,6 @@ if __name__ == '__main__':
     m48.getstars(allstars=False, maglimit=21)
     
     #m48.set_simbad()
-    #if args.analysis: m48.analysis()
+    if args.analysis: m48.analysis()
     if args.cmd: m48.make_cmd()
     if args.cpd: m48.make_cpd()
