@@ -15,119 +15,7 @@ logger = logging.getLogger('M48 analysis')
 
 
 
-class M48Star(object):
-    '''
-    class that interfaces the m48stars table on wifsip database
-    '''
-    def __init__(self, starid):
-        from datasource import DataSource
-        self.starid = starid
-    
-        self.wifsip = DataSource(database='wifsip', user='sro', host='pina.aip.de')
-        query = """SELECT bv, vmag, ra, dec, simbad 
-        FROM m48stars
-        WHERE starid='%s'""" % starid
-        result = self.wifsip.query(query)[0]
-        self.bv,self.vmag,self.ra,self.dec,self.simbad = result
-    
-    def _db_setvalue(self, param, value):
-        from numpy import isnan
-        
-        if isnan(value) or value=='':
-            query = """UPDATE m48stars 
-            SET %s=NULL 
-            WHERE starid='%s';""" % (param, self.starid)
-        else:
-            query = """UPDATE m48stars 
-            SET %s=%f 
-            WHERE starid='%s';""" % (param, value, self.starid)
-        self.wifsip.execute(query)    
-
-    def _db_getvalue(self, param):
-        result = self.wifsip.query("""SELECT %s 
-        FROM m48stars 
-        WHERE starid='%s';""" % (param, self.starid))
-        return result[0][0]    
-        
-    @property
-    def period(self):
-        return self._db_getvalue('period')
-        
-    @period.setter
-    def period(self, value):
-        self._db_setvalue('period', value)
-
-
-    @property
-    def theta(self):
-        return self._db_getvalue('theta')
-        
-    @theta.setter
-    def theta(self, value):
-        self._db_setvalue('theta', value)
-
-    @property
-    def amp(self):
-        return self._db_getvalue('amp')
-
-    @amp.setter
-    def amp(self, value):
-        #print value
-        self._db_setvalue('amp', value)
-     
-    @property
-    def amp_err(self):
-        return self._db_getvalue('amp_err')
-
-    @amp_err.setter
-    def amp_err(self, value):
-        self._db_setvalue('amp_err', value)
-        
-    def lightcurve(self):
-        """
-        extract a single lightcurve from the database
-        and return epoch (hjd), magnitude and error
-        """
-        import numpy as np
-        
-        objid, star = self.starid.split('#')
-        query = """SELECT id 
-         FROM matched
-         WHERE (matched.objid, matched.star) = ('%s','%s')
-        """ % (objid, star)
-        try:
-            mid = self.wifsip.query(query)[0][0]
-        except IndexError:
-            logger.warning('no match found for starid %s' % (self.starid))
-            return
-        
-        logger.info('fetching starid %s = %s' % (self.starid, mid))
-        
-        query = """SELECT frames.hjd, phot.mag_auto-corr, phot.magerr_auto
-                FROM frames, matched, phot
-                WHERE matched.id LIKE '%s'
-                AND frames.object like 'M 48 rot%%'
-                AND filter LIKE 'V'
-                AND frames.good
-                AND NOT corr IS NULL
-                AND frames.objid = matched.objid
-                AND (phot.objid,phot.star) = (matched.objid,matched.star)
-                AND phot.flags<4
-                ORDER BY hjd;""" % (mid)
-                
-    
-        data = self.wifsip.query(query)
-        if len(data)<10:
-            logger.error('insufficient data (%d) found for star %s' % (len(data),mid))
-            return
-        hjd = np.array([d[0] for d in data])
-        mag = np.array([d[1] for d in data])
-        err = np.array([d[2] for d in data])
-                
-        logger.info('%d datapoints' % len(hjd))
-        
-        return (hjd, mag, err)
-            
+from m48star import M48Star            
 
 class M48Analysis(object):
     '''
@@ -176,7 +64,6 @@ class M48Analysis(object):
             WHERE NOT bv IS NULL
             AND vmag<4*bv+13
             AND vmag < %f
-            AND period is NULL
             ORDER BY vmag;""" % maglimit
         
         logger.info('fetching stars ...')
@@ -273,16 +160,23 @@ class M48Analysis(object):
                 self.t, self.m = sigma_clip(t, m)
                 
                 # perform a power spectrum analysis
-                px, f = ppsd(self.t, self.m- np.mean(self.m), lower=1./30, upper=1./0.1)
+                px, f = ppsd(self.t, 
+                             self.m- np.mean(self.m), 
+                             lower=1./30, 
+                             upper=1./0.1,
+                             num= 2000)
                 px = np.sqrt(px)
                 # look at 20 days or at most at the length of dataset
                 length = min([max(self.t), 20.0])
                 p1, t1 = pdm(self.t, self.m, 0.1, length, 60./86400.)
                 period = p1[np.argmin(t1)]
                 period1 = 1./f[np.argmax(px)]
+                freq = f[np.argmax(px)]
+                star.freq = freq
                 theta = min(t1)
                 star.period = period
                 star.theta = theta
+                star.period_err = abs(period-1./freq) 
                 amp = np.max(px)
                     
                 if np.std(px)>0 and amp>0:
@@ -291,10 +185,10 @@ class M48Analysis(object):
                     star.amp_err = amp_err
                     
                 tp, yp = phase(self.t,self.m, period)
-            except (ValueError, TypeError):
+            except (TypeError):
                 comment = '%-24s\t no data' % starid
-                star.period = np.nan
-                star.theta = np.nan
+                star.period = None
+                star.theta = None
             else:
                 plt.subplot(411)
                 plt.title('%s B-V=%.2f' % (starid, star.bv))
@@ -323,9 +217,8 @@ class M48Analysis(object):
                 
                 A = np.column_stack((np.ones(tp.size), s1, c1, s2, c2))
                 c, resid,rank,sigma = np.linalg.lstsq(A,yp)
-                #print starid, c, resid, rank, sigma
-
-                
+                star.s1,star.c1,star.s2,star.c2 = c[1:5]
+                # star.amp_err =? resid[0]/len(self.m
                 plt.subplot(414)
                 plt.scatter(tp, yp-np.mean(yp), edgecolor='none', alpha=0.75)
                 tp1 = np.linspace(0.0, period, 100)
@@ -333,7 +226,6 @@ class M48Analysis(object):
                 c1 = np.cos(2*np.pi*tp1/period)
                 s2 = np.sin(4*np.pi*tp1/period)
                 c2 = np.cos(4*np.pi*tp1/period)
-                
                 
                 plt.plot(tp1,c[1]*s1+c[2]*c1+c[3]*s2+c[4]*c2, 'k', 
                          linestyle='--', linewidth=2)
