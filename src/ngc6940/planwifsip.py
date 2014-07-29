@@ -33,7 +33,7 @@ def do_bvi():
     from opencluster import OpenCluster
     import time
 
-    ngc6940 = OpenCluster(objectname='NGC6940', uname='NGC6940 BVI', obsmode='bvi')
+    ngc6940 = OpenCluster(objectname='NGC6940', uname='NGC6940 BVI', obsmode='BVI')
     ngc6940.title = 'SOCS'
     ngc6940.abstract = 'Photometric monitoring of open stellar clusters'
     ngc6940_subframes = ngc6940.plan_wifsip(nfields=5)
@@ -42,7 +42,7 @@ def do_bvi():
         print sf.uname
         time.sleep(1) # otherwise submit.jnlp gets confused
         sf.tofile('/work2/jwe/NGC6940')
-        #sf.transfer()
+        sf.transfer()
         
 if __name__ == '__main__':
     import matplotlib
