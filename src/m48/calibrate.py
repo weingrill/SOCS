@@ -1,3 +1,4 @@
+#!/usr/bin/python
 '''
 Created on Jun 2, 2014
 
@@ -86,7 +87,7 @@ class Calibrate(object):
         logging.info('%d frames' % len(self.ref))
         
     def corrframes(self, refframe=''):
-        from numpy import array, mean, average, std
+        from numpy import array, mean, average, std, nan
         logging.info('create view phot1')
         query = """CREATE VIEW phot1 AS 
             SELECT * 
@@ -94,7 +95,7 @@ class Calibrate(object):
             WHERE objid='%s'
              AND phot.mag_auto>10 and phot.mag_auto<16
              AND flags=0
-            ORDER BY phot.mag_auto LIMIT 500;""" % (refframe)
+            ORDER BY phot.mag_auto;""" % (refframe)
         self.wifsip.execute(query)
         
         for frame in self.frames:
@@ -113,9 +114,12 @@ class Calibrate(object):
             mstd = std(omag-cmag)
             
             try:
-                corr = average(omag-cmag, weights=wts)
+                #corr = average(omag-cmag, weights=wts)
+                corr = mean(omag-cmag)
             except ZeroDivisionError:
                 corr = mean(omag-cmag)
+            if len(omag)<250 or mstd>0.5:
+                corr = nan
             s = '%s: %.3f %.3f (%d)' % (frame, corr, mstd, len(omag))
             print s
             logging.info(s)
