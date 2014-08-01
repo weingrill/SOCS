@@ -148,12 +148,11 @@ class M48Star(object):
         
         logger.info('fetching starid %s = %s' % (self.starid, mid))
         
-        query = """SELECT frames.hjd, phot.mag_auto-corr, phot.magerr_auto
+        query = """SELECT frames.hjd, phot.mag_auto-corr, corr/2.0
                 FROM frames, matched, phot
                 WHERE matched.id LIKE '%s'
                 AND frames.object like 'M 48 rot%%'
                 AND filter LIKE 'V'
-                AND frames.good
                 AND NOT corr IS NULL
                 AND frames.objid = matched.objid
                 AND (phot.objid,phot.star) = (matched.objid,matched.star)
