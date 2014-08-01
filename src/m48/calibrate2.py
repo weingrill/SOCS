@@ -122,6 +122,8 @@ class Calibrate2(object):
         '''
         from numpy import isfinite, delete
         
+        print 'Cleaning ...',self.epochs,'epochs'
+        
         delvec = []
         newobjids = []
         for i in range(self.epochs):
@@ -133,6 +135,9 @@ class Calibrate2(object):
         delete(self.a, delvec, 0)
         self.objids = newobjids
         print 'deleted ',len(delvec),'objids'
+        
+        
+        print 'Cleaning ...',self.numstars,'stars'
         
         delvec = []
         newstarlist = []
@@ -153,6 +158,7 @@ class Calibrate2(object):
         from numpy import load, isfinite
         from scipy.stats import nanmean, nanstd
         
+        print 'Calibration ...'
         #self.a = load('/work2/jwe/m48/photmatrix')
         #print self.a.shape
 #        self.epochs, self.numstars = self.a.shape
@@ -180,7 +186,7 @@ class Calibrate2(object):
         for starid, mag,s in zip(self.starids,m,std):
             if isfinite(mag) and isfinite(s):
                 log('/work2/jwe/m48/data/stars', '%s %.3f %.4f\n' %(starid, mag, s))
-        
+    
     def array_toimage(self):
         from numpy import rint, isnan
         from PIL import Image  # @UnresolvedImport
@@ -213,7 +219,7 @@ if __name__ == '__main__':
     
     
     for field in fields[0]:
-        cal = Calibrate2('M 48 rot NE')
+        cal = Calibrate2(field)
         cal.get_matched()
         cal.create()
         cal.clean()
