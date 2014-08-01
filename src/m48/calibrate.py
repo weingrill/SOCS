@@ -88,7 +88,13 @@ class Calibrate(object):
         
     def corrframes(self, refframe=''):
         from numpy import array, mean, average, std, nan
+        import psycopg2
         logging.info('create view phot1')
+        
+        try:
+            self.wifsip.execute('DROP VIEW phot1;')
+        except psycopg2.ProgrammingError:
+            logging.info('drop view phot1 failed')
         query = """CREATE VIEW phot1 AS 
             SELECT * 
             FROM phot 
@@ -110,19 +116,16 @@ class Calibrate(object):
                 logging.warn('no data for frame %s' % frame)
             omag = array([r[0] for r in result])
             cmag = array([r[1] for r in result])
-            wts = 1./(2.512*cmag)
             mstd = std(omag-cmag)
             
-            try:
-                #corr = average(omag-cmag, weights=wts)
-                corr = mean(omag-cmag)
-            except ZeroDivisionError:
-                corr = mean(omag-cmag)
-            if len(omag)<250 or mstd>0.5:
-                corr = nan
-            s = '%s: %.3f %.3f (%d)' % (frame, corr, mstd, len(omag))
-            print s
+            corr = mean(omag-cmag)
+            s = '%s %6.3f %.3f %3d' % (frame, corr, mstd, len(omag))
+            print s,
             logging.info(s)
+            if len(omag)<100 or mstd>0.03:
+                corr = nan
+                print '#'
+            else: print ' '
             self.updateframe(frame, corr)
                 
         logging.info('drop view phot1')
