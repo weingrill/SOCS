@@ -24,7 +24,7 @@ def do_rot():
         sf.tycho()
         time.sleep(1) # otherwise submit.jnlp gets confused
         sf.tofile('/work2/jwe/NGC6940')
-        #sf.transfer()
+        sf.transfer()
     xmin,xmax = plt.xlim()
     plt.xlim(xmax,xmin)
     plt.show()
@@ -47,5 +47,5 @@ def do_bvi():
 if __name__ == '__main__':
     import matplotlib
     matplotlib.use('WXAgg')
-    #do_rot()
-    do_bvi()
+    do_rot()
+    #do_bvi()
