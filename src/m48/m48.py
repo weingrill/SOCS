@@ -57,6 +57,7 @@ class M48Analysis(object):
             query = """SELECT starid 
             FROM m48stars 
             WHERE NOT bv IS NULL
+            AND period IS NULL
             ORDER BY vmag;"""
         else:
             query = """SELECT starid 
@@ -113,10 +114,13 @@ class M48Analysis(object):
         mean = np.mean(self.m)
         std = np.std(self.m)
         plt.hlines(mean,min(self.t),max(self.t),linestyle='--')
-        plt.ylim(mean+std*3,mean-std*3)
+        #plt.ylim(mean+std*3,mean-std*3)
         plt.xlim(min(self.t),max(self.t))
         plt.grid()
-        plt.scatter(self.t, self.m, edgecolor='none')
+        #plt.scatter(self.t, self.m, edgecolor='none')
+        plt.errorbar(self.t, self.m, yerr=self.e*0.5, fmt='o')
+        ylim=plt.ylim()
+        plt.ylim(ylim[1],ylim[0])
         
                     
     def analysis(self):
@@ -151,13 +155,15 @@ class M48Analysis(object):
         
         for starid in self.stars:
             star = M48Star(starid)
+            print '%-24s '% starid,
             try:
                 
-                t, m, _ = star.lightcurve()
+                t, m, e = star.lightcurve()
                 t -= min(t)
                 
                 # perform a 3sigma clipping
-                self.t, self.m = sigma_clip(t, m)
+                self.t, self.m, self.e = sigma_clip(t, m, e)
+                
                 
                 # perform a power spectrum analysis
                 px, f = ppsd(self.t, 
@@ -172,6 +178,10 @@ class M48Analysis(object):
                 period = p1[np.argmin(t1)]
                 period1 = 1./f[np.argmax(px)]
                 freq = f[np.argmax(px)]
+                if abs(period * freq - 1) < 0.25:
+                    isgood = True
+                else:
+                    isgood = False
                 star.freq = freq
                 theta = min(t1)
                 star.period = period
@@ -186,7 +196,7 @@ class M48Analysis(object):
                     
                 tp, yp = phase(self.t,self.m, period)
             except (TypeError):
-                comment = '%-24s\t no data' % starid
+                comment = 'no data'
                 star.period = None
                 star.theta = None
             else:
@@ -200,8 +210,6 @@ class M48Analysis(object):
                 plt.semilogx(1./f,px, 'k')
                 plt.xlim(0.1, 30)
                 plt.grid()
-                comment = '%-24s %6.3f %6.3f %4.2f %.3f %.1f' % \
-                (starid, period, period1, theta, amp, amp_err)
     
                 plt.subplot(413)
                 plt.plot(p1, t1, 'k')
@@ -218,7 +226,8 @@ class M48Analysis(object):
                 A = np.column_stack((np.ones(tp.size), s1, c1, s2, c2))
                 c, resid,rank,sigma = np.linalg.lstsq(A,yp)
                 star.s1,star.c1,star.s2,star.c2 = c[1:5]
-                # star.amp_err =? resid[0]/len(self.m
+                amp_err = resid[0]/np.sqrt(len(self.m))
+                star.amp_err
                 plt.subplot(414)
                 plt.scatter(tp, yp-np.mean(yp), edgecolor='none', alpha=0.75)
                 tp1 = np.linspace(0.0, period, 100)
@@ -233,43 +242,58 @@ class M48Analysis(object):
                 plt.ylim(max(yp-np.mean(yp)),min(yp-np.mean(yp)))
                 plt.grid()
                 #plt.show()
+                comment = '%6.3f %6.3f %4.2f %.3f %.4f' % \
+                (period, period1, theta, amp, amp_err)
+
                 plt.savefig('/work2/jwe/m48/plots/%s.pdf' % starid)
                 plt.close()
                 
             logger.info( comment)
             print comment
             
-    def make_cmd(self, show=False):
+    def make_cmd(self, show=False, mark_active=False):
         import pylab as plt
         import numpy as np
-        query = "SELECT vmag+0.06, bv FROM m48stars;"
+        query = "SELECT vmag+0.06, bv FROM m48stars WHERE NOT bv is NULL;"
         data = self.wifsip.query(query)
         vmag = np.array([d[0] for d in data])
         bv = np.array([d[1] for d in data])
         
-        query = "SELECT vmag+0.06, bv FROM m48stars where good;"
+        iso_v, iso_bv = self.load_isochrone() 
+        query = """SELECT vmag+0.06, bv 
+                    FROM m48stars 
+                    WHERE period>0
+                    AND abs(period*freq-1)<0.5 
+                    ;"""
         data = self.wifsip.query(query)
         vmag_good = np.array([d[0] for d in data])
         bv_good = np.array([d[1] for d in data])
+        print self.ebv
+        plt.scatter(bv-self.ebv,vmag, edgecolor='none', alpha=0.75, s=4, c='k')
+        plt.plot(iso_bv, iso_v, 'r')
         
-        plt.scatter(bv,vmag, edgecolor='none', alpha=0.75, s=4, c='k')
-        plt.scatter(bv_good,vmag_good, edgecolor='none', alpha=0.75, s=30, c='g')
+        if mark_active:
+            plt.scatter(bv_good-self.ebv,vmag_good, edgecolor='none', alpha=0.75, s=30, c='g')
         
-        k = 4
-        d = 13
-        x = np.linspace(-0.5, 2.5, 10)
-        y = k*x+d
-        plt.plot(x, y, linestyle='dashed', color='b')
+        #k = 4
+        #d = 13
+        #x = np.linspace(-0.5, 2.5, 10)
+        #y = k*x+d
+        #plt.plot(x, y, linestyle='dashed', color='b')
         plt.ylim(21.0, 8.0)
         plt.xlim(-0.2, 2.0)
-        plt.xlabel('B - V')
+        plt.xlabel('(B - V)$_0$')
         plt.ylabel('V [mag]')
         plt.grid()
         if show:
             plt.show()
         else:
-            plt.savefig('/work2/jwe/m48/plots/m48cmd.eps')
-            plt.savefig('/work2/jwe/m48/plots/m48cmd.pdf')
+            if mark_active:
+                plt.savefig('/work2/jwe/m48/plots/m48cmd_active.eps')
+                plt.savefig('/work2/jwe/m48/plots/m48cmd_active.pdf')
+            else:
+                plt.savefig('/work2/jwe/m48/plots/m48cmd.eps')
+                plt.savefig('/work2/jwe/m48/plots/m48cmd.pdf')
         plt.close()
 
     def make_cpd(self, show=False):
@@ -279,7 +303,8 @@ class M48Analysis(object):
                     FROM m48stars 
                     WHERE NOT good
                     AND NOT bv IS NULL
-                    AND period>0;"""
+                    AND period>0
+                    AND abs(period*freq-1)<0.5;"""
         data = self.wifsip.query(query)
         
         bv = np.array([d[0] for d in data])
@@ -295,7 +320,6 @@ class M48Analysis(object):
         bv_ms = np.array([d[0] for d in data])
         period_ms = np.array([d[1] for d in data])
         theta_ms = np.array([d[2] for d in data])
-        np.savetxt('/work1/jwe/Dropbox/M48/data/periods.txt', data, fmt='%6.3f')
         
         import gyroage
         from functions import logspace
@@ -323,6 +347,27 @@ class M48Analysis(object):
             plt.savefig('/work2/jwe/m48/plots/m48cpd.pdf')
         plt.close()
     
+    def export(self):
+        """
+        export db to file
+        """
+        import numpy as np
+        query = """SELECT bv, vmag+0.06, period, freq
+        FROM m48stars
+        WHERE NOT bv IS NULL AND period>0.0"""
+        data = self.wifsip.query(query)
+        np.savetxt('/work1/jwe/Dropbox/M48/data/periods.txt', 
+                   data, 
+                   fmt='%.3f %6.3f %.3f %.6f')
+        
+    def load_isochrone(self):
+        from numpy import loadtxt
+        isofile = '/work2/jwe/m48/data/0p500Gyr_FeH0p0_Y0p277_AMLTsol.iso'
+        a = loadtxt(isofile)
+        iso_mv = a[:,5]
+        iso_bv = a[:,6]
+        return iso_mv+self.dm, iso_bv
+     
     def __exit__(self):
         self.wifsip.close()
             
@@ -333,13 +378,19 @@ if __name__ == '__main__':
     parser.add_argument('-a', '--analysis', action='store_true', help='analysis')
     parser.add_argument('-cmd', action='store_true', help='plot cmd')
     parser.add_argument('-cpd', action='store_true', help='plot cpd')
+    parser.add_argument('-e', '--export', action='store_true', help='export to textfile')
+    parser.add_argument('--allstars', action='store_true', help='fetch all stars')
+    
     args = parser.parse_args()
     
     m48 =  M48Analysis('/work2/jwe/m48/data/')
     if args.clear: m48.clearperiods()
-    m48.getstars(allstars=False, maglimit=21)
+    m48.getstars(allstars=args.allstars, maglimit=21)
     
     #m48.set_simbad()
     if args.analysis: m48.analysis()
-    if args.cmd: m48.make_cmd()
+    if args.cmd: 
+        m48.make_cmd()
+        m48.make_cmd(mark_active=True)
     if args.cpd: m48.make_cpd()
+    if args.export: m48.export() 
