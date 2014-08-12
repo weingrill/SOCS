@@ -10,123 +10,51 @@ logging.basicConfig(filename='/work2/jwe/m48/m48_analysis.log',
                     level=logging.INFO)
 logger = logging.getLogger('M48 analysis')
 
-class M48Star(object):
+class M48Star(dict):
     '''
     class that interfaces the m48stars table on wifsip database
     '''
     def __init__(self, starid):
         from datasource import DataSource
         self.starid = starid
-    
         self.wifsip = DataSource(database='wifsip', user='sro', host='pina.aip.de')
-        query = """SELECT bv, vmag, ra, dec, simbad 
-        FROM m48stars
-        WHERE starid='%s'""" % starid
-        result = self.wifsip.query(query)[0]
-        self.bv,self.vmag,self.ra,self.dec,self.simbad = result
+        if '%' in self.starid:
+            self.starid = self['starid']
+
+    def keys(self):
+        query = """SELECT column_name, data_type, character_maximum_length
+        FROM INFORMATION_SCHEMA.COLUMNS WHERE table_name = 'm48stars';"""
+        result = self.wifsip.query(query)
+        keys = [r[0] for r in result]
+        return keys
     
-    def _db_setvalue(self, param, value):
+    def values(self):
+        if '%' in self.starid:
+            query = """SELECT * from m48stars where starid like '%s'""" % self.starid
+        else:
+            query = """SELECT * from m48stars where starid = '%s'""" % self.starid
+        result = self.wifsip.query(query)
+        values = [r for r in result[0]]
+        if '%' in self.starid:
+            self.starid=values[0]
+        return values
+
+    def __setitem__(self, key, value):
         if value is None:
             query = """UPDATE m48stars 
             SET %s=NULL 
-            WHERE starid='%s';""" % (param, self.starid)
-            self.wifsip.execute(query)
+            WHERE starid='%s';""" % (key, self.starid)
         else:            
             query = """UPDATE m48stars 
-            SET %s=%f 
-            WHERE starid='%s';""" % (param, value, self.starid)
+            SET %s=%s 
+            WHERE starid='%s';""" % (key, str(value), self.starid)
         self.wifsip.execute(query)
-                
-
-    def _db_getvalue(self, param):
+        
+    def __getitem__(self, key):
         result = self.wifsip.query("""SELECT %s 
         FROM m48stars 
-        WHERE starid='%s';""" % (param, self.starid))
+        WHERE starid like '%s';""" % (key, self.starid))
         return result[0][0]    
-        
-    @property
-    def period(self):
-        return self._db_getvalue('period')
-        
-    @period.setter
-    def period(self, value):
-        self._db_setvalue('period', value)
-
-    @property
-    def period_err(self):
-        return self._db_getvalue('period_err')
-        
-    @period_err.setter
-    def period_err(self, value):
-        self._db_setvalue('period_err', value)
-
-
-    @property
-    def theta(self):
-        return self._db_getvalue('theta')
-        
-    @theta.setter
-    def theta(self, value):
-        self._db_setvalue('theta', value)
-
-    @property
-    def amp(self):
-        return self._db_getvalue('amp')
-
-    @amp.setter
-    def amp(self, value):
-        #print value
-        self._db_setvalue('amp', value)
-     
-    @property
-    def amp_err(self):
-        return self._db_getvalue('amp_err')
-
-    @amp_err.setter
-    def amp_err(self, value):
-        self._db_setvalue('amp_err', value)
-
-    @property
-    def freq(self):
-        return self._db_getvalue('freq')
-
-    @freq.setter
-    def freq(self, value):
-        self._db_setvalue('freq', value)
-
-    @property
-    def s1(self):
-        return self._db_getvalue('s1')
-
-    @s1.setter
-    def s1(self, value):
-        self._db_setvalue('s1', value)
-
-    @property
-    def c1(self):
-        return self._db_getvalue('c1')
-
-    @c1.setter
-    def c1(self, value):
-        self._db_setvalue('c1', value)
-
-    @property
-    def s2(self):
-        return self._db_getvalue('s2')
-
-    @s2.setter
-    def s2(self, value):
-        self._db_setvalue('s2', value)
-
-    @property
-    def c2(self):
-        return self._db_getvalue('c2')
-
-    @c2.setter
-    def c2(self, value):
-        self._db_setvalue('c2', value)
-
-
         
     def lightcurve(self):
         """
