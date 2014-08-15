@@ -5,8 +5,8 @@ Created on Jul 18, 2014
 '''
 
 import logging
-logging.basicConfig(filename='/work2/jwe/m48/m48_analysis.log', 
-                    format='%(asctime)s %(message)s',
+logging.basicConfig(filename='/work2/jwe/m48/m48star.log', 
+                    format='%(asctime)s %(levelname)s %(message)s',
                     level=logging.INFO)
 logger = logging.getLogger('M48 analysis')
 
@@ -85,6 +85,7 @@ class M48Star(dict):
                 AND frames.objid = matched.objid
                 AND (phot.objid,phot.star) = (matched.objid,matched.star)
                 AND phot.flags<4
+                AND phot.mag_auto<99.0
                 ORDER BY hjd;""" % (mid)
                 
     
