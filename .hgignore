@@ -1,5 +1,6 @@
-glob:src/*.pyc
 glob:.project
 glob:.pydevproject
 glob:*.*~
 glob:.settings
+syntax: glob
+*.pyc
