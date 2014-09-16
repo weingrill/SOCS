@@ -7,19 +7,18 @@ Created on May 8, 2013
 Data reduction Class for M48 observation
 '''
 
+import config
 import logging
-logging.basicConfig(filename='/work2/jwe/m48/m48_analysis.log', 
+from m48star import M48Star            
+
+logging.basicConfig(filename=config.projectpath+'m48_analysis.log', 
                     format='%(asctime)s %(levelname)s %(message)s',
                     level=logging.INFO)
 logger = logging.getLogger('M48 analysis')
 
-
-
-from m48star import M48Star            
-
 class M48Analysis(object):
     '''
-    classdocs
+    Class to implement all methods for analyzing and plotting
     '''
 
 
@@ -35,7 +34,7 @@ class M48Analysis(object):
         self.age = 10**8.557/1e6 # in Myr from Webda
         self.ebv = 0.031 # from Webda
         self.dm = 9.53 # from Webda
-    
+        
     def clearperiods(self):
         """
         reset the periods in the database table
@@ -101,7 +100,7 @@ class M48Analysis(object):
         store the periods and thetas for a given star in a tab separated file
         """
         try:
-            f = open('/work2/jwe/m48/results/'+star+'.tsv', 'wt')
+            f = open(config.resultpath+star+'.tsv', 'wt')
             for s in zip(periods,thetas):
                 f.write('%f\t%f\n' % s)
         finally:
@@ -276,7 +275,7 @@ class M48Analysis(object):
             if show:
                 plt.show()
             elif amp>2.0*amp_err:
-                plt.savefig('/work2/jwe/m48/plots/%s.pdf' % starid)
+                plt.savefig(config.plotpath+'%s.pdf' % starid)
             plt.close()
                 
             logger.info( comment)
@@ -332,11 +331,11 @@ class M48Analysis(object):
             plt.show()
         else:
             if mark_active:
-                plt.savefig('/work2/jwe/m48/results/m48cmd_active.eps')
-                plt.savefig('/work2/jwe/m48/results/m48cmd_active.pdf')
+                plt.savefig(config.resultpath+'m48cmd_active.eps')
+                plt.savefig(config.resultpath+'m48cmd_active.pdf')
             else:
-                plt.savefig('/work2/jwe/m48/results/m48cmd.eps')
-                plt.savefig('/work2/jwe/m48/results/m48cmd.pdf')
+                plt.savefig(config.resultpath+'m48cmd.eps')
+                plt.savefig(config.resultpath+'m48cmd.pdf')
         plt.close()
 
     def make_cpd(self, show=False):
@@ -400,8 +399,8 @@ class M48Analysis(object):
         if show:
             plt.show()
         else:
-            plt.savefig('/work2/jwe/m48/results/m48cpd.eps')
-            plt.savefig('/work2/jwe/m48/results/m48cpd.pdf')
+            plt.savefig(config.resultpath+'m48cpd.eps')
+            plt.savefig(config.resultpath+'m48cpd.pdf')
         plt.close()
     
     def export(self):
@@ -413,7 +412,7 @@ class M48Analysis(object):
         FROM m48stars
         WHERE NOT bv IS NULL AND period>0.0"""
         data = self.wifsip.query(query)
-        np.savetxt('/work1/jwe/Dropbox/M48/data/periods.txt', 
+        np.savetxt(config.datapath+'periods.txt', 
                    data, 
                    fmt='%.3f %6.3f %.3f %.6f')
 
@@ -442,7 +441,7 @@ class M48Analysis(object):
         
     def load_isochrone(self):
         from numpy import loadtxt
-        isofile = '/work2/jwe/m48/data/0p500Gyr_FeH0p0_Y0p277_AMLTsol.iso'
+        isofile = config.datapath+'0p500Gyr_FeH0p0_Y0p277_AMLTsol.iso'
         a = loadtxt(isofile)
         iso_mv = a[:,5]
         iso_bv = a[:,6]
@@ -511,8 +510,8 @@ class M48Analysis(object):
         if show:
             plt.show()  
         else:
-            plt.savefig('/work1/jwe/Dropbox/M48/results/m48_map.pdf')
-            plt.savefig('/work1/jwe/Dropbox/M48/results/m48_map.eps')
+            plt.savefig(config.resultpath+'m48_map.pdf')
+            plt.savefig(config.resultpath+'m48_map.eps')
         
         plt.show()              
         pass
@@ -534,7 +533,7 @@ if __name__ == '__main__':
     
     args = parser.parse_args()
     
-    m48 =  M48Analysis('/work2/jwe/m48/data/')
+    m48 =  M48Analysis(config.datapath)
     if args.clear: m48.clearperiods()
     m48.getstars(allstars=args.allstars, maglimit=21)
     
