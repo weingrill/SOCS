@@ -4,3 +4,6 @@ glob:*.*~
 glob:.settings
 syntax: glob
 *.pyc
+
+syntax: regexp
+^src/m48/config\.py$
