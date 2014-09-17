@@ -44,7 +44,9 @@ class M48Star(dict):
             query = """UPDATE m48stars 
             SET %s=NULL 
             WHERE starid='%s';""" % (key, self.starid)
-        else:            
+        else:
+            if type(value) is str:
+                value = "'%s'" % value            
             query = """UPDATE m48stars 
             SET %s=%s 
             WHERE starid='%s';""" % (key, str(value), self.starid)
