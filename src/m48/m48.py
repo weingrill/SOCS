@@ -114,7 +114,7 @@ class M48Analysis(object):
         import numpy as np
         
         mean = np.mean(self.m)
-        std = np.std(self.m)
+        #std = np.std(self.m)
         plt.hlines(mean,min(self.t),max(self.t),linestyle='--')
         #plt.ylim(mean+std*3,mean-std*3)
         plt.xlim(min(self.t),max(self.t))
@@ -428,7 +428,7 @@ class M48Analysis(object):
                 except TypeError:
                     print 'no data'
                 else:
-                    filename = '/work2/jwe/m48/lightcurves/%s.dat' % starid
+                    filename = config.lightcurvespath+'%s.dat' % starid
                     np.savetxt(filename, (a), fmt='%.6f %.3f %.4f')
                     #f = open('/work2/jwe/m48/lightcurves/%s.dat' % starid, 'wt')
                     #f.write('#B-V = %.3f\n'% star.bv)
@@ -437,6 +437,7 @@ class M48Analysis(object):
                     #    
                     #f.close()
                     print 'exported'
+                    
 
         
     def load_isochrone(self):
