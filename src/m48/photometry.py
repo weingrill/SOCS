@@ -34,6 +34,8 @@ class Photometry(object):
         '''
         create table for the photometry
         '''
+        if not raw_input('press Y to erase m48stars')=='Y':
+            return
         
         query = """
         DROP TABLE IF EXISTS m48stars;
