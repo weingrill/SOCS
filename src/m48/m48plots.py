@@ -74,8 +74,8 @@ class M48Plots(object):
             period = pman
         print '%.3f (%.2f)' % (period, pman)
         tp, yp = phase(t, m, period)
-        plt.scatter(tp, yp-np.mean(yp), edgecolor='none', facecolor='k', size=5)
-        plt.scatter(tp+period, yp-np.mean(yp), edgecolor='none', facecolor='k', size=5)
+        plt.scatter(tp, yp-np.mean(yp), edgecolor='none', facecolor='k', s=5)
+        plt.scatter(tp+period, yp-np.mean(yp), edgecolor='none', facecolor='k', s=5)
         plt.axvline(period, linestyle='--', color='k')
         plt.title(starid)
         plt.xlabel('period %.3f (%.2f) days' % (period, pman))
@@ -124,6 +124,10 @@ class M48Plots(object):
                 sp = 1 
                 plt.close()
 
+    def sigma_mag(self):
+        query = """SELECT starid 
+        FROM m48stars 
+        WHERE pman>0;""" 
 
 m48plots = M48Plots()
 m48plots.plot(show=True)
