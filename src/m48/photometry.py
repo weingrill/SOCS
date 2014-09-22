@@ -70,7 +70,6 @@ class Photometry(object):
              WHERE object LIKE 'M 48 BVI %s'
              AND filter LIKE '%s'
              AND NOT corr IS NULL
-             AND good=True
              ORDER BY abs(corr)
              limit 5;""" % (field,self.filtercol)
             
@@ -167,6 +166,36 @@ class Photometry(object):
             SET vmag=NULL
             WHERE nv=0;""" 
         self.wifsip.execute(query)   
+    
+    def update_sigmas(self):
+        import numpy as np
+        
+        if self.filtercol=='V': field= 'vmag'
+        elif self.filtercol=='B': field= 'bmag'
+        query = """SELECT starid, coord 
+            FROM m48stars 
+            WHERE (NOT bv IS NULL) AND (%s_err IS NULL);""" % (field)
+        starlist = self.wifsip.query(query)
+        for star in starlist:
+            print '%5d '% starlist.index(star),
+            print '%-24s: %-25s' % star,
+            query = """SELECT phot.objid, mag_auto-corr 
+                FROM phot, frames
+                WHERE object like 'M 48 BVI %%'
+                AND phot.objid=frames.objid
+                AND filter='%s'
+                AND flags<8
+                AND point%s <@ circle(phot.coord,1./3600.)
+                ORDER BY abs(corr)
+                LIMIT 5;""" % (self.filtercol,star[1])
+            result = self.wifsip.query(query)
+            mags= np.array([r[1] for r in result ])
+            err = np.std(mags)
+            print mags,
+            print '%.3f %.4f' % (np.mean(mags),err) 
+            if np.isfinite(err):
+                query = "UPDATE m48stars SET %s=%f WHERE starid='%s';" % (field, err, star[0]) 
+                self.wifsip.execute(query)
 
 def make_cmd():
     import pylab as plt
@@ -198,10 +227,12 @@ def make_cmd():
 
 if __name__ == '__main__':
     pv = Photometry(filtercol='V')
-    pv.createtable()
-    pv.getframes()
+    #pv.createtable()
+    #pv.getframes()
+    pv.update_sigmas()
          
     pb = Photometry(filtercol='B')
-    pb.getframes()
+    pv.update_sigmas()
+    #pb.getframes()
     
-    make_cmd()
+    #make_cmd()
