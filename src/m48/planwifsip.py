@@ -46,7 +46,13 @@ def do_bvi(transfer=False):
             sf.transfer()
         
 if __name__ == '__main__':
-    import matplotlib
-    matplotlib.use('WXAgg')
-    do_rot(transfer=True)
+    #import matplotlib
+    #matplotlib.use('WXAgg')
+    from opencluster import OpenCluster
+
+    m48 = OpenCluster(objectname='M 48', 
+                          uname='M 48 BVI', 
+                          obsmode='BVR')
+    m48.plot_ephem(obsdate='2015/02/15 12:00:00')
+    #do_rot(transfer=True)
     #do_bvi(transfer=False)
