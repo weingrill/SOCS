@@ -194,7 +194,7 @@ class Photometry(object):
             print mags,
             print '%.3f %.4f' % (np.mean(mags),err) 
             if np.isfinite(err):
-                query = "UPDATE m48stars SET %s=%f WHERE starid='%s';" % (field, err, star[0]) 
+                query = "UPDATE m48stars SET %s_err=%f WHERE starid='%s';" % (field, err, star[0]) 
                 self.wifsip.execute(query)
 
 def make_cmd():
