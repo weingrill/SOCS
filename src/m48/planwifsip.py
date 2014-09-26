@@ -53,6 +53,6 @@ if __name__ == '__main__':
     m48 = OpenCluster(objectname='M 48', 
                           uname='M 48 BVI', 
                           obsmode='BVR')
-    m48.plot_ephem(obsdate='2015/02/15 12:00:00')
+    m48.plot_ephem(obsdate='2015-02-15 12:00:00')
     #do_rot(transfer=True)
     #do_bvi(transfer=False)
