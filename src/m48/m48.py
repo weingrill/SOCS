@@ -465,12 +465,23 @@ class M48Analysis(object):
         sra = np.array([d[0] for d in data])
         sdec = np.array([d[1] for d in data])
         vmag = np.array([d[2] for d in data])
+
+        query = """SELECT ra, dec
+                    FROM m48stars 
+                    WHERE NOT pman IS NULL;"""
+        data = self.wifsip.query(query)
+        pra = np.array([d[0] for d in data])
+        pdec = np.array([d[1] for d in data])
+        
+
         
         fig = plt.figure()
         ax = fig.add_subplot(111)
         #ax = pywcsgrid2.subplot(111)
         ax.set_aspect(1.)
         ax.scatter(sra,sdec, s=(12.-vmag)*20,facecolor='gray', edgecolor='none')
+        ax.scatter(pra,pdec, marker='+',edgecolor='k', s=30)
+        
         ra = np.array([8.24242, 8.21705, 8.20416])*15.0
         de = np.array([-6.08887,-5.70876,-5.51204])
         
@@ -511,8 +522,8 @@ class M48Analysis(object):
         if show:
             plt.show()  
         else:
-            plt.savefig(config.resultpath+'m48_map.pdf')
-            plt.savefig(config.resultpath+'m48_map.eps')
+            plt.savefig(config.resultpath+'m48_map.pdf', transparent=True)
+            plt.savefig(config.resultpath+'m48_map.eps', transparent=True)
         
         plt.show()              
         pass
