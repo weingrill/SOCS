@@ -6,8 +6,6 @@ Created on Sep 18, 2014
 from m48star import M48Star            
 import numpy as np
 import pylab as plt
-from pdm import pdm
-from psd import ppsd
 from matplotlib import rcParams
 from functions import sigma_clip, phase
 
@@ -39,21 +37,64 @@ class M48Plots(object):
         print '... %d stars found' % len(result)
         self.stars = [s[0] for s in result]
 
-    def plot_lightcurve(self):
+    def plot_lightcurve(self, starid):
         """
         plot the lightcurve for a given star
         """
-        
-        mean = np.mean(self.m)
-        #std = np.std(self.m)
-        plt.hlines(mean,min(self.t),max(self.t),linestyle='--')
-        #plt.ylim(mean+std*3,mean-std*3)
-        plt.xlim(min(self.t),max(self.t))
+        star = M48Star(starid)
+        try:
+            t, m, e = star.lightcurve()
+        except TypeError:
+            print 'no data'
+            return
+        t, m, e = sigma_clip(t, m, e)
+        t -= t[0]
+        mean = np.mean(m)
+        plt.hlines(mean,min(t),max(t),linestyle='--')
+        plt.xlim(min(t),max(t))
         plt.grid()
-        #plt.scatter(self.t, self.m, edgecolor='none')
-        plt.errorbar(self.t, self.m, yerr=self.e*0.5, fmt='o')
+        plt.scatter(t, m, edgecolor='none', facecolor='k', s=5)
+        #plt.errorbar(t, m, yerr=e*0.5, fmt='o', s=5)
         ylim=plt.ylim()
         plt.ylim(ylim[1],ylim[0])
+
+    def make_lightcurves(self, show=False):
+        """plot lightcurve"""
+        
+        fig_width = 18.3/2.54  # width in inches, was 7.48in
+        fig_height = 23.3/2.54  # height in inches, was 25.5
+        fig_size =  [fig_width,fig_height]
+        #set plot attributes
+        params = {'backend': 'Agg',
+          'axes.labelsize': 8,
+          'axes.titlesize': 10,
+          'font.size': 8,
+          'xtick.labelsize': 8,
+          'ytick.labelsize': 8,
+          'figure.figsize': fig_size,
+          'savefig.dpi' : 300,
+          'font.family': 'sans-serif',
+          'axes.linewidth' : 0.5,
+          'xtick.major.size' : 2,
+          'ytick.major.size' : 2,
+          }
+        rcParams.update(params)
+        
+        sp = 1
+        lc = 1
+        for starid in self.stars:
+            print starid
+            plt.subplot(4,2,sp)
+            sp += 1
+            self.plot_lightcurve(starid)
+            if sp==9 or starid==self.stars[-1]:
+                plt.tight_layout()
+                #plt.show()
+                plt.savefig('/work2/jwe/m48/plots/lightcurves%d.pdf' % lc)
+                lc += 1
+                sp = 1 
+                plt.close()
+
 
     def phase_plot(self, starid):
         star = M48Star(starid)
@@ -86,7 +127,7 @@ class M48Plots(object):
         
         #plt.close()
 
-    def plot(self, show=False):
+    def make_phaseplots(self, show=False):
         """plot lightcurve"""
         
         fig_width = 18.3/2.54  # width in inches, was 7.48in
@@ -130,4 +171,6 @@ class M48Plots(object):
         WHERE pman>0;""" 
 
 m48plots = M48Plots()
-m48plots.plot(show=True)
+
+#m48plots.make_phaseplots(show=True)
+m48plots.make_lightcurves(show=True)
