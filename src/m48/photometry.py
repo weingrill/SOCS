@@ -63,6 +63,16 @@ class Photometry(object):
         self.wifsip.execute(query)
         print "table 'm48stars' created"
 
+    def cleartable(self):
+        if not raw_input('press Y to clear m48stars')=='Y':
+            return
+        query = """
+        UPDATE m48stars
+        SET vmag = 0, vmag_err = NULL, bmag = 0, bmag_err =NULL, nv = 0, nb = 0, bv = NULL;
+        """
+        self.wifsip.execute(query)
+        print "table 'm48stars' cleared"
+        
     def getframes(self):
         for field in ['C','NW','NE','SW','SE']:
             query = """SELECT object, objid, abs(corr)
@@ -190,13 +200,20 @@ class Photometry(object):
                 LIMIT 5;""" % (self.filtercol,star[1])
             result = self.wifsip.query(query)
             mags= np.array([r[1] for r in result ])
-            err = np.std(mags)
-            print mags,
-            print '%.3f %.4f' % (np.mean(mags),err) 
-            if np.isfinite(err):
-                query = "UPDATE m48stars SET %s_err=%f WHERE starid='%s';" % (field, err, star[0]) 
-                self.wifsip.execute(query)
-
+            try:
+                err = np.std(mags)
+                print mags,
+                print '%.3f %.4f' % (np.mean(mags),err) 
+                if np.isfinite(err):
+                    query = "UPDATE m48stars SET %s_err=%f WHERE starid='%s';" % (field, err, star[0]) 
+                    self.wifsip.execute(query)
+            except TypeError:
+                print 'no data'
+    
+    def update_bv(self):
+        query = "UPDATE m48stars SET bv = bmag-vmag;"
+        self.wifsip.execute(query)
+        
 def make_cmd():
     import pylab as plt
     import numpy as np
@@ -226,13 +243,20 @@ def make_cmd():
 
 
 if __name__ == '__main__':
-    pv = Photometry(filtercol='V')
-    #pv.createtable()
-    #pv.getframes()
-    pv.update_sigmas()
-         
-    pb = Photometry(filtercol='B')
-    pv.update_sigmas()
-    #pb.getframes()
+    import argparse
+    parser = argparse.ArgumentParser(description='M48 photometry')
+    parser.add_argument('--create', action='store_true', help='create table')
+    parser.add_argument('--clear', action='store_true', help='clear table')
+    parser.add_argument('--getframes', action='store_true', help='get frames')
+    parser.add_argument('--sigmas', action='store_true', help='plot cmd')
+    parser.add_argument('--bv', action='store_true', help='update B-V')
+    parser.add_argument('filter', metavar='V', type=str, help='filter color to process')
     
-    #make_cmd()
+    args = parser.parse_args()
+    
+    phot = Photometry(filtercol=args.filter)
+    if args.create: phot.createtable()
+    if args.clear: phot.cleartable()
+    if args.getframes: phot.getframes()
+    if args.sigmas: phot.update_sigmas()
+    if args.sigmas: phot.update_bv()
