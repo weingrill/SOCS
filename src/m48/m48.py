@@ -10,6 +10,8 @@ Data reduction Class for M48 observation
 import config
 import logging
 from m48star import M48Star            
+import pylab as plt
+import numpy as np
 
 logging.basicConfig(filename=config.projectpath+'m48_analysis.log', 
                     format='%(asctime)s %(levelname)s %(message)s',
@@ -110,8 +112,6 @@ class M48Analysis(object):
         """
         plot the lightcurve for a given star
         """
-        import pylab as plt
-        import numpy as np
         
         mean = np.mean(self.m)
         #std = np.std(self.m)
@@ -127,8 +127,6 @@ class M48Analysis(object):
                     
     def analysis(self, show=False):
         """perform a PDM analysis on each lightcurve"""
-        import numpy as np
-        import pylab as plt
         from pdm import pdm
         from psd import ppsd
         from matplotlib import rcParams
@@ -282,8 +280,6 @@ class M48Analysis(object):
             print comment
             
     def make_cmd(self, show=False, mark_active=False):
-        import pylab as plt
-        import numpy as np
         query = "SELECT vmag+0.06, bv FROM m48stars WHERE NOT bv is NULL;"
         data = self.wifsip.query(query)
         vmag = np.array([d[0] for d in data])
@@ -339,8 +335,6 @@ class M48Analysis(object):
         plt.close()
 
     def make_cpd(self, show=False):
-        import pylab as plt
-        import numpy as np
         query = """SELECT bv, period, amp 
                     FROM m48stars 
                     WHERE NOT good
@@ -407,7 +401,6 @@ class M48Analysis(object):
         """
         export db to file
         """
-        import numpy as np
         query = """SELECT bv, vmag+0.06, period, freq
         FROM m48stars
         WHERE NOT bv IS NULL AND period>0.0"""
@@ -417,7 +410,6 @@ class M48Analysis(object):
                    fmt='%.3f %6.3f %.3f %.6f')
 
     def export_lightcurves(self):
-        import numpy as np
         for starid in self.stars:
             star = M48Star(starid)
             if star['bv'] > 0.4:
@@ -452,8 +444,6 @@ class M48Analysis(object):
         '''
         plots the map of the M48 observation including the BJG field
         '''
-        import numpy as np
-        import pylab as plt
         #import pywcsgrid2
         import astronomy as ast
 
@@ -530,6 +520,119 @@ class M48Analysis(object):
      
     def __exit__(self):
         self.wifsip.close()
+                
+    def tables(self):
+        from astropy import units as u
+        from astropy.coordinates import SkyCoord
+        
+        query = """SELECT vmag, bv, period, period_err,  clean_period, 
+            pman, amp, amp_err, member, simbad, notes
+            FROM m48stars 
+            WHERE pman>0
+            ORDER BY vmag ;"""
+        data = self.wifsip.query(query)
+        
+        f = open(config.resultpath+'table1.tex','wt')
+        f.write('\\begin{tabular}{rcccccl}')
+        f.write('\\hline\n')
+        f.write('\\hline\n')
+        f.write('Id & V & B--V & P$\pm$err & amp$\pm$err & mem & BJG \#\\\\\n')
+        f.write('   & mag &    & days      & mag        &        &      \\\\\n')
+        f.write('\\hline\n')
+        
+        for d in data:
+            #print d
+            i = data.index(d)+1
+            vmag, bv, fperiod, period_err,  clean_period, \
+            pman, amp, amp_err,member, simbad, notes = d
+            
+            try:
+                if abs(fperiod-pman)/pman < abs(clean_period-pman)/pman:
+                    period = fperiod
+                else:
+                    period = clean_period
+                if abs(period-pman)>1:
+                    period = pman
+            except TypeError:
+                period = pman
+            if type(simbad) is str and simbad.find('Cl* NGC 2548 ')==0:
+                simbad = simbad[13:]
+            if str(simbad) == 'None': simbad = ''
+            if str(notes) == 'None': notes = ''
+            memstr='--'
+            if member: memstr='M'
+            elif member==False: memstr='N'
+             
+            try:
+                s =  '%2d & %.3f & %.2f & $%.3f\pm%.3f$ & $%.3f\pm%.3f$ & %s & %s \\\\ %% %s\n' % \
+                (i, vmag+0.36943683, bv+0.7860676, period, period_err, amp, amp_err, memstr, simbad, notes)
+                print s,
+                f.write(s)
+            except TypeError:
+                print d
+        f.write('\\hline\n')
+        f.write('\\end{tabular}')
+        f.close()
+
+        query = """SELECT vmag, vmag_err, bv, bmag_err, ra, dec, member, simbad, notes
+            FROM m48stars 
+            WHERE not bv IS NULL
+            ORDER BY vmag;"""
+        data = self.wifsip.query(query)
+        f = open(config.resultpath+'table_appendix.tex','wt')
+        f.write("""\\begin{longtab}\n
+\\begin{longtable}{rcccccl}\n
+\\caption{\label{tab:appendix}Results of photometric measurements from STELLA WiFSIP.}\\\\\n
+\\hline\\hline\n
+Id & V$\pm$err & B--V$\pm$err & R.A.   & amp$\pm$err & mem & simbad \\\\\n
+   & mag       &              & h:m:s  & d:m:s       &     & name   \\\\\n
+\hline\n
+\endfirsthead\n
+\caption{continued.}\\\\n
+\hline\hline\n
+Id & V$\pm$err & B--V$\pm$err & R.A.   & amp$\pm$err & mem & simbad \\\\\n
+   & mag       &              & h:m:s  & d:m:s       &     & name   \\\\\n
+\hline\n
+\endhead\n
+\hline\n
+\endfoot\n
+%%%%\n""")
+        
+        for d in data:
+            #print d
+            i = data.index(d)+70
+            vmag, vmag_err, bv, bmag_err, ra, dec, member, simbad, notes = d
+            
+            if type(simbad) is str and simbad.find('Cl* NGC 2548 ')==0:
+                simbad = simbad[13:]
+            if str(simbad) == 'None': simbad = ''
+            if str(notes) == 'None': notes = ''
+            memstr='--'
+            if member: memstr='M'
+            elif member==False: memstr='N'
+            try:
+                bv_err = np.sqrt(vmag_err**2+bmag_err**2)
+            except TypeError:
+                bv_err = 0.0 
+            c = SkyCoord(ra=ra*u.deg, dec=dec*u.deg)  # @UndefinedVariable
+            ra_str =  c.ra.to_string(unit=u.hourangle,sep=':', precision=1)  # @UndefinedVariable
+            dec_str =  c.dec.to_string(sep=':', precision=0)
+            if vmag_err is None: vmag_err=0.0
+            if bmag_err is None: bmag_err=0.0
+            
+            try:
+                s =  '%2d & $%.3f\pm%.3f$ & $%.3f\pm%.3f$ & %s & %s & %s & %s \\\\ %% %s\n' % \
+                (i, vmag+0.36943683, vmag_err, bv+0.7860676, bv_err, ra_str, dec_str, memstr, simbad, notes)
+                print s,
+                f.write(s)
+            except TypeError:
+                print d
+        f.write('\\end{longtable\n')
+        f.write('\\end{longtab}\n')
+        f.close()
+
+    def set_tab_column(self):
+        pass
             
 if __name__ == '__main__':
     import argparse
@@ -542,6 +645,7 @@ if __name__ == '__main__':
     parser.add_argument('-e', '--export', action='store_true', help='export to textfile')
     parser.add_argument('--allstars', action='store_true', help='fetch all stars')
     parser.add_argument('--lightcurves', action='store_true', help='export lightcurves')
+    parser.add_argument('--tables', action='store_true', help='export latex tables')
     
     args = parser.parse_args()
     
@@ -552,6 +656,7 @@ if __name__ == '__main__':
     #m48.set_simbad()
     if args.analysis: m48.analysis()
     if args.lightcurves: m48.export_lightcurves()
+    if args.tables: m48.tables()
     if args.cmd: 
         m48.make_cmd()
         m48.make_cmd(mark_active=True)
