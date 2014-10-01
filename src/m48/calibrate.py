@@ -13,6 +13,7 @@ Tasks:
 
 '''
 import logging
+import config
 
 class Calibrate(object):
     '''
@@ -20,7 +21,7 @@ class Calibrate(object):
     '''
 
 
-    def __init__(self, filtercol='V'):
+    def __init__(self, obj='', filtercol='V'):
         '''
         Constructor:
         
@@ -32,11 +33,12 @@ class Calibrate(object):
         self.wifsip = DataSource(database='wifsip', 
                                  host='pina', 
                                  user='sro')
+        self.obj = obj
         if filtercol in ('B','V'):
             self.filtercol = filtercol
         else:
             raise(ValueError)
-        logging.basicConfig(filename='/work2/jwe/m48/m48_calibration.log', 
+        logging.basicConfig(filename=config.projectpath+'m48_calibration.log', 
                             format='%(asctime)s %(levelname)s %(message)s',
                             level=logging.INFO)
         logging.info('Setting filtercolor=%s',self.filtercol)
@@ -64,10 +66,10 @@ class Calibrate(object):
         logging.info('getrefframes ...')
         query = """SELECT object,max(matched)
             FROM frames
-            WHERE object LIKE 'M 48 rot%%'
+            WHERE object LIKE '%s'
             AND filter = '%s'
             GROUP BY object
-            ORDER BY object;""" % self.filtercol
+            ORDER BY object;""" % (self.obj, self.filtercol)
         result = self.wifsip.query(query)
         logging.info('%d frames' % len(result))
         for r in result:
@@ -87,7 +89,7 @@ class Calibrate(object):
         logging.info('%d frames' % len(self.ref))
         
     def corrframes(self, refframe=''):
-        from numpy import array, mean, average, std, nan
+        from numpy import array, mean, std, nan
         import psycopg2
         logging.info('create view phot1')
         
@@ -122,7 +124,7 @@ class Calibrate(object):
             s = '%s %6.3f %.3f %3d' % (frame, corr, mstd, len(omag))
             print s,
             logging.info(s)
-            if len(omag)<100 or mstd>0.03:
+            if len(omag)<100 or mstd>0.015:
                 corr = nan
                 print '#'
             else: print ' '
@@ -146,12 +148,12 @@ class Calibrate(object):
         logging.info('reset frames')
         query = """UPDATE frames
         SET corr=NULL
-        WHERE object LIKE 'M 48 rot%%'
-        AND filter like '%s';""" % self.filtercol
+        WHERE object LIKE '%s'
+        AND filter like '%s';""" % (self.obj,self.filtercol)
         self.wifsip.execute(query)
         
 if __name__ == '__main__':
-    calv = Calibrate(filtercol='V')
+    calv = Calibrate(obj='M 48 BVI%%', filtercol='V')
     calv.resetframes()
     calv.getrefframes()
     for r in calv.ref: print r
@@ -161,12 +163,12 @@ if __name__ == '__main__':
         calv.getframes(ref)
         calv.corrframes(ref)
         
-#     calb = Calibrate(filtercol='B')
-#     calb.resetframes()
-#     calb.getrefframes()
-#     for r in calb.ref: print r
-#     
-#     for ref in calb.ref:
-#         print 'reference:', ref
-#         calb.getframes(ref)
-#         calb.corrframes(ref)
+    calb = Calibrate(obj='M 48 BVI%%', filtercol='B')
+    calb.resetframes()
+    calb.getrefframes()
+    for r in calb.ref: print r
+     
+    for ref in calb.ref:
+        print 'reference:', ref
+        calb.getframes(ref)
+        calb.corrframes(ref)
