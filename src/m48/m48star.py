@@ -4,6 +4,7 @@ Created on Jul 18, 2014
 @author: jwe
 '''
 
+import config
 import logging
 logging.basicConfig(filename='/work2/jwe/m48/m48star.log', 
                     format='%(asctime)s %(levelname)s %(message)s',
@@ -57,6 +58,22 @@ class M48Star(dict):
         FROM m48stars 
         WHERE starid like '%s';""" % (key, self.starid))
         return result[0][0]    
+    
+    def lightcurve_fromfile(self, filename=None):
+        import numpy as np
+        
+        if filename is None:
+            filename = config.lightcurvespath+self.starid+'.dat'
+        logger.info('load file %s' % filename)
+        data = np.loadtxt(filename)
+        
+        hjd = data[:,0]
+        mag = data[:,1]
+        err = data[:,2]
+                
+        logger.info('%d datapoints' % len(hjd))
+        
+        return (hjd, mag, err)
         
     def lightcurve(self):
         """
@@ -64,6 +81,11 @@ class M48Star(dict):
         and return epoch (hjd), magnitude and error
         """
         import numpy as np
+        import os.path
+        
+        filename = config.lightcurvespath+self.starid+'.dat'
+        if os.path.isfile(filename):
+            return self.lightcurve_fromfile(filename)
         
         objid, star = self.starid.split('#')
         query = """SELECT id 
