@@ -62,9 +62,9 @@ class Calibrate2(object):
             for objid in self.objids:
                 if verbose: print objid,
                 query = """SELECT id 
-            FROM matched
-            WHERE matched.objid='%s'
-            ORDER by id;""" % objid
+                FROM matched
+                WHERE matched.objid='%s'
+                ORDER by id;""" % objid
                 stars = [r[0] for r in self.wifsip.query(query)]
                 if verbose: print len(stars)
                 
@@ -100,14 +100,14 @@ class Calibrate2(object):
                 WHERE frames.objid = '%s'
                 and frames.objid=phot.objid
                 and (phot.objid,phot.star) = (matched.objid,matched.star)
-                and phot.flags=0
+                and phot.flags=0;
                 """ % objid
                 result = self.wifsip.query(query)
                 for r in result:
                     phot[r[0]] = r[1]
                 epoch = self.objids.index(objid)
                 for starid in stararr:
-                    if stararr.index(starid) % 1000 == 99: 
+                    if stararr.index(starid) % 100 == 99: 
                         print '.',
                     star = stararr.index(starid)
                     if starid in phot: 
@@ -141,42 +141,47 @@ class Calibrate2(object):
         remove stars and objids with a large number of nans
         '''
         from numpy import isfinite, delete, save,load
-        
+        from scipy.stats import nanstd
         try:
             self.a = load(config.datapath+self.field+'_cleanedmatrix.npy')
         except IOError:
             print 'Cleaning ...',self.epochs,'epochs'
 
-            delvec = []
+            delvec0 = []
             newobjids = []
             
+            #if an epoch shows less than half of the stars: remove it
             for i in range(self.epochs):
                 objidvec = self.a[i,:]
                 if verbose: print objidvec[isfinite(objidvec)].size,self.numstars
-                if objidvec[isfinite(objidvec)].size<self.numstars/2:
-                    delvec.append(i)
+                if objidvec[isfinite(objidvec)].size < self.numstars/2:
+                    delvec0.append(i)
                 else:
                     newobjids.append(self.objids[i])
-            delete(self.a, delvec, 0)
+            #print delvec0
             self.objids = newobjids
-            print 'deleted ',len(delvec),'objids'
+            print 'deleted ',len(delvec0),'objids'
             
             
             print 'Cleaning ...',self.numstars,'stars'
             
-            delvec = []
+            delvec1 = []
             newstarlist = []
-            
+            stderr = nanstd(self.a)
+            #if a star appears in less than half of the epochs: remove it 
             for j in range(self.numstars):
                 starvec = self.a[:,j]
                 if verbose: print starvec[isfinite(starvec)].size, self.epochs
-                if starvec[isfinite(starvec)].size<self.epochs/2:
-                    delvec.append(i)
+                if starvec[isfinite(starvec)].size < self.epochs/2 \
+                or nanstd(starvec) > 3.0*stderr:
+                    delvec1.append(j)
                 else:
-                    newstarlist.append(list(self.starids)[i])
-            delete(self.a, delvec, 1)
+                    newstarlist.append(list(self.starids)[j])
+            #print delvec1
+            self.a = delete(self.a, delvec0, 0)
+            self.a = delete(self.a, delvec1, 1)
             self.starids = set(newstarlist)
-            print 'deleted ',len(delvec),'stars'
+            print 'deleted ',len(delvec1),'stars'
             save(config.datapath+self.field+'_cleanedmatrix.npy', self.a)    
 
     
@@ -210,7 +215,22 @@ class Calibrate2(object):
             if isfinite(mag) and isfinite(s):
                 log(config.datapath+self.field+'_stars', '%s %.3f %.4f\n' % 
                     (starid, mag, s))
+        
+        self.storeplot(m, std)
         #TODO: interate
+        
+    def storeplot(self, magnitudes, errors):
+        from matplotlib import pyplot
+        
+        pyplot.scatter(magnitudes, errors)
+        pyplot.xlabel('V (mag)')
+        pyplot.ylabel('err (mag)')
+        pyplot.xlim(9.0, 21.0)
+        pyplot.ylim(0.001, 0.3)
+        pyplot.title(self.field)
+        pyplot.savefig(config.plotpath+self.field+'.pdf')
+        pyplot.close()
+        
         
     def array_toimage(self):
         from numpy import rint, isnan
@@ -253,7 +273,7 @@ if __name__ == '__main__':
         cal.create()
         cal.clean()
         cal.calibrate()
-        #cal.setcorr()
+        cal.setcorr()
         cal.array_toimage()
     
     exit()
