@@ -101,7 +101,7 @@ class Calibrate(object):
             SELECT * 
             FROM phot 
             WHERE objid='%s'
-             AND phot.mag_auto>10 and phot.mag_auto<16
+             AND phot.mag_auto>12 and phot.mag_auto<16
              AND flags=0
             ORDER BY phot.mag_auto;""" % (refframe)
         self.wifsip.execute(query)
@@ -122,12 +122,12 @@ class Calibrate(object):
             
             corr = mean(omag-cmag)
             s = '%s %6.3f %.3f %3d' % (frame, corr, mstd, len(omag))
-            print s,
+            
             logging.info(s)
             if len(omag)<100 or mstd>0.015:
                 corr = nan
                 print '#'
-            else: print ' '
+            else: print s
             self.updateframe(frame, corr)
                 
         logging.info('drop view phot1')
