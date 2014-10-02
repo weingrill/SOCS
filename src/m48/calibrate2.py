@@ -4,6 +4,8 @@ Created on Jul 22, 2014
 @author: jwe
 '''
 
+import config
+
 def log(filename, message):
     f = open(filename, 'a')
     f.write(message)
@@ -47,61 +49,79 @@ class Calibrate2(object):
     def numstars(self):
         return len(self.starids)
         
-    def get_matched(self):
-        from numpy import zeros
-        starnumbers = zeros(len(self.objids))
-        for objid in self.objids:
-            print objid,
-            query = """SELECT id 
-        FROM matched
-        WHERE matched.objid='%s'
-        ORDER by id;""" % objid
-            stars = [r[0] for r in self.wifsip.query(query)]
-            print len(stars)
-            
-            for star in stars:
-                self.starids.add(star)
-                self.stars[objid] = stars
-                i = self.objids.index(objid)
-                starnumbers[i] = len(stars) 
+    def get_matched(self, verbose=False):
+        from numpy import zeros,load
         
-        print self.epochs, 'number of objids'
+        print 'getting matched stars ...'
+        
+        try:
+            self.stars = load(config.datapath+self.field+'_stars.npy')
+            self.starids = load(config.datapath+self.field+'_starids.npy')
+        except IOError:
+            starnumbers = zeros(len(self.objids))
+            for objid in self.objids:
+                if verbose: print objid,
+                query = """SELECT id 
+            FROM matched
+            WHERE matched.objid='%s'
+            ORDER by id;""" % objid
+                stars = [r[0] for r in self.wifsip.query(query)]
+                if verbose: print len(stars)
+                
+                for star in stars:
+                    self.starids.add(star)
+                    self.stars[objid] = stars
+                    i = self.objids.index(objid)
+                    starnumbers[i] = len(stars) 
+            
+            #save(config.datapath+self.field+'_stars.npy', self.stars)
+            #save(config.datapath+self.field+'_starids.npy', self.starids)
+        print self.epochs, 'objids'
         print self.numstars, 'unique stars found'
         
-#         from matplotlib import pylab
-#         pylab.hist(starnumbers, 20)
-#         
-#         pylab.savefig('/work2/jwe/m48/stars_'+self.field+'.pdf')
-
     def create(self):
-        from numpy import zeros,nan
+        from numpy import zeros,nan,load, save
+        
+        print 'creating array ...'
+        
         self.a = zeros([self.epochs,self.numstars])
-        stararr = [s for s in self.starids]
-        for objid in self.objids:
-            phot = {}
-            query = """
-            SELECT id, phot.mag_auto
-            FROM frames, phot, matched
-            WHERE frames.objid = '%s'
-            and frames.objid=phot.objid
-            and (phot.objid,phot.star) = (matched.objid,matched.star)
-            and phot.flags=0
-            """ % objid
-            result = self.wifsip.query(query)
-            for r in result:
-                phot[r[0]] = r[1]
-            epoch = self.objids.index(objid)
-            for starid in stararr:
-                star = stararr.index(starid)
-                if starid in phot: 
-                    if phot[starid]<30.0:
-                        self.a[epoch, star] = phot[starid]
+        try:
+            self.a = load(config.datapath+self.field+'_photmatrix.npy')
+        except IOError:
+            stararr = [s for s in self.starids]
+            assert(len(stararr)>0)
+            
+            for objid in self.objids:
+                print '%.2f %s' % (100.0*self.objids.index(objid)/len(self.objids), objid),
+                phot = {}
+                query = """
+                SELECT id, phot.mag_auto
+                FROM frames, phot, matched
+                WHERE frames.objid = '%s'
+                and frames.objid=phot.objid
+                and (phot.objid,phot.star) = (matched.objid,matched.star)
+                and phot.flags=0
+                """ % objid
+                result = self.wifsip.query(query)
+                for r in result:
+                    phot[r[0]] = r[1]
+                epoch = self.objids.index(objid)
+                for starid in stararr:
+                    if stararr.index(starid) % 1000 == 99: 
+                        print '.',
+                    star = stararr.index(starid)
+                    if starid in phot: 
+                        if phot[starid]<30.0:
+                            self.a[epoch, star] = phot[starid]
+                        else:
+                            self.a[epoch, star] = nan
                     else:
                         self.a[epoch, star] = nan
-                else:
-                    self.a[epoch, star] = nan
-                    
-        #self.a.dump('/work2/jwe/m48/photmatrix')
+                print '.'
+                
+            print 'saving photometric matrix ...'            
+            save(config.datapath+self.field+'_photmatrix.npy', self.a)
+        print 'shape of photometric matrix: ', self.a.shape
 
     def updateframe(self, frame, corr):
         from numpy import isnan
@@ -116,58 +136,61 @@ class Calibrate2(object):
         self.wifsip.execute(query)
 
 
-    def clean(self):
+    def clean(self, verbose=False):
         '''
         remove stars and objids with a large number of nans
         '''
-        from numpy import isfinite, delete
+        from numpy import isfinite, delete, save,load
         
-        print 'Cleaning ...',self.epochs,'epochs'
-        
-        delvec = []
-        newobjids = []
-        for i in range(self.epochs):
-            objidvec = self.a[i,:]
-            if objidvec[isfinite(objidvec)].size<self.epochs/2:
-                delvec.append(i)
-            else:
-                newobjids.append(self.objids[i])
-        delete(self.a, delvec, 0)
-        self.objids = newobjids
-        print 'deleted ',len(delvec),'objids'
-        
-        
-        print 'Cleaning ...',self.numstars,'stars'
-        
-        delvec = []
-        newstarlist = []
-        
-        for j in range(self.numstars):
-            starvec = self.a[:,j]
-            if starvec[isfinite(starvec)].size<self.numstars/2:
-                delvec.append(i)
-            else:
-                newstarlist.append(self.starids[i])
-        delete(self.a, delvec, 1)
-        self.starids = set(newstarlist)
-        print 'deleted ',len(delvec),'stars'
+        try:
+            self.a = load(config.datapath+self.field+'_cleanedmatrix.npy')
+        except IOError:
+            print 'Cleaning ...',self.epochs,'epochs'
+
+            delvec = []
+            newobjids = []
             
+            for i in range(self.epochs):
+                objidvec = self.a[i,:]
+                if verbose: print objidvec[isfinite(objidvec)].size,self.numstars
+                if objidvec[isfinite(objidvec)].size<self.numstars/2:
+                    delvec.append(i)
+                else:
+                    newobjids.append(self.objids[i])
+            delete(self.a, delvec, 0)
+            self.objids = newobjids
+            print 'deleted ',len(delvec),'objids'
+            
+            
+            print 'Cleaning ...',self.numstars,'stars'
+            
+            delvec = []
+            newstarlist = []
+            
+            for j in range(self.numstars):
+                starvec = self.a[:,j]
+                if verbose: print starvec[isfinite(starvec)].size, self.epochs
+                if starvec[isfinite(starvec)].size<self.epochs/2:
+                    delvec.append(i)
+                else:
+                    newstarlist.append(list(self.starids)[i])
+            delete(self.a, delvec, 1)
+            self.starids = set(newstarlist)
+            print 'deleted ',len(delvec),'stars'
+            save(config.datapath+self.field+'_cleanedmatrix.npy', self.a)    
 
     
     def calibrate(self):
-        from numpy import load, isfinite
+        from numpy import isfinite
         from scipy.stats import nanmean, nanstd
         
         print 'Calibration ...'
-        #self.a = load('/work2/jwe/m48/photmatrix')
-        #print self.a.shape
-#        self.epochs, self.numstars = self.a.shape
         m = nanmean(self.a, axis=0)
         self.mags = m
         # m now contains the mean magnitude for each star
         for i in range(self.epochs):
             objidvec = self.a[i,:]
-            log('/work2/jwe/m48/data/objidvec', '%s %d\n' %
+            log(config.datapath+self.field+'_objidvec', '%s %d\n' %
                 (self.objids[i], objidvec[isfinite(objidvec)].size))
             self.a[i,:] = self.a[i,:] - m
         
@@ -178,32 +201,38 @@ class Calibrate2(object):
         starlist = list(self.starids)
         for j in range(self.numstars):
             starvec = self.a[:,j]
-            log('/work2/jwe/m48/data/starvec', '%s %d\n' %
+            log(config.datapath+self.field+'_starvec', '%s %d\n' %
                 (starlist[j], starvec[isfinite(starvec)].size))
             self.a[:,j] = self.a[:,j] - corr
         
         std = nanstd(self.a, axis=0)
         for starid, mag,s in zip(self.starids,m,std):
             if isfinite(mag) and isfinite(s):
-                log('/work2/jwe/m48/data/stars', '%s %.3f %.4f\n' %(starid, mag, s))
-    
+                log(config.datapath+self.field+'_stars', '%s %.3f %.4f\n' % 
+                    (starid, mag, s))
+        #TODO: interate
+        
     def array_toimage(self):
         from numpy import rint, isnan
         from PIL import Image  # @UnresolvedImport
         from functions import scaleto
         
+        import pyfits
+        
+        hdu = pyfits.PrimaryHDU(self.a)
+        hdu.writeto(config.plotpath+self.field+'.fits', clobber=True)
         a1 = self.a
-
-        a1[isnan(a1)] = 0.0 
+        
+        a1[isnan(a1)] = 0.0
         simg = scaleto(a1,[0.0,255.0])
     
         simg = rint(simg)
         simg = simg.astype('uint8')
         im = Image.fromarray(simg)
         
-        im.save('/work2/jwe/m48/'+self.field+'.png')                    
+        im.save(config.plotpath+self.field+'.png')                    
         
-        #TODO: interate
+        
     def setcorr(self):
         from numpy import nan
         for objid in self.objids:
@@ -215,10 +244,10 @@ class Calibrate2(object):
         
 if __name__ == '__main__':
     
-    fields = ['M 48 rot NE','M 48 rot NW','M 48 rot SE''M 48 rot SW']
+    fields = ['M 48 rot NE','M 48 rot NW','M 48 rot SE','M 48 rot SW']
     
     
-    for field in fields[0]:
+    for field in fields:
         cal = Calibrate2(field)
         cal.get_matched()
         cal.create()
