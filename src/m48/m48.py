@@ -22,8 +22,6 @@ class M48Analysis(object):
     '''
     Class to implement all methods for analyzing and plotting
     '''
-
-
     def __init__(self, path):
         '''
         Constructor
@@ -95,8 +93,6 @@ class M48Analysis(object):
                 SET simbad='%s' 
                 WHERE starid='%s'""" % (simbad, star))
                 
-    
-    
     def store_pdm(self, star, periods, thetas):
         """
         store the periods and thetas for a given star in a tab separated file
@@ -124,7 +120,6 @@ class M48Analysis(object):
         ylim=plt.ylim()
         plt.ylim(ylim[1],ylim[0])
         
-                    
     def analysis(self, show=False):
         """perform a PDM analysis on each lightcurve"""
         from pdm import pdm
@@ -429,8 +424,6 @@ class M48Analysis(object):
                     #    
                     #f.close()
                     print 'exported'
-                    
-
         
     def load_isochrone(self):
         from numpy import loadtxt
@@ -525,7 +518,7 @@ class M48Analysis(object):
         from astropy import units as u
         from astropy.coordinates import SkyCoord
         
-        query = """SELECT vmag, bv, period, period_err,  clean_period, 
+        query = """SELECT tab, vmag, bv, period, period_err,  clean_period, 
             pman, amp, amp_err, member, simbad, notes
             FROM m48stars 
             WHERE pman>0
@@ -542,8 +535,8 @@ class M48Analysis(object):
         
         for d in data:
             #print d
-            i = data.index(d)+1
-            vmag, bv, fperiod, period_err,  clean_period, \
+            #i = data.index(d)+1
+            tab, vmag, bv, fperiod, period_err,  clean_period, \
             pman, amp, amp_err,member, simbad, notes = d
             
             try:
@@ -565,7 +558,7 @@ class M48Analysis(object):
              
             try:
                 s =  '%2d & %.3f & %.2f & $%.3f\pm%.3f$ & $%.3f\pm%.3f$ & %s & %s \\\\ %% %s\n' % \
-                (i, vmag+0.36943683, bv+0.7860676, period, period_err, amp, amp_err, memstr, simbad, notes)
+                (tab, vmag+0.36943683, bv+0.7860676, period, period_err, amp, amp_err, memstr, simbad, notes)
                 print s,
                 f.write(s)
             except TypeError:
@@ -574,34 +567,34 @@ class M48Analysis(object):
         f.write('\\end{tabular}')
         f.close()
 
-        query = """SELECT vmag, vmag_err, bv, bmag_err, ra, dec, member, simbad, notes
+        query = """SELECT tab, vmag, vmag_err, bv, bmag_err, ra, dec, member, simbad, notes
             FROM m48stars 
             WHERE not bv IS NULL
             ORDER BY vmag;"""
         data = self.wifsip.query(query)
         f = open(config.resultpath+'table_appendix.tex','wt')
-        f.write("""\\begin{longtab}\n
-\\begin{longtable}{rcccccl}\n
-\\caption{\label{tab:appendix}Results of photometric measurements from STELLA WiFSIP.}\\\\\n
-\\hline\\hline\n
-Id & V$\pm$err & B--V$\pm$err & R.A.   & amp$\pm$err & mem & simbad \\\\\n
-   & mag       &              & h:m:s  & d:m:s       &     & name   \\\\\n
-\hline\n
+        f.write("""\\begin{longtab}
+\\begin{longtable}{rcccccl}
+\\caption{\label{tab:appendix}Results of photometric measurements from STELLA WiFSIP.}\\\\
+\\hline\\hline
+Id & V$\pm$err & B--V$\pm$err & R.A.   & amp$\pm$err & mem & simbad \\\\
+   & mag       &              & h:m:s  & d:m:s       &     & name   \\\\
+\hline
 \endfirsthead\n
-\caption{continued.}\\\\n
-\hline\hline\n
-Id & V$\pm$err & B--V$\pm$err & R.A.   & amp$\pm$err & mem & simbad \\\\\n
-   & mag       &              & h:m:s  & d:m:s       &     & name   \\\\\n
-\hline\n
-\endhead\n
-\hline\n
-\endfoot\n
+\caption{continued.}\\\
+\hline\hline
+Id & V$\pm$err & B--V$\pm$err & R.A.   & amp$\pm$err & mem & simbad \\\\
+   & mag       &              & h:m:s  & d:m:s       &     & name   \\\\
+\hline
+\endhead
+\hline
+\endfoot
 %%%%\n""")
         
         for d in data:
             #print d
-            i = data.index(d)+70
-            vmag, vmag_err, bv, bmag_err, ra, dec, member, simbad, notes = d
+            #i = data.index(d)+70
+            tab, vmag, vmag_err, bv, bmag_err, ra, dec, member, simbad, notes = d
             
             if type(simbad) is str and simbad.find('Cl* NGC 2548 ')==0:
                 simbad = simbad[13:]
@@ -621,8 +614,8 @@ Id & V$\pm$err & B--V$\pm$err & R.A.   & amp$\pm$err & mem & simbad \\\\\n
             if bmag_err is None: bmag_err=0.0
             
             try:
-                s =  '%2d & $%.3f\pm%.3f$ & $%.3f\pm%.3f$ & %s & %s & %s & %s \\\\ %% %s\n' % \
-                (i, vmag+0.36943683, vmag_err, bv+0.7860676, bv_err, ra_str, dec_str, memstr, simbad, notes)
+                s =  '%4d & $%.3f\pm%.3f$ & $%.3f\pm%.3f$ & %s & %s & %s & %s \\\\ %% %s\n' % \
+                (tab, vmag+0.36943683, vmag_err, bv+0.7860676, bv_err, ra_str, dec_str, memstr, simbad, notes)
                 print s,
                 f.write(s)
             except TypeError:
@@ -632,6 +625,18 @@ Id & V$\pm$err & B--V$\pm$err & R.A.   & amp$\pm$err & mem & simbad \\\\\n
         f.close()
 
     def set_tab_column(self):
+        query = """SELECT starid
+            FROM m48stars 
+            WHERE NOT bv IS NULL
+            ORDER BY vmag;"""
+        result = self.wifsip.query(query)
+        starids = [r[0] for r in result]
+        
+        for starid in starids:
+            tab = starids.index(starid)+1
+            print '%4d %s' % (tab,starid)
+            query = "UPDATE m48stars set tab=%d WHERE starid='%s';" % (tab,starid)
+            self.wifsip.execute(query)
         pass
             
 if __name__ == '__main__':
@@ -646,6 +651,7 @@ if __name__ == '__main__':
     parser.add_argument('--allstars', action='store_true', help='fetch all stars')
     parser.add_argument('--lightcurves', action='store_true', help='export lightcurves')
     parser.add_argument('--tables', action='store_true', help='export latex tables')
+    parser.add_argument('-tab', action='store_true', help='export latex tables')
     
     args = parser.parse_args()
     
@@ -656,6 +662,7 @@ if __name__ == '__main__':
     #m48.set_simbad()
     if args.analysis: m48.analysis()
     if args.lightcurves: m48.export_lightcurves()
+    if args.tab: m48.set_tab_column()
     if args.tables: m48.tables()
     if args.cmd: 
         m48.make_cmd()
