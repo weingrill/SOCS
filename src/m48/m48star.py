@@ -67,13 +67,21 @@ class M48Star(dict):
         logger.info('load file %s' % filename)
         data = np.loadtxt(filename)
         
-        hjd = data[:,0]
-        mag = data[:,1]
-        err = data[:,2]
+        self.hjd = data[:,0]
+        self.mag = data[:,1]
+        self.err = data[:,2]
                 
-        logger.info('%d datapoints' % len(hjd))
+        logger.info('%d datapoints' % len(self.hjd))
         
-        return (hjd, mag, err)
+        return (self.hjd, self.mag, self.err)
+    
+    def lightcurve_tofile(self, filename=None):
+        import numpy as np
+        if filename is None:
+            filename = config.lightcurvespath+self.starid+'.dat'
+            
+        a = np.column_stack((self.hjd,self.mag,self.err))
+        np.savetxt(filename, a, fmt='%.6f %.3f %.4f')        
         
     def lightcurve(self):
         """
@@ -117,10 +125,10 @@ class M48Star(dict):
         if len(data)<10:
             logger.error('insufficient data (%d) found for star %s' % (len(data),mid))
             return
-        hjd = np.array([d[0] for d in data])
-        mag = np.array([d[1] for d in data])
-        err = np.array([d[2] for d in data])
+        self.hjd = np.array([d[0] for d in data])
+        self.mag = np.array([d[1] for d in data])
+        self.err = np.array([d[2] for d in data])
                 
-        logger.info('%d datapoints' % len(hjd))
-        
-        return (hjd, mag, err)
+        logger.info('%d datapoints' % len(self.hjd))
+        self.lightcurve_tofile(filename)
+        return (self.hjd, self.mag, self.err)
