@@ -54,6 +54,7 @@ class M48Plots(object):
         plt.xlim(min(t),max(t))
         plt.grid()
         plt.scatter(t, m, edgecolor='none', facecolor='k', s=5)
+        plt.plot(t,m,'gray')
         #plt.errorbar(t, m, yerr=e*0.5, fmt='o', s=5)
         ylim=plt.ylim()
         plt.ylim(ylim[1],ylim[0])
@@ -84,13 +85,15 @@ class M48Plots(object):
         lc = 1
         for starid in self.stars:
             print starid
-            plt.subplot(4,2,sp)
+            ax = plt.subplot(6,3,sp)
+            ax.set_yticklabels([])
+            ax.set_xticklabels([])
             sp += 1
             self.plot_lightcurve(starid)
-            if sp==9 or starid==self.stars[-1]:
+            if sp==6*3+1 or starid==self.stars[-1]:
                 plt.tight_layout()
-                #plt.show()
-                plt.savefig('/work2/jwe/m48/plots/lightcurves%d.pdf' % lc)
+                if show: plt.show()
+                else: plt.savefig('/work2/jwe/m48/plots/lightcurves%d.pdf' % lc)
                 lc += 1
                 sp = 1 
                 plt.close()
@@ -118,12 +121,12 @@ class M48Plots(object):
         plt.scatter(tp, yp-np.mean(yp), edgecolor='none', facecolor='k', s=5)
         plt.scatter(tp+period, yp-np.mean(yp), edgecolor='none', facecolor='k', s=5)
         plt.axvline(period, linestyle='--', color='k')
-        plt.title(starid)
-        plt.xlabel('period %.3f (%.2f) days' % (period, pman))
-        plt.ylabel(star['vmag'])
+        #plt.title(starid)
+        #plt.xlabel('period %.3f (%.2f) days' % (period, pman))
+        #plt.ylabel(star['vmag'])
         plt.xlim(0,period*2)
         plt.ylim(plt.ylim()[1],plt.ylim()[0])
-        plt.grid()
+        #plt.grid()
         
         #plt.close()
 
@@ -154,23 +157,33 @@ class M48Plots(object):
         phase=1
         for starid in self.stars:
             print starid,
-            plt.subplot(4,2,sp)
+            ax = plt.subplot(6,3,sp)
+            ax.set_yticklabels([])
+            ax.set_xticklabels([])
             sp += 1
             self.phase_plot(starid)
-            if sp==9 or starid==self.stars[-1]:
+            if sp==6*3+1 or starid==self.stars[-1]:
                 plt.tight_layout()
-                #plt.show()
-                plt.savefig('/work2/jwe/m48/plots/phase%d.pdf' % phase)
+                if show: plt.show()
+                else: plt.savefig('/work2/jwe/m48/plots/phase%d.pdf' % phase)
                 phase += 1
                 sp = 1 
                 plt.close()
 
-    def sigma_mag(self):
-        query = """SELECT starid 
-        FROM m48stars 
-        WHERE pman>0;""" 
 
-m48plots = M48Plots()
+if __name__ == '__main__':
+    import argparse
 
-#m48plots.make_phaseplots(show=True)
-m48plots.make_lightcurves(show=True)
+    parser = argparse.ArgumentParser(description='M48 analysis')
+    parser.add_argument('--phaseplots', action='store_true', 
+                        help='make phaseplots')
+    parser.add_argument('--lightcurves', action='store_true', 
+                        help='make lightcurve plots')
+    parser.add_argument('-show', action='store_true', 
+                        help='show plots instead of saving to file')
+
+    args = parser.parse_args()
+    
+    m48plots = M48Plots()
+    if args.phaseplots: m48plots.make_phaseplots(show=args.show)
+    if args.lightcurves: m48plots.make_lightcurves(show=args.show)
