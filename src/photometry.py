@@ -22,7 +22,7 @@ class Photometry(object):
     '''
 
 
-    def __init__(self, objname='', filtercol='V', dbname=''):
+    def __init__(self, objname=None, filtercol='V', dbname=None):
         '''
         Constructor
         '''
@@ -32,10 +32,13 @@ class Photometry(object):
                                  host='pina', 
                                  user='sro')
         
-        if objname<>'': # 'M48 BVI'
-            self.objname=objname
-        else:
+        print objname
+        
+        if objname is None: # 'M48 BVI'
             raise(ValueError,'objname not set')
+        else:
+            self.objname=objname
+            
             
         
         if filtercol in ('B','V','R', 'I'):
@@ -44,10 +47,10 @@ class Photometry(object):
             raise(ValueError, 'unknown filter color')
         
         self.frames=[]
-        if dbname<>'': # 'M48stars'
-            self.dbname=dbname
-        else:
+        if dbname is None: # 'M48stars'
             raise(ValueError,'tablename not set')
+        else:
+            self.dbname=dbname
         
         print 'filter %s' % self.filtercol
 
@@ -91,7 +94,13 @@ class Photometry(object):
             return
         query = """
         UPDATE %s
-        SET vmag = 0, vmag_err = NULL, bmag = 0, bmag_err =NULL, nv = 0, nb = 0, bv = NULL;
+        SET vmag = 0, 
+        vmag_err = NULL, 
+        bmag = 0, 
+        bmag_err = NULL, 
+        nv = 0, 
+        nb = 0, 
+        bv = NULL;
         """ % self.dbname
         self.wifsip.execute(query)
         print "table '%s' cleared" % self.dbname
@@ -170,7 +179,7 @@ class Photometry(object):
             query = """UPDATE %(dbname)s
             SET %(mname)s = %(mname)s + %(mag)f, %(nname)s = %(nname)s + 1
             WHERE starid = '%(oldid)s';
-            """ % {'dbname': self.dbname, 'mag':mag, 'oldid':oldid}
+            """ % {'dbname': self.dbname, 'mname':mname, 'nname':nname, 'mag':mag, 'oldid':oldid}
         self.wifsip.execute(query)
         return oldstar
 
@@ -258,14 +267,6 @@ def make_cmd(dbname):
     plt.ylabel('V [mag]')
     plt.title(dbname)
     plt.grid()
-    plt.savefig('/work2/jwe/m48/m48cmd.pdf')
+    plt.savefig(config.resultpath+'m48cmd.pdf')
     #plt.show()
     plt.close()
-
-
-phot = Photometry()
-phot.createtable()
-phot.cleartable()
-phot.getframes()
-phot.filltable('2005')
-
