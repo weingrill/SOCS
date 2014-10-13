@@ -39,7 +39,7 @@ class SuperRef(object):
         """correct the offset of the mag dict:
         calculate the magnitude weighted average of mag-ref and 
         return the corrected table"""
-        from numpy import array, average, mean
+        from numpy import array, average
         
         corr = {}
         omag = array([mag[key] for key in set(self.ref.keys()) & set(mag.keys())])
