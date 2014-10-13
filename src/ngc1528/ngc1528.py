@@ -6,7 +6,6 @@ Created on Oct 7, 2014
 @author: jwe
 '''
 
-import config
 def calibrate(objname):
     from calibrate import Calibrate
 
