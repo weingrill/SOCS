@@ -52,11 +52,9 @@ def do_cmd(transfer=False):
         if transfer: sf.transfer()
         
 if __name__ == '__main__':
-    do_uvby(transfer=True)
-    do_hahb(transfer=True)
     import argparse
 
-    parser = argparse.ArgumentParser(description='NGC1528 WiFSIP schedule')
+    parser = argparse.ArgumentParser(description='M 67 WiFSIP schedule')
     parser.add_argument('-rot', action='store_true', help='rot observations')
     parser.add_argument('-cmd', action='store_true', help='CMD observations')
     parser.add_argument('-uvby', action='store_true', help='uvby observations')
