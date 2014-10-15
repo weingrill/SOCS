@@ -1,4 +1,5 @@
 #!/usr/bin/python
+# -*- coding: utf-8 -*-
 '''
 Created on May 8, 2013
 
@@ -493,7 +494,7 @@ class M48Analysis(object):
         xticks = [ast.hms2dd((8,m,0)) for m in [16,15,14,13,12]]
         xlabels = ['$8^h%d^m$' % m for m in [16,15,14,13,12]]
         plt.xticks(xticks, xlabels)
-        declist = [(-5,20),(-5,30),(-5,40),(-5,50),(-6,0),(-6,10)]
+        declist = [(-5,15),(-5,30),(-5,45),(-6,0),(-6,15)]
         yticks = [ast.dms2dd(dl) for dl in declist]
         ylabels = ['$%d^{\circ}%d^m$' % dl for dl in declist]
         plt.yticks(yticks, ylabels)
@@ -507,14 +508,15 @@ class M48Analysis(object):
         else:
             plt.savefig(config.resultpath+'m48_map.pdf', transparent=True)
             plt.savefig(config.resultpath+'m48_map.eps', transparent=True)
-        
-        plt.show()              
-        pass
      
     def __exit__(self):
         self.wifsip.close()
                 
     def tables(self):
+        '''
+        produce the tables for the publication
+        '''
+        
         from astropy import units as u
         from astropy.coordinates import SkyCoord
         
