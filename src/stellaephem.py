@@ -5,26 +5,22 @@ Created on Apr 10, 2013
 '''
 
 if __name__ == '__main__':
-    import matplotlib
-    matplotlib.use('WXAgg')
     import matplotlib.pyplot as plt
     
     import ephem
     import datetime
-    from numpy import pi,empty, sin
+    from numpy import pi,empty
     
     from astronomy import airmass
     
     stella = ephem.Observer()
-    #stella.lon, stella.lat = '-16.50925', '28.301215'
-    stella.lon, stella.lat = '13.104659', '52.404963'
+    stella.lon, stella.lat = '-16.50925', '28.301215' #Izana
+    #stella.lon, stella.lat = '13.104659', '52.404963' #AIP
     sun, moon = ephem.Sun(), ephem.Moon()  # @UndefinedVariable
-    #stella.date = '2013/4/10 12:00:00'
+    
     stella.pressure = 0
     stella.horizon = '-0:34'
     stella.elevation = 2000
-    #sun.compute(stella)
-    #moon.compute(stella)
     
     ic4756 = ephem.readdb('IC 4756,f|O,18:39: 0,+05:27, 5.,2000,3120')
     ic4756.compute()
@@ -51,7 +47,7 @@ if __name__ == '__main__':
         sun_alt[h] = float(sun.alt)
         moon_alt[h] = float(moon.alt)
         ic4756_alt[h] = float(ic4756.alt)
-        #print alt[h]
+        
     
     fig = plt.figure()
     ax_h = fig.add_subplot(111)
