@@ -57,27 +57,42 @@ class Calibrate2(object):
     def numstars(self):
         return len(self.starids)
         
-    def get_matched(self, verbose=False):
+    def get_matched(self, verbose=False, store=True):
         from numpy import zeros
         
         print 'getting matched stars ...'
         
-        starnumbers = zeros(len(self.objids))
-        for objid in self.objids:
-            if verbose: print objid,
-            query = """SELECT id 
-            FROM matched
-            WHERE matched.objid='%s'
-            ORDER by id;""" % objid
-            stars = [r[0] for r in self.wifsip.query(query)]
-            if verbose: print len(stars)
+        try:
+            picklefile = open(self.datafilebase+'starids.pickle', 'rb')
+            self.starids = pickle.load(picklefile)
+            picklefile.close()
+            picklefile = open(self.datafilebase+'stars.pickle', 'rb')
+            self.stars = pickle.load(picklefile)
+            picklefile.close()
             
-            for star in stars:
-                self.starids.add(star)
-                self.stars[objid] = stars
-                i = self.objids.index(objid)
-                starnumbers[i] = len(stars) 
-            
+        except:
+            starnumbers = zeros(len(self.objids))
+            for objid in self.objids:
+                if verbose: print objid,
+                query = """SELECT id 
+                FROM matched
+                WHERE matched.objid='%s'
+                ORDER by id;""" % objid
+                stars = [r[0] for r in self.wifsip.query(query)]
+                if verbose: print len(stars)
+                
+                for star in stars:
+                    self.starids.add(star)
+                    self.stars[objid] = stars
+                    i = self.objids.index(objid)
+                    starnumbers[i] = len(stars) 
+            if store:
+                picklefile = open(self.datafilebase+'starids.pickle', 'wb')
+                pickle.dump(self.starids, picklefile)
+                picklefile.close()
+                picklefile = open(self.datafilebase+'star.pickle', 'wb')
+                pickle.dump(self.stars, picklefile)
+                picklefile.close()    
         print self.epochs, 'objids'
         print self.numstars, 'unique stars found'
         
@@ -175,7 +190,7 @@ class Calibrate2(object):
             delvec0 = []
             newobjids = []
             
-            #if an epoch shows less than half of the stars: remove it
+            #if an epoch shows less than 10% of the stars: remove it
             for i in range(self.epochs):
                 objidvec = self.a[i,:]
                 if verbose: print objidvec[isfinite(objidvec)].size,self.numstars
@@ -191,7 +206,7 @@ class Calibrate2(object):
             delvec1 = []
             newstarlist = []
             
-            #if a star appears in less than half of the epochs: remove it 
+            #if a star appears in less than 10% of the epochs: remove it 
             for j in range(self.numstars):
                 starvec = self.a[:,j]
                 if verbose: 
