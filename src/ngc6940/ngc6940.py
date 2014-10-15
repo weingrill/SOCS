@@ -5,7 +5,7 @@ Created on Oct 9, 2014
 
 @author: jwe
 '''
-import config
+
 def calibrate(objname):
     from calibrate import Calibrate
 
@@ -46,7 +46,13 @@ if __name__ == '__main__':
     if args.calibrate: calibrate('NGC6940 BVR')
     if args.calibrate2:
         from calibrate2 import Calibrate2
-        cal = Calibrate2('NGC 6940 rot', filtername=args.filter)
+        cal = Calibrate2('NGC 6940 rot NW', filtername=args.filter)
+        cal.grid()
+        cal = Calibrate2('NGC 6940 rot NE', filtername=args.filter)
+        cal.grid()
+        cal = Calibrate2('NGC 6940 rot SW', filtername=args.filter)
+        cal.grid()
+        cal = Calibrate2('NGC 6940 rot SE', filtername=args.filter)
         cal.grid()
         
     if args.create or args.clear or args.getframes or args.sigmas or args.bv:
