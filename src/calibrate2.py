@@ -70,7 +70,7 @@ class Calibrate2(object):
             self.stars = pickle.load(picklefile)
             picklefile.close()
             
-        except:
+        except IOError:
             starnumbers = zeros(len(self.objids))
             for objid in self.objids:
                 if verbose: print objid,
@@ -155,7 +155,7 @@ class Calibrate2(object):
                         WHERE objid = '%s';""" % (corr, frame)
         self.wifsip.execute(query)
 
-    def clip(self, sigma=3.0, store=False, verbose=True):
+    def clip(self, sigma=3.0, store=False, verbose=False):
         """
         perform sigma clipping on each lightcurve
         """
@@ -170,9 +170,8 @@ class Calibrate2(object):
             for j in range(self.numstars):
                 std = nanstd(self.a[:,j])
                 m = nanmean(self.a[:,j])
-                if verbose:
-                    print self.a[:,j], sigma*std
-                    #print len(self.a[:,j] > sigma*nanstd(self.a[:,j])), len(self.a[:,j])
+                if verbose: print '%s %.3f' % (self.starids[j], sigma*std)
+                    
                 self.a[abs(self.a[:,j]-m) > sigma*std,j] = nan
                 
             if store: save(self.datafilebase+'clippedmatrix.npy', self.a)    
