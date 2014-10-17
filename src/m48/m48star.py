@@ -116,8 +116,6 @@ class M48Star(dict):
                 AND NOT corr IS NULL
                 AND frames.objid = matched.objid
                 AND (phot.objid,phot.star) = (matched.objid,matched.star)
-                AND phot.flags<4
-                AND phot.mag_auto<99.0
                 ORDER BY hjd;""" % (mid)
                 
     
