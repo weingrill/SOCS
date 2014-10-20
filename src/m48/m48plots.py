@@ -35,7 +35,7 @@ class M48Plots(object):
         
         query = """SELECT starid 
         FROM m48stars 
-        WHERE pman>0;"""
+        WHERE good;"""
         
         result = self.wifsip.query(query)
         print '... %d stars found' % len(result)
