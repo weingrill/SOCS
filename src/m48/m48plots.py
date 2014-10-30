@@ -101,7 +101,9 @@ class M48Plots(object):
             if sp==6*3+1 or starid==self.stars[-1]:
                 plt.tight_layout()
                 if show: plt.show()
-                else: plt.savefig('/work2/jwe/m48/plots/lightcurves%d.pdf' % lc)
+                else: 
+                    plt.savefig('/work2/jwe/m48/plots/lightcurves%d.pdf' % lc)
+                    plt.savefig('/work2/jwe/m48/plots/lightcurves%d.eps' % lc)
                 lc += 1
                 sp = 1 
                 plt.close()
@@ -174,7 +176,9 @@ class M48Plots(object):
             if sp==6*3+1 or starid==self.stars[-1]:
                 plt.tight_layout()
                 if show: plt.show()
-                else: plt.savefig('/work2/jwe/m48/plots/phase%d.pdf' % phase)
+                else: 
+                    plt.savefig('/work2/jwe/m48/plots/phase%d.pdf' % phase)
+                    plt.savefig('/work2/jwe/m48/plots/phase%d.eps' % phase)
                 phase += 1
                 sp = 1 
                 plt.close()
