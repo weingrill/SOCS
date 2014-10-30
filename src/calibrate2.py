@@ -306,7 +306,7 @@ class Calibrate2(object):
         self.get_matched()
         self.create(store=True)
         self.clean()
-        self.clip(sigma=1.0)
+        self.clip()
         self.calibrate()
         self.setcorr()
         self.array_toimage()
