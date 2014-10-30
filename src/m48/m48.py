@@ -40,7 +40,7 @@ class M48Analysis(object):
         """
         reset the periods in the database table
         """
-        if not raw_input('press Y to erase the periods in table')=='Y':
+        if not raw_input('press Y to erase the periods in table ')=='Y':
             return
         query="""UPDATE m48stars 
         SET period=NULL,period_err=NULL,theta=NULL,amp=NULL,amp_err=NULL
@@ -61,13 +61,18 @@ class M48Analysis(object):
             AND period IS NULL
             ORDER BY vmag;"""
         else:
+#             query = """SELECT starid 
+#             FROM m48stars 
+#             WHERE bv> 0.4
+#             AND vmag<4*bv+13
+#             AND vmag < %f
+#             AND period IS NULL
+#             OR period<0
+#             ORDER BY vmag;""" % maglimit
             query = """SELECT starid 
             FROM m48stars 
-            WHERE bv> 0.4
-            AND vmag<4*bv+13
+            WHERE pman > 0
             AND vmag < %f
-            AND period IS NULL
-            OR period<0
             ORDER BY vmag;""" % maglimit
         
         logger.info('fetching stars ...')
@@ -159,13 +164,11 @@ class M48Analysis(object):
                 t, m, e = star.lightcurve()
                 t -= min(t)
             except:
-                star['period'] = -1
                 logger.error("Can't load lightcurve %s" % starid)
                 print 'no lightcurve'
                 continue
             
             if len(t)<50:
-                star['period'] = -1
                 logger.warn("%s: not enough datapoints" % starid)
                 print 'not enough datapoints'
                 continue                    
@@ -220,7 +223,7 @@ class M48Analysis(object):
                   min(c[1]*s1+c[2]*c1+c[3]*s2+c[4]*c2)
             star['amp'] = amp
 
-            if amp<2.0*amp_err: 
+            if amp<3.0*amp_err/np.sqrt(len(self.t)): 
                 star['period'] = -period
 
             tp1 = np.linspace(0.0, period, 100)
@@ -235,7 +238,7 @@ class M48Analysis(object):
 #             star['theta'] = None
 
             plt.subplot(411) ##################################################
-            plt.title('%s B-V=%.2f' % (starid, star['bv']))
+            plt.title('%s (%d) B-V=%.2f' % (starid, star['tab'], star['bv']))
             self.plot_lightcurve()
             
             plt.subplot(412) ##################################################
@@ -268,21 +271,21 @@ class M48Analysis(object):
             comment = '%6.3f %.3f %.4f' % (period, amp, amp_err)
             if show:
                 plt.show()
-            elif amp>2.0*amp_err:
-                plt.savefig(config.plotpath+'%s.pdf' % starid)
+            elif amp>3.0*amp_err/np.sqrt(len(self.t)):
+                plt.savefig(config.plotpath+'%s(%d).pdf' % (starid,star['tab']))
             plt.close()
                 
             logger.info( comment)
             print comment
             
     def make_cmd(self, show=False, mark_active=False):
-        query = "SELECT vmag+0.06, bv FROM m48stars WHERE NOT bv is NULL;"
+        query = "SELECT vmag, bv FROM m48stars WHERE NOT bv is NULL;"
         data = self.wifsip.query(query)
         vmag = np.array([d[0] for d in data])
         bv = np.array([d[1] for d in data])
         
         iso_v, iso_bv = self.load_isochrone() 
-        query = """SELECT vmag+0.06, bv 
+        query = """SELECT vmag, bv 
                     FROM m48stars 
                     WHERE period>0
                     AND abs(period*freq-1)<0.5 
@@ -296,7 +299,7 @@ class M48Analysis(object):
         plt.scatter(bv-self.ebv,vmag, edgecolor='none', alpha=0.75, s=4, c='k')
         plt.plot(iso_bv, iso_v, 'r')
 
-        query = """SELECT vmag+0.06, bv 
+        query = """SELECT vmag, bv 
                     FROM m48stars 
                     WHERE member
                     and NOT bv IS NULL 
@@ -397,13 +400,26 @@ class M48Analysis(object):
         """
         export db to file
         """
-        query = """SELECT bv, vmag+0.06, period, freq
-        FROM m48stars
-        WHERE NOT bv IS NULL AND period>0.0"""
+        query = """select tab, bv, sqrt(bmag_err^2+vmag_err^2) "bv_err", vmag, 
+        vmag_err, period, period_err, clean_period, clean_sigma, pman 
+        from m48stars 
+        where good 
+        order by tab;"""
+# tab = table number from publication
+# B-V = B-V color
+# B-V_e = error of B-V
+# Vmag = V magnitude
+# V_err = error of V magnitude
+# P = period, if negative not confirmed by either FFT or phase
+#     dispersion
+# Pc = period = 1./freq from cleaned spectrum
+# Pc_e = width of freq-peak in cleaned spectrum
+# Pman = period as found manually by Sydney
+
         data = self.wifsip.query(query)
         np.savetxt(config.datapath+'periods.txt', 
                    data, 
-                   fmt='%.3f %6.3f %.3f %.6f')
+                   fmt='%4d %.3f %.4f %.3f %.4f %7.3f %.3f %5.2f %.3f %5.2f')
 
     def export_lightcurves(self):
         for starid in self.stars:
@@ -523,7 +539,7 @@ class M48Analysis(object):
         query = """SELECT tab, vmag, bv, period, period_err,  clean_period, 
             pman, amp, amp_err, member, simbad, notes
             FROM m48stars 
-            WHERE pman>0
+            WHERE good
             ORDER BY vmag ;"""
         data = self.wifsip.query(query)
         
@@ -531,8 +547,8 @@ class M48Analysis(object):
         f.write('\\begin{tabular}{rcccccl}')
         f.write('\\hline\n')
         f.write('\\hline\n')
-        f.write('Id & V & B--V & P$\pm$err & amp$\pm$err & mem & BJG \#\\\\\n')
-        f.write('   & mag &    & days      & mag        &        &      \\\\\n')
+        f.write('Id & V   & B--V & P    & err  & amp & err & mem & BJG \#\\\\\n')
+        f.write('   & mag & mag  & days & days & mag & mag &     &      \\\\\n')
         f.write('\\hline\n')
         
         for d in data:
@@ -559,8 +575,8 @@ class M48Analysis(object):
             elif member==False: memstr='N'
              
             try:
-                s =  '%2d & %.3f & %.2f & $%.3f\pm%.3f$ & $%.3f\pm%.3f$ & %s & %s \\\\ %% %s\n' % \
-                (tab, vmag+0.36943683, bv+0.7860676, period, period_err, amp, amp_err, memstr, simbad, notes)
+                s =  '%4d & %.3f & %.2f & %.3f & %.3f & %.3f & %.3f & %s & %s \\\\ %% %s\n' % \
+                (tab, vmag, bv, period, period_err, amp, amp_err, memstr, simbad, notes)
                 print s,
                 f.write(s)
             except TypeError:
@@ -579,14 +595,14 @@ class M48Analysis(object):
 \\begin{longtable}{rcccccl}
 \\caption{\label{tab:appendix}Results of photometric measurements from STELLA WiFSIP.}\\\\
 \\hline\\hline
-Id & V$\pm$err & B--V$\pm$err & R.A.   & amp$\pm$err & mem & simbad \\\\
-   & mag       &              & h:m:s  & d:m:s       &     & name   \\\\
+Id &  V  & err & B--V & err & R.A.  & Dec   & mem & simbad \\\\
+   & mag & mag & mag  & mag & h:m:s & d:m:s &     & name   \\\\
 \hline
 \endfirsthead\n
 \caption{continued.}\\\
 \hline\hline
-Id & V$\pm$err & B--V$\pm$err & R.A.   & amp$\pm$err & mem & simbad \\\\
-   & mag       &              & h:m:s  & d:m:s       &     & name   \\\\
+Id &  V  & err & B--V & err & R.A.  & Dec   & mem & simbad \\\\
+   & mag & mag & mag  & mag & h:m:s & d:m:s &     & name   \\\\
 \hline
 \endhead
 \hline
@@ -616,8 +632,11 @@ Id & V$\pm$err & B--V$\pm$err & R.A.   & amp$\pm$err & mem & simbad \\\\
             if bmag_err is None: bmag_err=0.0
             
             try:
-                s =  '%4d & $%.3f\pm%.3f$ & $%.3f\pm%.3f$ & %s & %s & %s & %s \\\\ %% %s\n' % \
-                (tab, vmag+0.36943683, vmag_err, bv+0.7860676, bv_err, ra_str, dec_str, memstr, simbad, notes)
+                s =  '%4d & %6.3f & %5.3f & %6.3f & %5.3f & %s & %s & %s & %s \\\\\n' % \
+                      (tab, vmag, vmag_err, bv, bv_err, ra_str, dec_str, memstr, simbad)
+                if len(notes)>0: 
+                    s = s.rstrip('\n')
+                    s += ' %% %s\n' % notes
                 print s,
                 f.write(s)
             except TypeError:
@@ -649,11 +668,12 @@ if __name__ == '__main__':
     parser.add_argument('-cmd', action='store_true', help='plot cmd')
     parser.add_argument('-cpd', action='store_true', help='plot cpd')
     parser.add_argument('-map', action='store_true', help='plot map')
+    parser.add_argument('-cal2', action='store_true', help='calibrate lightcurves')
     parser.add_argument('-e', '--export', action='store_true', help='export to textfile')
     parser.add_argument('--allstars', action='store_true', help='fetch all stars')
     parser.add_argument('--lightcurves', action='store_true', help='export lightcurves')
     parser.add_argument('--tables', action='store_true', help='export latex tables')
-    parser.add_argument('-tab', action='store_true', help='export latex tables')
+    parser.add_argument('-tab', action='store_true', help='update tab column')
     
     args = parser.parse_args()
     
@@ -661,6 +681,13 @@ if __name__ == '__main__':
     if args.clear: m48.clearperiods()
     m48.getstars(allstars=args.allstars, maglimit=21)
     
+    if args.cal2:
+        from calibrate2 import Calibrate2
+        fields = ['M 48 rot NE','M 48 rot NW','M 48 rot SE','M 48 rot SW']
+        for field in fields:
+            cal = Calibrate2(field, filtername='V')
+            cal.grid()
+
     #m48.set_simbad()
     if args.analysis: m48.analysis()
     if args.lightcurves: m48.export_lightcurves()
