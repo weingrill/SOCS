@@ -7,7 +7,6 @@ Created on May 3, 2013
 
 get files from M 48 BVI
 '''
-#TODO: argparse
 def getframes(obj, targetdir='/work2/jwe/stella/wifsip/', filtercol='V',
               fwhm=3.0, background=500):
     from datasource import DataSource
@@ -17,12 +16,13 @@ def getframes(obj, targetdir='/work2/jwe/stella/wifsip/', filtercol='V',
     query = """SELECT path, filename
              FROM frames, science
              WHERE (filter LIKE '%s')
-              AND OBJECT LIKE '%s%%'
+              AND object LIKE '%s'
               AND frames.objid = science.objid
               AND fwhm_image < %f
               AND backgrnd < %f
               order by frames.objid""" % (filtercol, obj, fwhm, background)
     tab = wifsip.query(query)
+    print query
     for path, filename in tab:
         print path+'/'+filename
         call(['scp', 'sro@pina.aip.de:'+path+'/'+filename+'.fitz ',targetdir])
@@ -42,6 +42,6 @@ if __name__ == '__main__':
                         help='target directory for images')
     args = parser.parse_args()
     
-    print args
+    #print args
     getframes(args.obj, targetdir=args.targetdir, filtercol=args.filtercol,
               fwhm=args.fwhm, background=args.background)
