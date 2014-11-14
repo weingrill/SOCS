@@ -282,22 +282,17 @@ class M48Analysis(object):
         query = "SELECT vmag, bv FROM m48stars WHERE NOT bv is NULL;"
         data = self.wifsip.query(query)
         vmag = np.array([d[0] for d in data])
-        bv = np.array([d[1] for d in data])
+        bv   = np.array([d[1] for d in data])
         
         iso_v, iso_bv = self.load_isochrone() 
-        query = """SELECT vmag, bv 
-                    FROM m48stars 
-                    WHERE period>0
-                    AND abs(period*freq-1)<0.5 
-                    ;"""
+        query = """SELECT vmag, bv FROM m48stars WHERE good;"""
         data = self.wifsip.query(query)
         vmag_good = np.array([d[0] for d in data])
-        bv_good = np.array([d[1] for d in data])
+        bv_good   = np.array([d[1] for d in data])
 
         
-        print self.ebv
+        plt.plot(iso_bv, iso_v, 'g', alpha=0.3, lw=5.0,label='800 Myr iso')
         plt.scatter(bv-self.ebv,vmag, edgecolor='none', alpha=0.75, s=4, c='k')
-        plt.plot(iso_bv, iso_v, 'r')
 
         query = """SELECT vmag, bv 
                     FROM m48stars 
@@ -307,18 +302,14 @@ class M48Analysis(object):
         data = self.wifsip.query(query)
         vmag_member = np.array([d[0] for d in data])
         bv_member = np.array([d[1] for d in data])
-        plt.scatter(bv_member-self.ebv, vmag_member, facecolor='none', edgecolor='b',  s=30)
+#        plt.scatter(bv_member-self.ebv, vmag_member, facecolor='none', edgecolor='b',  s=30)
         
         if mark_active:
-            plt.scatter(bv_good-self.ebv, vmag_good, edgecolor='none', alpha=0.75, s=30, c='g')
-        
-        #k = 4
-        #d = 13
-        #x = np.linspace(-0.5, 2.5, 10)
-        #y = k*x+d
-        #plt.plot(x, y, linestyle='dashed', color='b')
-        plt.ylim(21.0, 8.0)
-        plt.xlim(-0.2, 2.0)
+            plt.scatter(bv_good-self.ebv, vmag_good, edgecolor='none', alpha=0.9, s=30, c='r',label='rotators')
+        plt.legend()
+        plt.title('M48 Color Magnitude Diagram')
+        plt.ylim(20.0, 10.0)
+        plt.xlim(0.0, 2.0)
         plt.xlabel('(B - V)$_0$')
         plt.ylabel('V [mag]')
         plt.grid()
@@ -328,6 +319,7 @@ class M48Analysis(object):
             if mark_active:
                 plt.savefig(config.resultpath+'m48cmd_active.eps')
                 plt.savefig(config.resultpath+'m48cmd_active.pdf')
+                plt.savefig(config.resultpath+'m48cmd_active.png', dpi=300)
             else:
                 plt.savefig(config.resultpath+'m48cmd.eps')
                 plt.savefig(config.resultpath+'m48cmd.pdf')
