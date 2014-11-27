@@ -13,7 +13,7 @@ def do_uvby(transfer=False, plot=False):
                           obsmode='uvby')
     m67.title = 'SOCS'
     m67.abstract = 'Photometric monitoring of open stellar clusters'
-    m67.tofile('/work2/jwe/m67')
+    m67.tofile(config.projectpath)
     if transfer: m67.transfer()
 
     
@@ -23,7 +23,7 @@ def do_hahb(transfer=False):
                           obsmode='hahb')
     m67.title = 'SOCS'
     m67.abstract = 'Photometric monitoring of open stellar clusters'
-    m67.tofile('/work2/jwe/m67')
+    m67.tofile(config.projectpath)
     if transfer: m67.transfer()
 
 def do_rot(transfer=False):
@@ -31,15 +31,23 @@ def do_rot(transfer=False):
     m67 = OpenCluster(objectname='M 67', uname='M 67 rot', obsmode='rot')
     m67.title = 'SOCS'
     m67.abstract = 'Photometric monitoring of open stellar clusters'
-    m67.tofile('/work2/jwe/m67')
-    if transfer: m67.transfer()
+
+    m67_subframes = m67.plan_wifsip(nfields=4)
+    for sf in m67_subframes:
+        print sf.uname
+        sf.tofile(config.projectpath)
+        if transfer: sf.transfer()
 
 def do_cmd(transfer=False):
     m67 = OpenCluster(objectname='M 67', uname='M 67 BVR', obsmode='BVR')
     m67.title = 'SOCS'
     m67.abstract = 'Photometric monitoring of open stellar clusters'
-    m67.tofile('/work2/jwe/m67')
-    if transfer: m67.transfer()
+
+    m67_subframes = m67.plan_wifsip(nfields=5)
+    for sf in m67_subframes:
+        print sf.uname
+        sf.tofile(config.projectpath)
+        if transfer: sf.transfer()
         
 if __name__ == '__main__':
     import argparse
