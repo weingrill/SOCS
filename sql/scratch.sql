@@ -68,3 +68,27 @@ AND frames.objid = matched.objid
 AND (phot.objid,phot.star) = (matched.objid,matched.star)
 AND phot.flags<4
 ORDER BY hjd;
+
+COMMENT ON COLUMN clusters.name IS 'Cluster name';
+COMMENT ON COLUMN clusters.ra IS '[deg] Right ascension (J2000.0)';
+COMMENT ON COLUMN clusters.dec IS '[deg] Declination (J2000.0)';
+COMMENT ON COLUMN clusters.class IS '[*] Flag for classification of the cluster';
+COMMENT ON COLUMN clusters.diam IS '[arcmin] Apparent diameter in arcmin';
+COMMENT ON COLUMN clusters.d IS '[pc] Distance';
+COMMENT ON COLUMN clusters.ebv IS 'Colour excess in BV';
+COMMENT ON COLUMN clusters.logage IS '[yr] Age (in log t)';
+COMMENT ON COLUMN clusters.pmra IS '[mas/yr] Mean proper motion of the cluster in mu_alpha.cos(delta), ICRS';
+COMMENT ON COLUMN clusters.epmra IS '[mas/yr] Standard deviation in pmRA, ICRS';
+COMMENT ON COLUMN clusters.pmdec IS '[mas/yr] Mean proper motion of the cluster in mu_delta, ICRS';
+COMMENT ON COLUMN clusters.epmdec IS '[mas/yr] Standard deviation in pmRA and pmDE, ICRS';
+COMMENT ON COLUMN clusters.nc IS 'Estimated number of members in the cluster';
+COMMENT ON COLUMN clusters.ref1 IS 'Source of the mean proper motion determination';
+COMMENT ON COLUMN clusters.rv IS '[km/s] Radial Velocity ';
+COMMENT ON COLUMN clusters.erv IS '[km/s] Error in Radial Velocity';
+COMMENT ON COLUMN clusters.n IS 'Number of stars used to determine Radial Velocity';
+COMMENT ON COLUMN clusters.ref2 IS 'Source of the mean radial velocity determination';
+COMMENT ON COLUMN clusters.me IS 'Metallicity';
+COMMENT ON COLUMN clusters.eme IS 'Error in Metallicity';
+COMMENT ON COLUMN clusters.nme IS 'Number of stars used to determine Metallicity';
+COMMENT ON COLUMN clusters.trtyp IS 'Trumpler Type determined in the DSS inspection';
+
