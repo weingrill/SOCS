@@ -4,7 +4,9 @@ Created on Jul 14, 2014
 @author: jwe
 '''
 
-from m48 import M48Star, sigma_clip, phase
+from m48 import M48Star
+from functions import sigma_clip, phase
+
 
 class M48TalkStar(M48Star):
     def _load_lightcurve(self):
