@@ -11,6 +11,99 @@ logging.basicConfig(filename='/work2/jwe/m48/m48star.log',
                     level=logging.INFO)
 logger = logging.getLogger('M48 analysis')
 
+class LightCurve(object):
+    """
+    Lightcurve object for M48
+    fetch lightcurve either from db or from file.
+    ability to store lightcurve to file
+    """
+    def __init__(self, starid):
+        from datasource import DataSource
+        self.starid = starid
+        self.wifsip = DataSource(database='wifsip', user='sro', host='pina.aip.de')
+        self.fromdb()
+
+    def fromdb(self):
+        """
+        extract a single lightcurve from the database
+        and return epoch (hjd), magnitude and error
+        """
+        import numpy as np
+        import os.path
+        
+        filename = config.lightcurvespath+self.starid+'.dat'
+        if os.path.isfile(filename):
+            return self.fromfile(filename)
+        
+        objid, star = self.starid.split('#')
+        query = """SELECT id 
+         FROM matched
+         WHERE (matched.objid, matched.star) = ('%s','%s')
+        """ % (objid, star)
+        try:
+            mid = self.wifsip.query(query)[0][0]
+        except IndexError:
+            logger.warning('no match found for starid %s' % (self.starid))
+            return
+        
+        logger.info('fetching starid %s = %s' % (self.starid, mid))
+        
+        query = """SELECT frames.hjd, phot.mag_auto-corr, corr/2.0
+                FROM frames, matched, phot
+                WHERE matched.id LIKE '%s'
+                AND frames.object like 'M 48 rot%%'
+                AND filter LIKE 'V'
+                AND NOT corr IS NULL
+                AND frames.objid = matched.objid
+                AND (phot.objid,phot.star) = (matched.objid,matched.star)
+                AND frames.hjd<2456820.0
+                ORDER BY hjd;""" % (mid)
+                
+    
+        data = self.wifsip.query(query)
+        if len(data)<10:
+            logger.error('insufficient data (%d) found for star %s' % (len(data),mid))
+            return
+        self.hjd = np.array([d[0] for d in data])
+        self.mag = np.array([d[1] for d in data])
+        self.err = np.array([d[2] for d in data])
+                
+        logger.info('%d datapoints' % len(self.hjd))
+        self.tofile(filename)
+        return (self.hjd, self.mag, self.err)
+
+    def fromfile(self, filename=None):
+        """
+        loads the lightcurve from a file.
+        if the filename is not given it is assembled from the starid
+        """
+        import numpy as np
+        
+        if filename is None:
+            filename = config.lightcurvespath+self.starid+'.dat'
+        logger.info('load file %s' % filename)
+        data = np.loadtxt(filename)
+        
+        self.hjd = data[:,0]
+        self.mag = data[:,1]
+        self.err = data[:,2]
+                
+        logger.info('%d datapoints' % len(self.hjd))
+        
+        return (self.hjd, self.mag, self.err)
+
+    def tofile(self, filename=None):
+        """
+        stores the lightcurve to a file
+        """
+        import numpy as np
+        if filename is None:
+            filename = config.lightcurvespath+self.starid+'.dat'
+            
+        a = np.column_stack((self.hjd,self.mag,self.err))
+        np.savetxt(filename, a, fmt='%.6f %.3f %.4f')        
+    
+
 class M48Star(dict):
     '''
     class that interfaces the m48stars table on wifsip database
@@ -58,76 +151,7 @@ class M48Star(dict):
         FROM m48stars 
         WHERE starid like '%s';""" % (key, self.starid))
         return result[0][0]    
-    
-    def lightcurve_fromfile(self, filename=None):
-        import numpy as np
-        
-        if filename is None:
-            filename = config.lightcurvespath+self.starid+'.dat'
-        logger.info('load file %s' % filename)
-        data = np.loadtxt(filename)
-        
-        self.hjd = data[:,0]
-        self.mag = data[:,1]
-        self.err = data[:,2]
-                
-        logger.info('%d datapoints' % len(self.hjd))
-        
-        return (self.hjd, self.mag, self.err)
-    
-    def lightcurve_tofile(self, filename=None):
-        import numpy as np
-        if filename is None:
-            filename = config.lightcurvespath+self.starid+'.dat'
-            
-        a = np.column_stack((self.hjd,self.mag,self.err))
-        np.savetxt(filename, a, fmt='%.6f %.3f %.4f')        
-        
+
     def lightcurve(self):
-        """
-        extract a single lightcurve from the database
-        and return epoch (hjd), magnitude and error
-        """
-        import numpy as np
-        import os.path
-        
-        filename = config.lightcurvespath+self.starid+'.dat'
-        if os.path.isfile(filename):
-            return self.lightcurve_fromfile(filename)
-        
-        objid, star = self.starid.split('#')
-        query = """SELECT id 
-         FROM matched
-         WHERE (matched.objid, matched.star) = ('%s','%s')
-        """ % (objid, star)
-        try:
-            mid = self.wifsip.query(query)[0][0]
-        except IndexError:
-            logger.warning('no match found for starid %s' % (self.starid))
-            return
-        
-        logger.info('fetching starid %s = %s' % (self.starid, mid))
-        
-        query = """SELECT frames.hjd, phot.mag_auto-corr, corr/2.0
-                FROM frames, matched, phot
-                WHERE matched.id LIKE '%s'
-                AND frames.object like 'M 48 rot%%'
-                AND filter LIKE 'V'
-                AND NOT corr IS NULL
-                AND frames.objid = matched.objid
-                AND (phot.objid,phot.star) = (matched.objid,matched.star)
-                AND frames.hjd<2456820.0
-                ORDER BY hjd;""" % (mid)
-                
-    
-        data = self.wifsip.query(query)
-        if len(data)<10:
-            logger.error('insufficient data (%d) found for star %s' % (len(data),mid))
-            return
-        self.hjd = np.array([d[0] for d in data])
-        self.mag = np.array([d[1] for d in data])
-        self.err = np.array([d[2] for d in data])
-                
-        logger.info('%d datapoints' % len(self.hjd))
-        self.lightcurve_tofile(filename)
-        return (self.hjd, self.mag, self.err)
+        lc = LightCurve(self.starid)
+        return lc.hjd, lc.mag, lc.err
