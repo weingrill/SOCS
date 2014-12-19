@@ -17,41 +17,38 @@ class TimeLine(object):
         Constructor
         '''
         from datasource import DataSource
-        import datetime
         
         self.target = target
-        
+        print self.target
         wifsip = DataSource(database='wifsip', 
                            user='sro', 
                            host='pina.aip.de')
         
-        query = """SELECT datesend, expt, 1.*matched/stars
+        query = """SELECT date_trunc('day', datesend- interval '12 hour') "datum", count(objid)
         FROM frames 
-        WHERE object like '%s %%' 
-        AND NOT datesend is NULL
-        ORDER BY datesend;""" % (self.target)
+        WHERE object like '%s%%'
+        AND 1.*matched/stars>0.8
+        AND datesend>'2014-01-01'
+        AND backgrnd<500
+        AND moondist>40.0
+        GROUP BY datum
+        ORDER BY datum;""" % (self.target)
         
         result = wifsip.query(query)
         
         self.dates = [r[0] for r in result]
-        self.expt = [r[1] for r in result]
-        self.stars = [r[2] for r in result]
-        
-        self.end = self.dates
-        for i in range(len(self.dates)):
-            self.end[i] = self.dates[i] + \
-            datetime.timedelta(seconds=self.expt[i])
-        
+        self.count = [r[1] for r in result]
         
     def plot(self, show=False):
         import matplotlib.pyplot as plt
         
         fig = plt.figure(figsize=(10,6))
-        plt.plot_date(x=self.dates, y=self.stars)
+        #plt.plot_date(x=self.dates, y=self.count)
+        plt.bar(self.dates,self.count)
         fig.autofmt_xdate()
         plt.title('%s' % self.target)
         plt.grid(which='both')
-        plt.ylabel('fraction of matched stars')
+        plt.ylabel('number of frames')
         
         if show:
             plt.show()
@@ -61,5 +58,11 @@ class TimeLine(object):
     
 if __name__ == '__main__':
     import sys
-    tl = TimeLine(sys.argv[1])
-    tl.plot(True)
+    if len(sys.argv)>1:
+        tl = TimeLine(sys.argv[1])
+        tl.plot(False)
+    else:
+        for cluster in ('NGC 6940 rot','NGC 2281 rot', 'M 48 rot', 'NGC 6633 rot',
+                        'NGC 1528 rot', 'M 67 rot'):
+            tl = TimeLine(cluster)
+            tl.plot(False)
