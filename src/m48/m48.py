@@ -49,7 +49,7 @@ class M48Analysis(object):
         logger.info('resetting periods ...')
         self.wifsip.execute(query)
         
-    def getstars(self, allstars=False, maglimit=21.0):
+    def getstars(self, allstars=False, maglimit=18.2):
         """
         build up a list of stars, where we do not have periods yet
         """
@@ -71,9 +71,14 @@ class M48Analysis(object):
 #             ORDER BY vmag;""" % maglimit
             query = """SELECT starid 
             FROM m48stars 
-            WHERE pman > 0
+            WHERE good
             AND vmag < %f
             ORDER BY vmag;""" % maglimit
+
+#             query = """SELECT starid 
+#             FROM m48stars 
+#             WHERE vmag<4.87*bv+11.6 
+#             AND vmag>4.87*bv+10.5;"""
         
         logger.info('fetching stars ...')
         result = self.wifsip.query(query)
@@ -131,7 +136,7 @@ class M48Analysis(object):
         from pdm import pdm
         from psd import ppsd
         from matplotlib import rcParams
-        from functions import sigma_clip, phase
+        from functions import sigma_clip, phase, gauss_fit
         print 'Analysis'
 
         fig_width = 18.3/2.54  # width in inches, was 7.48in
@@ -153,7 +158,7 @@ class M48Analysis(object):
           }
         rcParams.update(params)
 
-        minperiod = 1.5
+        minperiod = 1.2/24
         maxperiod = 15
         
         for starid in self.stars:
@@ -163,7 +168,7 @@ class M48Analysis(object):
                 
                 t, m, e = star.lightcurve()
                 t -= min(t)
-            except:
+            except AttributeError:
                 logger.error("Can't load lightcurve %s" % starid)
                 print 'no lightcurve'
                 continue
@@ -177,34 +182,56 @@ class M48Analysis(object):
             
             
             # perform a power spectrum analysis
-            px, f = ppsd(self.t, 
-                         self.m- np.mean(self.m), 
+            tpsa, mpsa = self.t, self.m- np.mean(self.m)
+            n = len(tpsa)
+            # zero padded lightcurves
+            t_padded = np.zeros(4*n)
+            t_padded[:n] = tpsa
+            t_padded[n:] = np.linspace(max(tpsa),4*max(tpsa),3*n)
+            m_padded = np.zeros(4*n)
+            m_padded[:n] = mpsa
+            
+            px, f = ppsd(t_padded, 
+                         m_padded, 
                          lower=1./maxperiod, 
                          upper=1./minperiod,
                          num= 2000)
             px = np.sqrt(px)
             # look at 20 days or at most at the length of dataset
-            p1, t1 = pdm(self.t, self.m, minperiod, maxperiod, 60./86400.)
-            period = p1[np.argmin(t1)]
-            period1 = 1./f[np.argmax(px)]
-            freq = f[np.argmax(px)]
+            pdm_periods, pdm_thetas = pdm(self.t, self.m, minperiod, maxperiod, 0.5/24)
+            period = pdm_periods[np.argmin(pdm_thetas)]
+            psd_period = 1./f[np.argmax(px)]
+            psd_freq = f[np.argmax(px)]
             
             from scipy import interpolate
             
             i = np.argsort(1./f)
             psd_periods = 1./f[i]
             psd_power = px[i]
+            psd_periods = np.insert(psd_periods, 0, 0.0)
+            psd_power = np.insert(psd_power,0 ,0.0)
             psd_int = interpolate.interp1d(psd_periods, psd_power)
-            sum_amp = psd_int(p1)*(1.-t1)   # use interpolation function returned by `interp1d`
-            i = np.argmax(sum_amp)
-            period = p1[i] 
             
-            star['freq'] = freq
-            theta = min(t1)
-            star['period'] = period
+            # use interpolation function returned by `interp1d`
+            sum_amp = psd_int(pdm_periods)*(1.-pdm_thetas)   
+            i = np.argmax(sum_amp)
+            period = pdm_periods[i] 
+            theta = pdm_thetas[i]
+            
+            star['freq'] = psd_freq
+            if abs(star['pman']-star['clean_period'])<star['clean_sigma']:
+                star['period'] = star['clean_period']
+                star['period_err'] = star['clean_sigma']
+            elif abs(star['pman']-period)<np.sqrt(period):
+                star['period'] = period
+                star['period_err'] = np.sqrt(period)
+            else:
+                star['period'] = None
+                star['period_err'] = None 
             star['theta'] = theta
-            star['period_err'] = abs(period-1./freq) 
-
+            
+            period = star['period']
+            period_err = star['period_err']
             tp, yp = phase(self.t, self.m, period)
 
                 
@@ -223,8 +250,11 @@ class M48Analysis(object):
                   min(c[1]*s1+c[2]*c1+c[3]*s2+c[4]*c2)
             star['amp'] = amp
 
-            if amp<3.0*amp_err/np.sqrt(len(self.t)): 
-                star['period'] = -period
+            good = False
+            if amp_err<0.09 and amp>0.01 and amp<0.15 and theta<0.72:
+                good = True
+            else: 
+                good = False
 
             tp1 = np.linspace(0.0, period, 100)
             s1 = np.sin(2*np.pi*tp1/period)
@@ -233,28 +263,25 @@ class M48Analysis(object):
             c2 = np.cos(4*np.pi*tp1/period)
                 
 
-#             comment = 'no data'
-#             star['period'] = None
-#             star['theta'] = None
 
             plt.subplot(411) ##################################################
             plt.title('%s (%d) B-V=%.2f' % (starid, star['tab'], star['bv']))
             self.plot_lightcurve()
             
             plt.subplot(412) ##################################################
-            plt.axvline(x = period1, color='green', alpha=0.5)
+            plt.axvline(x = psd_period, color='green', alpha=0.5)
             plt.axvline(x = period, color='red', alpha=0.5)
-            plt.semilogx(1./f,px, 'k')
+            plt.semilogx(1./f,px*1000, 'k')
             plt.xlim(0.1, 30)
             plt.grid()
 
             plt.subplot(413) ##################################################
-            plt.plot(p1, t1, 'k')
+            plt.plot(pdm_periods, pdm_thetas, 'k')
             from functions import normalize
-            plt.plot(p1, normalize(sum_amp), 'b')
+            plt.plot(pdm_periods, normalize(sum_amp), 'b')
             
             #plt.ylim(theta, 1.0)
-            plt.axvline(x = period1, color='green')
+            plt.axvline(x = psd_period, color='green')
             plt.axvline(x = period, color='red')
             plt.grid()
             
@@ -268,15 +295,17 @@ class M48Analysis(object):
             plt.xlabel('P = %.4f' % period)
             plt.grid()
             #plt.show()
-            comment = '%6.3f %.3f %.4f' % (period, amp, amp_err)
+            comment = 'P=%6.3f+-%.3f a=%.3f+-%.4f %.2f' % \
+            (period, period_err, amp, amp_err, theta)
             if show:
                 plt.show()
-            elif amp>3.0*amp_err/np.sqrt(len(self.t)):
+            elif good:
                 plt.savefig(config.plotpath+'%s(%d).pdf' % (starid,star['tab']))
             plt.close()
                 
             logger.info( comment)
-            print comment
+            if good: print comment,'*'
+            else: print comment
             
     def make_cmd(self, show=False, mark_active=False):
         query = "SELECT vmag, bv FROM m48stars WHERE NOT bv is NULL;"
@@ -397,16 +426,18 @@ class M48Analysis(object):
         from m48stars 
         where good 
         order by tab;"""
-# tab = table number from publication
-# B-V = B-V color
+# tab   = table number from publication
+# B-V   = B-V color
 # B-V_e = error of B-V
-# Vmag = V magnitude
+# Vmag  = V magnitude
 # V_err = error of V magnitude
-# P = period, if negative not confirmed by either FFT or phase
-#     dispersion
-# Pc = period = 1./freq from cleaned spectrum
-# Pc_e = width of freq-peak in cleaned spectrum
-# Pman = period as found manually by Sydney
+# P     = period, if negative not confirmed by either FFT or phase
+#          dispersion
+# P_err = period error
+# Pc    = period = 1./freq from cleaned spectrum
+# Pc_e  = width of freq-peak in cleaned spectrum
+# Pman  = period as found manually by Sydney
+#tab B-V   B-V_e  Vmag   V_err    P     P_err  P_c  Pc_e  Pman 
 
         data = self.wifsip.query(query)
         np.savetxt(config.datapath+'periods.txt', 
@@ -671,7 +702,7 @@ if __name__ == '__main__':
     
     m48 =  M48Analysis(config.datapath)
     if args.clear: m48.clearperiods()
-    m48.getstars(allstars=args.allstars, maglimit=21)
+    m48.getstars(allstars=args.allstars, maglimit=18.5)
     
     if args.cal2:
         from calibrate2 import Calibrate2
