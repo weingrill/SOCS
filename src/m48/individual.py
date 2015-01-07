@@ -68,6 +68,7 @@ class M48Analysis(M48Star):
      
     def plot_psd(self, show=False):
         from psd import ppsd
+        from functions import gauss_fit
         # perform a power spectrum analysis
         t, m = self.t, self.m- np.mean(self.m)
         n = len(t)
@@ -77,10 +78,11 @@ class M48Analysis(M48Star):
         m_padded = np.zeros(4*n)
         m_padded[:n] = m
         
-        px, f = ppsd(t_padded, m_padded, lower=1./30, upper=1./0.1)
+        px, f = ppsd(t_padded, m_padded, lower=1./20, upper=1./0.1)
         px = np.sqrt(px)
         period1 = 1./f[np.argmax(px)]
-        
+        popt = gauss_fit(f, px, amp=max(px), mean=1.0/period1, sigma=0.1)
+        print popt
         t_window = np.linspace(0,4*max(t),4*max(t)*24)
         m_window = np.zeros(len(t_window))
         for tt in t:
@@ -94,9 +96,9 @@ class M48Analysis(M48Star):
         plt.axvline(x = period1, color='green', alpha=0.5)
         #plt.semilogx(1./f,px, 'k')
         plt.plot(1./f,px*1000.0, 'k')
-        plt.plot(1./f_win,p_win*1000.0, 'r')
+        plt.plot(1./f_win[1:],p_win[1:]*1000.0, 'r')
         #plt.plot(t_window,m_window)
-        plt.xlim(0.1, 5)
+        plt.xlim(0.1, 20)
         plt.xlabel('period [days]')
         plt.ylabel('semi-amplitude [mmag]')
         plt.grid()
@@ -109,7 +111,7 @@ class M48Analysis(M48Star):
         from pdm import pdm
         # look at 20 days or at most at the length of dataset
         length = min([max(self.t), 20.0])
-        p1, t1 = pdm(self.t, self.m, 0.1, length, 60./86400.)
+        p1, t1 = pdm(self.t, self.m, 0.1, length, 1.0/24)
         period = p1[np.argmin(t1)]
         theta = min(t1)
         plt.plot(p1, t1, 'k')
@@ -181,7 +183,7 @@ class M48Analysis(M48Star):
 #        plt.close()
 
 if __name__ == '__main__':
-    star = M48Analysis('20140306A-0004-0013#1')
+    star = M48Analysis('20140303A-0074-0013#1952')
     star._load_lightcurve()
     star._init_plot()
     plt.subplot(411)
