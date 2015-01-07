@@ -329,9 +329,6 @@ class M48Analysis(object):
                     and NOT bv IS NULL 
                     ;"""
         data = self.wifsip.query(query)
-        vmag_member = np.array([d[0] for d in data])
-        bv_member = np.array([d[1] for d in data])
-#        plt.scatter(bv_member-self.ebv, vmag_member, facecolor='none', edgecolor='b',  s=30)
         
         if mark_active:
             plt.scatter(bv_good-self.ebv, vmag_good, edgecolor='none', alpha=0.9, s=30, c='r',label='rotators')
