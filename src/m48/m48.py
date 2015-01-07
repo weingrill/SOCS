@@ -136,7 +136,7 @@ class M48Analysis(object):
         from pdm import pdm
         from psd import ppsd
         from matplotlib import rcParams
-        from functions import sigma_clip, phase, gauss_fit
+        from functions import sigma_clip, phase
         print 'Analysis'
 
         fig_width = 18.3/2.54  # width in inches, was 7.48in
