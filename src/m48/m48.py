@@ -437,6 +437,7 @@ class M48Analysis(object):
 #tab B-V   B-V_e  Vmag   V_err    P     P_err  P_c  Pc_e  Pman 
 
         data = self.wifsip.query(query)
+        
         np.savetxt(config.datapath+'periods.txt', 
                    data, 
                    fmt='%4d %.3f %.4f %.3f %.4f %7.3f %.3f %5.2f %.3f %5.2f')
@@ -557,7 +558,7 @@ class M48Analysis(object):
         from astropy.coordinates import SkyCoord
         
         query = """SELECT tab, vmag, bv, period, period_err,  clean_period, 
-            pman, amp, amp_err, member, simbad, notes
+            clean_sigma, amp, amp_err, member, simbad, notes, provisional
             FROM m48stars 
             WHERE good
             ORDER BY vmag ;"""
@@ -575,17 +576,22 @@ class M48Analysis(object):
             #print d
             #i = data.index(d)+1
             tab, vmag, bv, fperiod, period_err,  clean_period, \
-            pman, amp, amp_err,member, simbad, notes = d
-            
-            try:
-                if abs(fperiod-pman)/pman < abs(clean_period-pman)/pman:
-                    period = fperiod
-                else:
-                    period = clean_period
-                if abs(period-pman)>1:
-                    period = pman
-            except TypeError:
-                period = pman
+            clean_sigma, amp, amp_err,member, simbad, notes, provisional = d
+            if not provisional:
+                period = fperiod
+                perror = period_err
+            else:
+                period = clean_period
+                perror = clean_sigma
+#             try:
+#                 if pman>0 and abs(fperiod-pman)/pman < abs(clean_period-pman)/pman:
+#                     period = fperiod
+#                 else:
+#                     period = clean_period
+#                 if pman>0 and abs(period-pman)>1:
+#                     period = pman
+#             except TypeError:
+#                 period = pman
             if type(simbad) is str and simbad.find('Cl* NGC 2548 ')==0:
                 simbad = simbad[13:]
             if str(simbad) == 'None': simbad = ''
@@ -596,7 +602,7 @@ class M48Analysis(object):
              
             try:
                 s =  '%4d & %.3f & %.2f & %.3f & %.3f & %.3f & %.3f & %s & %s \\\\ %% %s\n' % \
-                (tab, vmag, bv, period, period_err, amp, amp_err, memstr, simbad, notes)
+                (tab, vmag, bv, period, perror, amp, amp_err, memstr, simbad, notes)
                 print s,
                 f.write(s)
             except TypeError:
