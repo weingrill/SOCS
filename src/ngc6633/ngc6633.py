@@ -6,10 +6,10 @@ Created on Oct 9, 2014
 @author: jwe
 '''
 
-def calibrate(objname):
+def calibrate(objname, filtercol):
     from calibrate import Calibrate
 
-    calv = Calibrate(obj=objname+' %%', filtercol='V')
+    calv = Calibrate(obj=objname+' %%', filtercol=filtercol)
     calv.resetframes()
     calv.getrefframes()
     for r in calv.ref: print r
@@ -18,16 +18,6 @@ def calibrate(objname):
         print 'reference:', ref
         calv.getframes(ref)
         calv.corrframes(ref)
-        
-    calb = Calibrate(obj=objname+' %%', filtercol='B')
-    calb.resetframes()
-    calb.getrefframes()
-    for r in calb.ref: print r
-     
-    for ref in calb.ref:
-        print 'reference:', ref
-        calb.getframes(ref)
-        calb.corrframes(ref)
         
 if __name__ == '__main__':
     import argparse
@@ -43,7 +33,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    if args.calibrate: calibrate('NGC 6633 BVI')
+    if args.calibrate: calibrate('NGC 6633 BVI', args.filter)
     if args.calibrate2:
         from calibrate2 import Calibrate2
         cal = Calibrate2('NGC 6633 rot NW', filtername=args.filter)
@@ -57,7 +47,7 @@ if __name__ == '__main__':
         
     if args.create or args.clear or args.getframes or args.sigmas or args.bv:
         from photometry import Photometry
-        phot = Photometry(objname='NGC6633 BVR', filtercol=args.filter, dbname='ngc6633')
+        phot = Photometry(objname='NGC 6633 BVI', filtercol=args.filter, dbname='ngc6633')
     if args.create: phot.createtable()
     if args.clear: phot.cleartable()
     if args.getframes: phot.getframes()
