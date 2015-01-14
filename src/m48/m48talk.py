@@ -119,9 +119,7 @@ class M48TalkStar(M48Star):
         c2 = np.cos(4*np.pi*tp/period)
         
         A = np.column_stack((np.ones(tp.size), s1, c1, s2, c2))
-        c, resid,rank,sigma = np.linalg.lstsq(A,yp)
-        #print starid, c, resid, rank, sigma
-
+        c, _,_,_ = np.linalg.lstsq(A,yp)
         
         plt.scatter(tp, yp-np.mean(yp), edgecolor='none', alpha=0.75)
         tp1 = np.linspace(0.0, period, 100)
