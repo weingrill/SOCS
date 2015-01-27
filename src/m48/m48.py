@@ -455,12 +455,6 @@ class M48Analysis(object):
                 else:
                     filename = config.lightcurvespath+'%s.dat' % starid
                     np.savetxt(filename, (a), fmt='%.6f %.3f %.4f')
-                    #f = open('/work2/jwe/m48/lightcurves/%s.dat' % starid, 'wt')
-                    #f.write('#B-V = %.3f\n'% star.bv)
-                    #for i in range(len(t)):
-                    #    f.write('%.6f %.3f %.4f\n' % (t[i],m[i],e[i]))
-                    #    
-                    #f.close()
                     print 'exported'
         
     def load_isochrone(self):
