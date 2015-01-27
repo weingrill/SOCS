@@ -30,12 +30,13 @@ class M48Plots(object):
 
     def getstars(self):
         """
-        build up a list of stars, where we do not have periods yet
+        build up a list of stars, that have been marked sa good
         """
         
         query = """SELECT starid 
         FROM m48stars 
-        WHERE good;"""
+        WHERE good
+        ORDER BY tab;"""
         
         result = self.wifsip.query(query)
         print '... %d stars found' % len(result)
@@ -93,12 +94,12 @@ class M48Plots(object):
         lc = 1
         for starid in self.stars:
             print starid
-            ax = plt.subplot(6,3,sp)
+            ax = plt.subplot(7,4,sp)
             ax.set_yticklabels([])
             ax.set_xticklabels([])
             sp += 1
             self.plot_lightcurve(starid)
-            if sp==6*3+1 or starid==self.stars[-1]:
+            if sp==7*4+1 or starid==self.stars[-1]:
                 plt.tight_layout()
                 if show: plt.show()
                 else: 
@@ -118,16 +119,7 @@ class M48Plots(object):
             return
         t, m, e = sigma_clip(t, m, e)
         m -= np.mean(m)
-        fperiod = star['period']
-        clean_period = star['clean_period']
-        pman = star['pman']
-        if abs(fperiod-pman)/pman < abs(clean_period-pman)/pman:
-            period = fperiod
-        else:
-            period = clean_period
-        if abs(period-pman)>1:
-            period = pman
-        print '%.3f (%.2f)' % (period, pman)
+        period = star['period']
         tp, yp = phase(t, m, period)
         plt.axvline(period, linestyle='-.', color='0.5')
         plt.axhline(0.0, linestyle='--', color='0.5')
@@ -167,13 +159,13 @@ class M48Plots(object):
         sp = 1
         phase=1
         for starid in self.stars:
-            print starid,
-            ax = plt.subplot(6,3,sp)
+            print starid
+            ax = plt.subplot(7,4,sp)
             ax.set_yticklabels([])
             ax.set_xticklabels([])
             sp += 1
             self.phase_plot(starid, ax)
-            if sp==6*3+1 or starid==self.stars[-1]:
+            if sp==7*4+1 or starid==self.stars[-1]:
                 plt.tight_layout()
                 if show: plt.show()
                 else: 
