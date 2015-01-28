@@ -89,7 +89,6 @@ class M48Phot(object):
 
         for record in self.data:
             valline = '\t'.join([nstr(v) for v in record.values()])
-            #valline = valline.replace('nan', '\N')
             print valline
             values += valline + '\n'
 
