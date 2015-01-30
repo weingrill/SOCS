@@ -1,9 +1,13 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
 '''
 Created on Aug 21, 2013
 
-@author: jwe <jweingrill@aip.de>
+@author: Joerg Weingrill <jweingrill@aip.de>
 '''
 import config
+hydrasimpath = '/home/jwe/bin/hydra_simulator/'
+hydrapath = '/home/jwe/bin/hydra_simulator/whydra/'
 
 class IsoChrone(dict):
     def __init__(self, filename = None):
@@ -71,12 +75,17 @@ class WHydra(object):
         target['class'] = 'C'
         self.table.append(target)
         self.targeted = []
-
+        # number of sky fibers
+        self.skies = 6
+        # number of field orientation probes
+        self.fops = 6
+        self.tweakcenter = False
+        self.tweakangle = False
         
     def _get_center(self):
         data = self.wifsip.query("""select avg(ra),avg(dec) from m48stars;""")
         print data[0][0],data[0][1]
-        return (279.632565404658, 5.31001697525473)
+        return (data[0][0],data[0][1])
 
     def priorities(self):
         """updates the priorieties in the m48stars table"""
@@ -85,10 +94,11 @@ class WHydra(object):
         from functions import scaleto
         
         print 'calculate priorities ...'
-        self.wifsip.execute("""update m48stars set priority=NULL;""")
-        self.wifsip.commit()
-        self.wifsip.execute("""update m48stars set priority=1.0 where vmag<16.5;""")
-        self.wifsip.commit()
+        self.wifsip.execute("UPDATE m48stars SET priority=NULL;")
+        self.wifsip.execute("""UPDATE m48stars 
+            SET priority=1.0 
+            WHERE vmag<16.5 
+            AND NOT tab IS NULL;""")
         
         data = self.wifsip.query("""SELECT tab, vmag 
                                FROM m48stars
@@ -101,7 +111,7 @@ class WHydra(object):
             print '%4d: %.3f --> %.3f' % (tab[i], v[i],p1[i])
             self.wifsip.execute("""UPDATE m48stars
                           SET priority = priority * %f
-                          WHERE tab = %d;""" % (p1[i], tab[i]))
+                          WHERE tab = %d;""" % (p1[i], tab[i]), commit=False)
         self.wifsip.commit()   
 
         iso = IsoChrone('/work2/jwe/m48/data/output256520738433.dat')
@@ -114,7 +124,7 @@ class WHydra(object):
         bvint = interp1d(x, y) #, kind='cubic'
         data = self.wifsip.query("""SELECT tab, vmag, bv 
                                FROM m48stars 
-                               WHERE not bv is null AND V<16.5
+                               WHERE not bv is null AND vmag<16.5
                                ORDER BY tab;""")
         tab = [d[0] for d in data]
         v= np.array([d[1] for d in data])
@@ -123,37 +133,45 @@ class WHydra(object):
         i = np.where(p > 0.7)
         p[i] = 0.7
         p = scaleto(p, [1.0, 0.0])
+        from matplotlib import pyplot
+        pyplot.scatter(bv, v, c=p)
+        pyplot.plot(iso['B-V'] + self.ebv,iso['V'] + self.dm)
+        pyplot.xlim(-0.1,1.6)
+        pyplot.ylim(16.5,7.5)
+        pyplot.show()
         for t in tab:
             i = tab.index(t)
             print '%d: V=%.3f B-V=%.3f c=%.3f p=%.3f' % (t,v[i],bv[i],bvint(v[i]),p[i])
             self.wifsip.execute("""UPDATE m48stars
                               SET priority = priority * %f
-                              WHERE tab = %d;""" % (p[i], t))
+                              WHERE tab = %d;""" % (p[i], t), commit=False)
         self.wifsip.commit()   
 
         data = self.wifsip.query("""SELECT tab, ra, dec
                                FROM m48stars
                                WHERE not ra is NULL AND not dec is NULL
+                               AND priority > 0.0
                                ORDER BY TAB;""")
         tab = [d[0] for d in data]
         ra = np.array([d[1] for d in data])
         dec = np.array([d[2] for d in data])
         dist = np.sqrt((ra-self.center[0])**2+(dec-self.center[1])**2)
+        # only rank stars where distance greater than 0.5 degrees
         i = np.where(dist > 0.5)
-        #dist[i] = 0.5
         p = scaleto(dist, [1.0, 0.0])
-        #p[i] = 0.0
         for t in tab:
             i = tab.index(t)
-            print '%d: d=%.3f p=%.3f' % (t,dist[i],p[i])
-            self.wifsip.execute("""UPDATE m48stars
+            try:
+                print '%d: d=%.3f p=%.3f' % (t,dist[i],p[i])
+                self.wifsip.execute("""UPDATE m48stars
                               SET priority = priority * %f
-                              WHERE tab = %d;""" % (p[i], t))
+                              WHERE tab = %d;""" % (p[i], t), commit=False)
+            except TypeError:
+                print t
         self.wifsip.commit()   
-        self.wifsip.close()
 
     def setpointing(self, pointing):
-        """set pointings according to hydrasim output!"""
+        """set pointings according to hydrasim output"""
          
         targets = ",".join([str(t) for t in self.targeted])
         print targets
@@ -161,79 +179,98 @@ class WHydra(object):
                    SET pointing=%d
                    WHERE tab in (%s)""" % (pointing,targets)
         self.wifsip.execute(query)
-        self.wifsip.close()
-        
     
     def from_database(self):
-        
-        # warum pointing NOT NULL?
-        data = self.wifsip.query("""SELECT target, twomass, ra, dec
-                               FROM wiyn2 
-                               WHERE twomass IS NOT NULL
+        """
+        load targets from database
+        """
+        data = self.wifsip.query("""SELECT tab, starid, ra, dec
+                               FROM m48stars 
+                               WHERE priority > 0.0
                                ORDER BY priority DESC;""")
         for d in data:
             target = {}
-            target['id'] = int(d[0])
-            target['name'] = str(d[1])
+            target['id'] = data.index(d)
+            target['name'] = 'Star%04d' % int(d[0])
             target['ra'] = float(d[2])
             target['dec'] = float(d[3])
             target['class'] = 'O'
             self.table.append(target)
-
-        fops = self.wifsip.query("""SELECT twomass,raj2000,dej2000 
-                               FROM twomass 
-                               WHERE twomass NOT IN 
-                               (SELECT twomass 
-                                FROM wiyn2 
-                                WHERE twomass IS NOT NULL) 
-                                AND circle'((%f, %f),0.5)' @> point(raj2000,dej2000) 
-                                AND jmag>9.0 AND jmag<11.0
-                               ORDER BY jmag 
-                               LIMIT 2000;""" % self.center)
+        """
+        hydrawiynmanual.pdf p.41:
+        The stars selected for use by the FOPs should fall in the magnitude 
+        range 10<V<14. If possible, keep the range in magnitude of your FOPs 
+        sample in each field to 3 magnitudes or less so that the intensity of 
+        each star falls within the dynamic range of the FOPs TV camera. 
+        Including the FOPs star magnitudes in the configuration file may
+        also be useful later when setting up the field at the telescope.
+        """
+        #TODO: import at most 2000 twomass coordinates
+        fops = self.wifsip.query("""SELECT tab, ra, dec,vmag 
+                               FROM m48stars 
+                               WHERE vmag>10 AND vmag<13
+                               AND (priority < 0.3 OR priority IS NULL)
+                               AND tab is NOT NULL
+                               ORDER BY vmag 
+                               LIMIT 2000;""")
+        print len(fops),'FOPs stars'
         for f in fops:
             target = {}
-            target['id'] = 6001 + fops.index(f)
-            target['name'] = str(f[0])
+            target['id'] = 6001 + int(f[0])
+            target['name'] = 'FOP%dm%.2f' % (int(f[0]),float(f[3]))
             target['ra'] = float(f[1])
             target['dec'] = float(f[2])
             target['class'] = 'F'
             self.table.append(target)
 
         #extra targets
-        extra = self.wifsip.query("""SELECT target, twomass, ra, dec
-                               FROM wiyn2 
-                               WHERE pointing IS NULL
-                               AND observed
-                               AND circle'((%f, %f),0.5)' @> point(ra,dec) 
-                               ORDER BY priority DESC;""" % self.center)
+        extra = self.wifsip.query("""SELECT starid, ra, dec
+                               FROM m48phot 
+                               WHERE vmag<6.5*bv+10.4 and vmag>5*bv+10
+                               ORDER BY vmag;""")
+        print len(extra),'extra stars'
         for d in extra:
             target = {}
-            target['id'] = int(d[0])
-            target['name'] = str(d[1])
-            target['ra'] = float(d[2])
-            target['dec'] = float(d[3])
+            target['id'] = 7000+extra.index(d)
+            target['name'] = str(d[0])
+            target['ra'] = float(d[1])
+            target['dec'] = float(d[2])
             target['class'] = 'E'
             self.table.append(target)
-
-        self.wifsip.close()
     
-    def skyfile(self, filename='/work1/jwe/Dropbox/IC4756/data/IC4756sky.coords'):
-        import astronomy as ast
+    def skyfile(self, filename='/work2/jwe/m48/data/sky_positions.txt'):
+        """
+        load the sky positions
+        """
+        from astropy import units as u
+        from astropy.coordinates import SkyCoord
         f = open(filename,'r')
         lines = f.readlines()
         f.close()
+        print len(lines),'sky positions'
+        
         for l in lines:
-            target = {}
-            target['id'] = 9000 + lines.index(l)
-            target['name'] = 'Sky'+str(target['id'])
-            target['ra'] = ast.hms2dd(l[0:12])
-            target['dec'] = ast.dms2dd(l[12:24])
-            target['class'] = 'S'
-            self.table.append(target)
+            try:
+                c = SkyCoord(l, 'icrs', unit=(u.hourangle, u.deg))  # @UndefinedVariable
+            except ValueError:
+                print 'empty line'
+            else:
+                target = {}
+                target['id'] = 9000 + lines.index(l)
+                target['name'] = 'Sky'+str(target['id'])
+                target['ra'] = c.ra.degree
+                target['dec'] = c.dec.degree
+                target['class'] = 'S'
+                self.table.append(target)
     
     
-    def tofile(self, filename= '/home/jwe/bin/hydra_simulator/whydra/IC4756field1.ast'):
+    def tofile(self, filename = None, verbose=False):
+        """
+        writes the .ast file that finally goes into whydra for processing
+        """
         import astronomy as ast
+        if filename is None:
+            filename = hydrapath+self.field_name+'.ast'
         f = open(filename,'w')
         f.write('FIELD NAME: %s\n' % self.field_name)
         f.write('INPUT EPOCH: %.2f\n' % self.input_epoch)
@@ -251,12 +288,16 @@ class WHydra(object):
             dec = ast.dd2dms(t['dec'])
             s = '%04d %-20s %02d %02d %06.3f %+02.2d %02d %05.2f %1s\n' % \
                 (t['id'],t['name'],ra[0],ra[1],ra[2], dec[0], dec[1], dec[2], t['class'])
+            if verbose: print s.rstrip('\n')
             f.write(s)
         f.close()
         #s = 'pointing\tR.A.\tDec\tmag\tcomment'
 
-    def fromfile(self, filename= '/home/jwe/bin/hydra_simulator/whydra/IC4756field1.hydra'):
+    def fromfile(self, filename = None):
         import astronomy as ast
+        if filename is None:
+            filename = hydrapath+self.field_name+'.hydra'
+        
         f = open(filename,'r')
         lines = f.readlines()
         f.close()
@@ -330,35 +371,77 @@ class WHydra(object):
         plt.savefig(filename, format='pdf', dpi=300)
         plt.close()
     
-    def dohydra(self, pointing):
+    def dohydra(self):
+        """
+        write the commands file and
+        execute the shell script
+        """
         import subprocess
-        subprocess.call(['/home/jwe/bin/hydra_simulator/dowhydra.sh',str(pointing)])     
         
-"""
-0000000000111111111122222222223333333333444444444455555555556666666666
-0123456789012345678901234567890123456789012345678901234567890123456789    
-9003 Sky9003              18 38 23.480 +05 31 55.20 S  STATUS=   8        
-"""
+        f = open('/home/jwe/bin/hydra_simulator/cmds.%s' % self.field_name,'wt')
+        f.write('%s.ast\n' % self.field_name)
+        f.write('%s\n' % self.field_name)
+        f.write('%d\n' % self.fops)
+        f.write('%d\n' % self.skies)
+        if self.tweakangle:
+            f.write('y\n')
+        else:
+            f.write('n\n')
+        if self.tweakcenter:
+            f.write('y\n')
+        else:
+            f.write('n\n')
+        f.close()
+        
+        subprocess.call(['/home/jwe/bin/hydra_simulator/dowhydra.sh',self.field_name])  
+        
+    def getconcentricities(self):
+        """
+        fetches the current concentricities file from the WIYN web page
+        """
+        import urllib2
+        response = urllib2.urlopen('http://www.wiyn.org/concentricities')
+        html = response.read()
+        f = open(hydrapath+'concentricities','wt')
+        f.write(html)
+        f.close()
+        
 if __name__ == '__main__':
+    import argparse
+    parser = argparse.ArgumentParser(description='M48 WHydra preparation')
+    parser.add_argument('-p', '--priorities', action='store_true', 
+                        help='calculate priorities')
+    parser.add_argument('-c', '--concentricities', action='store_true', 
+                        help='get concentricities file')
+    parser.add_argument('-d', '--database', action='store_true', 
+                        help='import from database')
+    parser.add_argument('-s', '--skyfile', action='store_true', 
+                        help='import skies from file')
+    parser.add_argument('-t', '--tofile', action='store_true', 
+                        help='write ast file')
+    parser.add_argument('--dohydra', action='store_true', 
+                        help='import from database')
+    parser.add_argument('--plot', action='store_true', 
+                        help='make the plot')
+    parser.add_argument('--run', action='store_true', 
+                        help='calculate the whole run')
+
     wh1 = WHydra('M48field1')
-    wh1.priorities() 
-    exit()
-    wh1.from_database()
-    wh1.skyfile()
-    wh1.tofile()
-    
-    wh1.dohydra(1)
-#     wh1.make_plot('/home/jwe/Downloads/IC4756field.pdf')
-# 
-    
-# 
-    path = '/home/jwe/bin/hydra_simulator/whydra/'
-    for i in range(2,10):
-        wh = WHydra('M48field%d' % i)
-        wh.fromfile(path+'M48field%d.hydra' % (i-1))
-        wh.setpointing(i-1)
-        
-        wh.tofile(path+'M48field%d.ast' % i)
-        wh.dohydra(i)     
-        del wh
-  
+    args = parser.parse_args()
+    if args.priorities: wh1.priorities() 
+    if args.concentricities: wh1.getconcentricities()
+    if args.database: wh1.from_database()
+    if args.skyfile: wh1.skyfile()
+    if args.tofile: wh1.tofile()
+    if args.dohydra: wh1.dohydra()
+    if args.plot: wh1.make_plot('/home/jwe/Downloads/M48field1.pdf')
+    if args.run:
+        for i in range(2,10):
+            wh = WHydra('M48field%d' % i)
+            wh.fromfile(hydrapath+'M48field%d.hydra' % (i-1))
+            wh.setpointing(i-1)
+            
+            wh.tofile(hydrapath+'M48field%d.ast' % i)
+            wh.dohydra('M48field%d' % i)     
+            del wh
+      
