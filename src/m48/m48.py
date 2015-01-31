@@ -3,7 +3,7 @@
 '''
 Created on May 8, 2013
 
-@author: jwe <jweingrill@aip.de>
+@author: Joerg Weingrill <jweingrill@aip.de>
 
 Data reduction Class for M48 observation
 '''
