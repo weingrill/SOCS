@@ -188,7 +188,8 @@ class WHydra(object):
     
     def from_database(self, maglimit=16.5):
         """
-        load targets from database
+        load targets from database that have not priority set yet and are
+        within the maglimit
         """
         data = self.wifsip.query("""SELECT tab, starid, ra, dec, vmag
                                FROM m48stars 
@@ -235,7 +236,8 @@ class WHydra(object):
         extra = self.wifsip.query("""SELECT starid, ra, dec
                                FROM m48phot 
                                WHERE vmag<6.5*bv+10.4 and vmag>5*bv+10
-                               ORDER BY vmag;""")
+                               AND vmag<%f
+                               ORDER BY vmag;""" % maglimit)
         print len(extra),'extra stars'
         for d in extra:
             target = {}
@@ -442,29 +444,35 @@ if __name__ == '__main__':
 
     parser.add_argument('--bright', action='store_true', 
                         help='make bright pointing')
+    parser.add_argument('-v', '--verbose', action='store_true', 
+                        help='verbose output')
 
-    wh1 = WHydra('M48field0')
+    wh0 = WHydra('M48field0')
     args = parser.parse_args()
-    if args.priorities: wh1.priorities() 
-    if args.concentricities: wh1.getconcentricities()
+    if args.priorities: wh0.priorities() 
+    if args.concentricities: wh0.getconcentricities()
     if args.bright:
-        wh1.from_database(maglimit=12.0)
+        wh0.from_database(maglimit=12.0)
+        wh0.skyfile()
+        wh0.tofile()
+        wh0.dohydra()
+        wh0.fromfile()
+        wh0.setpointing(0)
+    if args.run:
+        wh1 = WHydra('M48field1')
+        wh1.from_database()
         wh1.skyfile()
         wh1.tofile()
         wh1.dohydra()
-    if args.plot: wh1.make_plot('/home/jwe/Downloads/M48field1.pdf')
-    if args.run:
-        wh = WHydra('M48field1')
-        wh.from_database()
-        wh.skyfile()
-        wh.tofile()
-        wh.dohydra()
+        del wh1
         for i in range(2,10):
             wh = WHydra('M48field%d' % i)
             wh.fromfile(hydrapath+'M48field%d.hydra' % (i-1))
             wh.setpointing(i-1)
             
-            wh.tofile(hydrapath+'M48field%d.ast' % i)
-            wh.dohydra('M48field%d' % i)     
+            wh.tofile()
+            wh.dohydra()     
             del wh
+
+    if args.plot: wh0.make_plot('/home/jwe/Downloads/M48field.pdf')
       
