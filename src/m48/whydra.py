@@ -84,12 +84,10 @@ class WHydra(object):
         
     def _get_center(self):
         data = self.wifsip.query("""select avg(ra),avg(dec) from m48stars;""")
-        print data[0][0],data[0][1]
         return (data[0][0],data[0][1])
 
-    def priorities(self):
+    def priorities(self, verbose = False):
         """updates the priorieties in the m48stars table"""
-        from scipy.interpolate import interp1d
         import numpy as np
         from functions import scaleto
         
@@ -106,22 +104,26 @@ class WHydra(object):
                                ORDER BY tab;""")
         tab = [d[0] for d in data]
         v = np.array([d[1] for d in data])
-        p1 = scaleto(v,[1.0, 0.5])
+        p1 = scaleto(v,[1.0, 0.8])
+        print len(tab),'stars brighter V<16.5'
         for i in range(len(tab)):
-            print '%4d: %.3f --> %.3f' % (tab[i], v[i],p1[i])
+            if verbose: print '%4d: %.3f --> %.3f' % (tab[i], v[i],p1[i])
             self.wifsip.execute("""UPDATE m48stars
                           SET priority = priority * %f
                           WHERE tab = %d;""" % (p1[i], tab[i]), commit=False)
         self.wifsip.commit()   
 
+        lengood = self.wifsip.query("select count(starid) from m48stars where good;")
+        print lengood[0],'stars with periods'
+        
+        self.wifsip.execute("""UPDATE m48stars
+                          SET priority = priority * 0.5
+                          WHERE NOT good;""")
+        self.wifsip.commit()   
+
         iso = IsoChrone('/work2/jwe/m48/data/output256520738433.dat')
         x = iso['V'] + self.dm
         y = iso['B-V'] + self.ebv
-        i = np.argsort(x)
-        print min(x),max(x)
-        x = x[i]
-        y = y[i]
-        bvint = interp1d(x, y) #, kind='cubic'
         data = self.wifsip.query("""SELECT tab, vmag, bv 
                                FROM m48stars 
                                WHERE not bv is null AND vmag<16.5
@@ -129,19 +131,18 @@ class WHydra(object):
         tab = [d[0] for d in data]
         v= np.array([d[1] for d in data])
         bv = np.array([d[2] for d in data])
-        p = abs(bv - bvint(v))
-        i = np.where(p > 0.7)
-        p[i] = 0.7
+        p = np.zeros(len(tab))
+        print len(tab),'stars for isochrone priority'
+        
+        for i in range(len(tab)):
+            p[i] = np.min(abs(x-v[i])+abs(y-bv[i]))
+            
+        p[p > 0.4] = 0.4
         p = scaleto(p, [1.0, 0.0])
-        from matplotlib import pyplot
-        pyplot.scatter(bv, v, c=p)
-        pyplot.plot(iso['B-V'] + self.ebv,iso['V'] + self.dm)
-        pyplot.xlim(-0.1,1.6)
-        pyplot.ylim(16.5,7.5)
-        pyplot.show()
         for t in tab:
             i = tab.index(t)
-            print '%d: V=%.3f B-V=%.3f c=%.3f p=%.3f' % (t,v[i],bv[i],bvint(v[i]),p[i])
+            if verbose: 
+                print '%d: V=%.3f B-V=%.3f p=%.3f' % (t, v[i], bv[i], p[i])
             self.wifsip.execute("""UPDATE m48stars
                               SET priority = priority * %f
                               WHERE tab = %d;""" % (p[i], t), commit=False)
@@ -153,6 +154,7 @@ class WHydra(object):
                                AND priority > 0.0
                                ORDER BY TAB;""")
         tab = [d[0] for d in data]
+        print len(tab),'stars for distance priority'
         ra = np.array([d[1] for d in data])
         dec = np.array([d[2] for d in data])
         dist = np.sqrt((ra-self.center[0])**2+(dec-self.center[1])**2)
@@ -162,17 +164,21 @@ class WHydra(object):
         for t in tab:
             i = tab.index(t)
             try:
-                print '%d: d=%.3f p=%.3f' % (t,dist[i],p[i])
+                if verbose:
+                    print '%d: d=%.3f p=%.3f' % (t,dist[i],p[i])
                 self.wifsip.execute("""UPDATE m48stars
                               SET priority = priority * %f
                               WHERE tab = %d;""" % (p[i], t), commit=False)
             except TypeError:
                 print t
-        self.wifsip.commit()   
+        self.wifsip.commit() 
+        
+        
+          
 
     def setpointing(self, pointing):
         """set pointings according to hydrasim output"""
-         
+        #TODO: to be redone! 
         targets = ",".join([str(t) for t in self.targeted])
         print targets
         query = """UPDATE m48stars 
@@ -180,18 +186,20 @@ class WHydra(object):
                    WHERE tab in (%s)""" % (pointing,targets)
         self.wifsip.execute(query)
     
-    def from_database(self):
+    def from_database(self, maglimit=16.5):
         """
         load targets from database
         """
-        data = self.wifsip.query("""SELECT tab, starid, ra, dec
+        data = self.wifsip.query("""SELECT tab, starid, ra, dec, vmag
                                FROM m48stars 
                                WHERE priority > 0.0
-                               ORDER BY priority DESC;""")
+                               AND vmag<%f
+                               AND pointing IS NULL
+                               ORDER BY priority DESC;""" % maglimit)
         for d in data:
             target = {}
-            target['id'] = data.index(d)
-            target['name'] = 'Star%04d' % int(d[0])
+            target['id'] = int(d[0])
+            target['name'] = 'Star%04dm%.2f' % (int(d[0]),float(d[4]))
             target['ra'] = float(d[2])
             target['dec'] = float(d[3])
             target['class'] = 'O'
@@ -368,9 +376,23 @@ class WHydra(object):
         plt.ylabel('Dec')
         plt.grid()
         #plt.show()
-        plt.savefig(filename, format='pdf', dpi=300)
+        plt.savefig(filename, dpi=300)
         plt.close()
-    
+
+        #data = self.wifsip.query("""SELECT vmag, bv, priority 
+        #                       FROM m48stars 
+        #                       WHERE priority>0.1;""")
+        #v= np.array([d[0] for d in data])
+        #bv = np.array([d[1] for d in data])
+        #p = [d[2] for d in data]
+        #from matplotlib import pyplot
+        #pyplot.scatter(bv, v, c=p)
+        #pyplot.xlim(-0.1,1.6)
+        #pyplot.ylim(16.5,7.5)
+        #pyplot.show()    
+        #plt.savefig(filename, dpi=300)
+        #plt.close()
+
     def dohydra(self):
         """
         write the commands file and
@@ -413,29 +435,30 @@ if __name__ == '__main__':
                         help='calculate priorities')
     parser.add_argument('-c', '--concentricities', action='store_true', 
                         help='get concentricities file')
-    parser.add_argument('-d', '--database', action='store_true', 
-                        help='import from database')
-    parser.add_argument('-s', '--skyfile', action='store_true', 
-                        help='import skies from file')
-    parser.add_argument('-t', '--tofile', action='store_true', 
-                        help='write ast file')
-    parser.add_argument('--dohydra', action='store_true', 
-                        help='import from database')
     parser.add_argument('--plot', action='store_true', 
                         help='make the plot')
     parser.add_argument('--run', action='store_true', 
                         help='calculate the whole run')
 
-    wh1 = WHydra('M48field1')
+    parser.add_argument('--bright', action='store_true', 
+                        help='make bright pointing')
+
+    wh1 = WHydra('M48field0')
     args = parser.parse_args()
     if args.priorities: wh1.priorities() 
     if args.concentricities: wh1.getconcentricities()
-    if args.database: wh1.from_database()
-    if args.skyfile: wh1.skyfile()
-    if args.tofile: wh1.tofile()
-    if args.dohydra: wh1.dohydra()
+    if args.bright:
+        wh1.from_database(maglimit=12.0)
+        wh1.skyfile()
+        wh1.tofile()
+        wh1.dohydra()
     if args.plot: wh1.make_plot('/home/jwe/Downloads/M48field1.pdf')
     if args.run:
+        wh = WHydra('M48field1')
+        wh.from_database()
+        wh.skyfile()
+        wh.tofile()
+        wh.dohydra()
         for i in range(2,10):
             wh = WHydra('M48field%d' % i)
             wh.fromfile(hydrapath+'M48field%d.hydra' % (i-1))
