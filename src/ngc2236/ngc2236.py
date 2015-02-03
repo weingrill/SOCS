@@ -17,7 +17,7 @@ class Ngc2236(object):
 def calibrate(objname, filtercol):
     from calibrate import Calibrate
 
-    calv = Calibrate(obj=objname+' %%', filtercol=filtercol)
+    calv = Calibrate(obj=objname, filtercol=filtercol)
     calv.resetframes()
     calv.getrefframes()
     for r in calv.ref: print r
@@ -47,6 +47,6 @@ if __name__ == '__main__':
         phot = Photometry(objname='NGC 2236 BVI', filtercol=args.filter, dbname='ngc2236')
     if args.create: phot.createtable()
     if args.clear: phot.cleartable()
-    if args.getframes: phot.getframes()
+    if args.getframes: phot.getframes(fields=[''])
     if args.sigmas: phot.update_sigmas()
     if args.bv: phot.update_bv()
