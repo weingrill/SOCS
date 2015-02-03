@@ -105,9 +105,12 @@ class Photometry(object):
         self.wifsip.execute(query)
         print "table '%s' cleared" % self.dbname
         
-    def getframes(self):
-        for field in ['C','NW','NE','SW','SE']:
-            objname = self.objname+' '+field
+    def getframes(self, fields = ['C','NW','NE','SW','SE']):
+        for field in fields:
+            if len(field)>0:
+                objname = self.objname+' '+field
+            else:
+                objname = self.objname
             query = """SELECT object, objid, abs(corr)
              FROM frames
              WHERE object LIKE '%s'
