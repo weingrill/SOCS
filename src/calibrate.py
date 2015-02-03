@@ -45,6 +45,7 @@ class Calibrate(object):
         logging.basicConfig(filename=config.projectpath+'calibration.log', 
                             format='%(asctime)s %(levelname)s %(message)s',
                             level=logging.INFO)
+        logging.info('Object: %s',self.obj)
         logging.info('Setting filtercolor=%s',self.filtercol)
     
     def getframes(self, refframe):
