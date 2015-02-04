@@ -1,3 +1,38 @@
+CREATE TABLE m48stars (
+    starid character varying(25) NOT NULL,
+    bv real,
+    vmag real DEFAULT 0,
+    vmag_err real,
+    bmag real DEFAULT 0,
+    bmag_err real,
+    period real,
+    period_err real,
+    theta real,
+    amp real,
+    amp_err real,
+    nv integer DEFAULT 0,
+    nb integer DEFAULT 0,
+    ra double precision,
+    "dec" double precision,
+    coord point,
+    simbad character varying(25),
+    good boolean,
+    freq real,
+    s1 real,
+    c1 real,
+    s2 real,
+    c2 real,
+    member boolean,
+    clean_period real,
+    clean_amp real,
+    clean_sigma real,
+    pman real,
+    quality character varying(5),
+    notes character varying(32),
+    tab integer
+);
+
+
 select object, filter, expt
 from frames
 where object like 'M 48 BVI %'
