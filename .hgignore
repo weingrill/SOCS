@@ -7,3 +7,5 @@ syntax: glob
 
 syntax: regexp
 ^src/m48/config\.py$
+syntax: regexp
+^src/ngc2236/config\.py$
