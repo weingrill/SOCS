@@ -11,7 +11,6 @@ class TwoMass(dict):
     Class to inference the TwoMass table in the corot database on pina
     '''
 
-
     def __init__(self, param):
         '''
         Constructor:
@@ -47,14 +46,13 @@ class TwoMass(dict):
         """query the table by coordinate"""
         query = """SELECT * 
         FROM twomass 
-        WHERE point(%f,%f) <@ circle(coord,0.0006) LIMIT 1;""" % coord 
+        WHERE circle(coord,0.0006) @> point(%f,%f) LIMIT 1;""" % coord 
         result = self.corot.query(query)
         return result
         
-         
-    
-tm = TwoMass('18363826+0601086')
-print tm['coord']
-tm = TwoMass((279.159443,6.01901))
-print tm['twomass']
-print tm.values()
+if __name__ == '__main__':
+    tm = TwoMass('18363826+0601086')
+    print tm['coord']
+    tm = TwoMass((279.159443,6.01901))
+    print tm['twomass']
+    print tm.values()
