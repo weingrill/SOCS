@@ -22,13 +22,21 @@ class TwoMass(dict):
         
         self.corot = DataSource(database='corot', user='sro', host='pina.aip.de')
         if type(param) is str:
-            values = self._byname(param)[0] 
+            try:
+                values = self._byname(param)[0] 
+            except IndexError:
+                values = [None,None,None,None,None,None,None,None,None,None]
+                
         if type(param) is tuple:
-            values = self._bycoord(param)[0]
+            try:
+                values = self._bycoord(param)[0]
+            except IndexError:
+                values = [None,None,None,None,None,None,None,None,None,None]
+                
         keys = ['twomass', 'raj2000', 'dej2000', 'jmag', 'e_jmag' ,'hmag' , 
                 'e_hmag', 'kmag' , 'e_kmag', 'coord'] 
         for key, value in zip(keys,values):
-            if key=='coord': # we want to return a tuple
+            if key=='coord' and not value is None: # we want to return a tuple
                 vals = value.strip('()').split(',')
                 self[key] = (float(vals[0]),float(vals[1])) 
             else:
@@ -53,6 +61,6 @@ class TwoMass(dict):
 if __name__ == '__main__':
     tm = TwoMass('18363826+0601086')
     print tm['coord']
-    tm = TwoMass((279.159443,6.01901))
+    tm = TwoMass((210.159443,6.01901)) #) (97.487622, 6.888813)
     print tm['twomass']
     print tm.values()
