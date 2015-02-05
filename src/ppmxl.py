@@ -22,9 +22,17 @@ class Ppmxl(dict):
         
         self.corot = DataSource(database='wifsip', user='sro', host='pina.aip.de')
         if type(param) is str:
-            values = self._byname(param)[0] 
+            try:
+                values = self._byname(param)[0] 
+            except IndexError:
+                values = [None,None,None,None,None,None,None,None,None,None]
+                
         if type(param) is tuple:
-            values = self._bycoord(param)[0]
+            try:
+                values = self._bycoord(param)[0]
+            except IndexError:
+                values = [None,None,None,None,None,None,None,None,None,None]
+
         keys = ['id', 'ra', 'dec', 'pmra', 'pmde', 'jmag', 'hmag', 'kmag', 
                 'b1mag', 'b2mag', 'r1mag', 'r2mag', 'imag', 'smags', 'no', 
                 'fl', 'coord'] 
@@ -47,13 +55,13 @@ class Ppmxl(dict):
         """query the table by coordinate"""
         query = """SELECT * 
         FROM ppmxl 
-        WHERE circle(coord,0.0006) @> point(%f,%f) LIMIT 1;""" % coord 
+        WHERE circle(coord,0.0006) @> circle(point(%f,%f),0) LIMIT 1;""" % coord 
         result = self.corot.query(query)
         return result
         
 if __name__ == '__main__':
     tm = Ppmxl('PPMXL5492093740337166978')
     print tm['coord']
-    tm = Ppmxl((279.14045,6.086588))
+    tm = Ppmxl((283.961511,6.064574))
     print tm['id']
     print tm.values()        
