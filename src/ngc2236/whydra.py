@@ -5,7 +5,7 @@ Created on Aug 21, 2013
 
 @author: Joerg Weingrill <jweingrill@aip.de>
 '''
-import config
+import config  # @UnresolvedImport
 hydrasimpath = '/home/jwe/bin/hydra_simulator/'
 hydrapath = '/home/jwe/bin/hydra_simulator/whydra/'
 
@@ -22,7 +22,7 @@ class WHydra(object):
     classdocs
     '''
 
-    def __init__(self, field_name = 'M48field'):
+    def __init__(self, field_name = 'NGC2236field'):
         '''
         Constructor
         '''
@@ -31,9 +31,11 @@ class WHydra(object):
         import pytz
         import astronomy as ast
         from datasource import DataSource
-
+        from cluster import Cluster
+        
         self.field_name = field_name
         self.wifsip = DataSource(database='wifsip', user='sro', host='pina.aip.de') 
+        self.corot = DataSource(database='corot', user='sro', host='pina.aip.de') 
         
         kpno = ephem.Observer()
         #31.958036,-111.600578
@@ -62,8 +64,10 @@ class WHydra(object):
         self.guidewave = 6000
         
         self.center = self._get_center()
-        self.ebv = 0.031 # from Webda
-        self.dm = 9.53 # from Webda
+        
+        c = Cluster('NGC 2236')
+        self.ebv = 0.28 #c['ebv']
+        self.dm = ast.distance_modulus(c['d'])
 
         target = {}
         self.table = []
@@ -81,6 +85,10 @@ class WHydra(object):
         self.tweakcenter = False
         self.tweakangle = False
         
+        print 'center', self.center
+        print 'E(B-V)', self.ebv
+        print 'DM', self.dm
+        
     def _get_center(self):
         data = self.wifsip.query("""select avg(ra),avg(dec) from ngc2236;""")
         return (data[0][0],data[0][1])
@@ -90,20 +98,56 @@ class WHydra(object):
         import numpy as np
         from functions import scaleto
         
+        def makeplot(bv, v, p, filename=None, isobv=None, isov=None):
+            """plot the priorities"""
+            from matplotlib import pyplot
+            pyplot.scatter(bv, v, c=p, edgecolor='none', alpha=0.75)
+            if not isobv is None:
+                pyplot.plot(isobv, isov, 'k')
+            pyplot.xlim(-0.2,1.6)
+            pyplot.ylim(16.5,7.5)
+            pyplot.title('NGC 2236')
+            pyplot.xlabel('B - V')
+            pyplot.ylabel('V mag')
+            
+            if filename is None: 
+                pyplot.show()    
+            else:
+                pyplot.savefig(filename, dpi=300)
+            pyplot.close()
+
+        def plotradec(ra, dec, p, filename=None):
+            """plot the priorities"""
+            from matplotlib import pyplot
+            pyplot.scatter(ra, dec, c=p, edgecolor='none', alpha=0.75)
+            pyplot.title('NGC 2236')
+            pyplot.xlabel('R.A.')
+            pyplot.ylabel('Dec')
+            
+            if filename is None: 
+                pyplot.show()    
+            else:
+                pyplot.savefig(filename, dpi=300)
+            pyplot.close()
+
+            
         print 'calculate priorities ...'
-        self.wifsip.execute("UPDATE ngc2236 SET priority=NULL;")
+        self.wifsip.execute("UPDATE ngc2236 SET priority=NULL, pointing=NULL;")
         self.wifsip.execute("""UPDATE ngc2236 
             SET priority=1.0 
             WHERE vmag<16.5 
             AND NOT tab IS NULL;""")
         
-        data = self.wifsip.query("""SELECT tab, vmag 
+        data = self.wifsip.query("""SELECT tab, vmag, bv 
                                FROM ngc2236
                                WHERE not bv is null AND vmag<16.5
                                ORDER BY tab;""")
         tab = [d[0] for d in data]
         v = np.array([d[1] for d in data])
+        bv = np.array([d[2] for d in data])
         p1 = scaleto(v,[1.0, 0.8])
+        makeplot(bv, v, p1, filename=config.plotpath+'vmag_priorities.pdf')
+        
         print len(tab),'stars brighter V<16.5'
         for i in range(len(tab)):
             if verbose: print '%4d: %.3f --> %.3f' % (tab[i], v[i],p1[i])
@@ -112,24 +156,29 @@ class WHydra(object):
                           WHERE tab = %d;""" % (p1[i], tab[i]), commit=False)
         self.wifsip.commit()   
 
-        lengood = self.wifsip.query("select count(starid) from m48stars where good;")
-        print lengood[0],'stars with periods'
+        lengood = self.wifsip.query("select count(starid) from ngc2236 where good;")
+        print lengood[0][0],'stars with periods'
         
         self.wifsip.execute("""UPDATE ngc2236
-                          SET priority = priority * 0.5
+                          SET priority = priority * 0.8
                           WHERE NOT good;""")
+        self.wifsip.commit()   
+
+        self.wifsip.execute("""UPDATE ngc2236
+                          SET priority = priority * 0.8
+                          WHERE period IS NULL;""")
         self.wifsip.commit()   
 
         iso = IsoChrone('/work2/jwe/NGC2236/data/output885516794937.dat')
         x = iso['V'] + self.dm
-        y = iso['B-V'] + self.ebv
+        y = iso['B-V'] 
         data = self.wifsip.query("""SELECT tab, vmag, bv 
                                FROM ngc2236 
                                WHERE not bv is null AND vmag<16.5
                                ORDER BY tab;""")
         tab = [d[0] for d in data]
         v= np.array([d[1] for d in data])
-        bv = np.array([d[2] for d in data])
+        bv = np.array([d[2] for d in data])+ self.ebv
         p = np.zeros(len(tab))
         print len(tab),'stars for isochrone priority'
         
@@ -137,7 +186,8 @@ class WHydra(object):
             p[i] = np.min(abs(x-v[i])+abs(y-bv[i]))
             
         p[p > 0.4] = 0.4
-        p = scaleto(p, [1.0, 0.0])
+        p = scaleto(p, [1.0, 0.1])
+        makeplot(bv, v, p, filename=config.plotpath+'iso_priorities.pdf', isobv=y, isov=x)
         for t in tab:
             i = tab.index(t)
             if verbose: 
@@ -146,7 +196,7 @@ class WHydra(object):
                               SET priority = priority * %f
                               WHERE tab = %d;""" % (p[i], t), commit=False)
         self.wifsip.commit()   
-
+        
         data = self.wifsip.query("""SELECT tab, ra, dec
                                FROM ngc2236
                                WHERE not ra is NULL AND not dec is NULL
@@ -157,9 +207,10 @@ class WHydra(object):
         ra = np.array([d[1] for d in data])
         dec = np.array([d[2] for d in data])
         dist = np.sqrt((ra-self.center[0])**2+(dec-self.center[1])**2)
-        # only rank stars where distance greater than 0.5 degrees
-        i = np.where(dist > 0.5)
-        p = scaleto(dist, [1.0, 0.0])
+        from functions import gauss
+        p = gauss(dist, 1.0, 0.0, 7.0/60.)
+        #p = scaleto(dist, [1.0, 0.0])
+        plotradec(ra, dec, p, filename=config.plotpath+'coord_priorities.pdf')
         for t in tab:
             i = tab.index(t)
             try:
@@ -172,9 +223,16 @@ class WHydra(object):
                 print t
         self.wifsip.commit() 
         
+        data = self.wifsip.query("""SELECT bv,vmag, priority
+                               FROM ngc2236
+                               WHERE priority > 0.0
+                               ORDER BY tab;""")
         
+        bv = np.array([d[0] for d in data])
+        vmag = np.array([d[1] for d in data])
+        p = np.array([d[2] for d in data])
+        makeplot(bv,vmag, p, filename=config.plotpath+'priorities.pdf')
           
-
     def setpointing(self, pointing):
         """set pointings according to hydrasim output"""
         #TODO: to be redone! 
@@ -213,30 +271,34 @@ class WHydra(object):
         Including the FOPs star magnitudes in the configuration file may
         also be useful later when setting up the field at the telescope.
         """
-        #TODO: import at most 2000 twomass coordinates
-        fops = self.wifsip.query("""SELECT tab, ra, dec,vmag 
-                               FROM ngc2236 
-                               WHERE vmag>10 AND vmag<13
-                               AND (priority < 0.3 OR priority IS NULL)
-                               AND tab is NOT NULL
-                               ORDER BY vmag 
-                               LIMIT 2000;""")
+        query = """SELECT -2.1*log(lc_meang)+21.984 "vmag", alpha, delta, corotid 
+        FROM corot 
+        WHERE run_code='SRa02' AND hlfccdid like 'E1%%' 
+        AND point(alpha,delta) <@ circle(point(%f, %f),0.5) 
+        AND NOT lc_meang IS NULL AND lc_meang>19000 
+        ORDER BY lc_meang DESC;""" % self.center
+        fops = self.corot.query(query)
         print len(fops),'FOPs stars'
         for f in fops:
             target = {}
-            target['id'] = 6001 + int(f[0])
-            target['name'] = 'FOP%dm%.2f' % (int(f[0]),float(f[3]))
+            i = fops.index(f)
+            target['id'] = 6001 + i
+            target['name'] = 'FOP%dm%.2f' % (int(f[3]),float(f[0]))
             target['ra'] = float(f[1])
             target['dec'] = float(f[2])
             target['class'] = 'F'
             self.table.append(target)
 
         #extra targets
-        extra = self.wifsip.query("""SELECT starid, ra, dec
-                               FROM ngc2236 
-                               WHERE vmag<6.5*bv+10.4 and vmag>5*bv+10
-                               AND vmag<%f
-                               ORDER BY vmag;""" % maglimit)
+        params = dict(zip(['ra','dec'],self.center))
+        query="""select corotid, alpha,delta
+        from corot where run_code='SRa02' 
+        and hlfccdid like 'E1%%'
+        and point(alpha,delta) <@ circle(point(%(ra)f, %(dec)f),0.5)
+        order by point(alpha,delta) <-> point(%(ra)f, %(dec)f)
+        LIMIT 999;"""% params
+        
+        extra = self.corot.query(query)
         print len(extra),'extra stars'
         for d in extra:
             target = {}
@@ -247,7 +309,7 @@ class WHydra(object):
             target['class'] = 'E'
             self.table.append(target)
     
-    def skyfile(self, filename='/work2/jwe/m48/data/sky_positions.txt'):
+    def skyfile(self, filename='/work2/jwe/NGC2236/skyfile.txt'):
         """
         load the sky positions
         """
@@ -271,7 +333,6 @@ class WHydra(object):
                 target['dec'] = c.dec.degree
                 target['class'] = 'S'
                 self.table.append(target)
-    
     
     def tofile(self, filename = None, verbose=False):
         """
@@ -361,15 +422,15 @@ class WHydra(object):
         
         for t in self.table:
             if t['class']=='O':
-                plt.scatter(t['ra'], t['dec'], marker='o', c='g')
+                plt.scatter(t['ra'], t['dec'], marker='o', c='g', edgecolor='none')
             if t['class']=='E':
-                plt.scatter(t['ra'], t['dec'], marker=',', c='gray')
+                plt.scatter(t['ra'], t['dec'], marker=',', c='gray', edgecolor='none')
             if t['class']=='F':
-                plt.scatter(t['ra'], t['dec'], marker='^', c='r')
+                plt.scatter(t['ra'], t['dec'], marker='^', c='r', edgecolor='none')
             if t['class']=='S':
-                plt.scatter(t['ra'], t['dec'], marker='h', c='b')
+                plt.scatter(t['ra'], t['dec'], marker='h', c='b', edgecolor='none')
             if t['class']=='C':
-                plt.scatter(t['ra'], t['dec'], marker='+', c='k')
+                plt.scatter(t['ra'], t['dec'], marker='+', c='k', edgecolor='none')
                 
         plt.xlim([self.center[0]+0.55,self.center[0]-0.55])
         plt.ylim([self.center[1]-0.55,self.center[1]+0.55])
@@ -431,7 +492,7 @@ class WHydra(object):
         
 if __name__ == '__main__':
     import argparse
-    parser = argparse.ArgumentParser(description='M48 WHydra preparation')
+    parser = argparse.ArgumentParser(description='NGC2236 WHydra preparation')
     parser.add_argument('-p', '--priorities', action='store_true', 
                         help='calculate priorities')
     parser.add_argument('-c', '--concentricities', action='store_true', 
@@ -446,7 +507,7 @@ if __name__ == '__main__':
     parser.add_argument('-v', '--verbose', action='store_true', 
                         help='verbose output')
 
-    wh0 = WHydra('M48field0')
+    wh0 = WHydra('NGC2236field0')
     args = parser.parse_args()
     if args.priorities: wh0.priorities() 
     if args.concentricities: wh0.getconcentricities()
@@ -458,15 +519,15 @@ if __name__ == '__main__':
         wh0.fromfile()
         wh0.setpointing(0)
     if args.run:
-        wh1 = WHydra('M48field1')
+        wh1 = WHydra('NGC2236field1')
         wh1.from_database()
         wh1.skyfile()
         wh1.tofile()
         wh1.dohydra()
         del wh1
         for i in range(2,10):
-            wh = WHydra('M48field%d' % i)
-            wh.fromfile(hydrapath+'M48field%d.hydra' % (i-1))
+            wh = WHydra('NGC2236field%d' % i)
+            wh.fromfile(hydrapath+'NGC2236field%d.hydra' % (i-1))
             wh.setpointing(i-1)
             
             wh.tofile()
