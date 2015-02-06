@@ -127,7 +127,7 @@ class Ngc2236(object):
             from scipy import signal
             
             b, a = signal.butter(4, 2./max(time), 'high', analog=True)
-            w, h = signal.freqs(b, a, worN=freq[1:n])
+            _, h = signal.freqs(b, a, worN=freq[1:n])
             filt_pwr = abs(ft[1:n]*h)**2/n
 
             i = np.argmax(filt_pwr)+1
@@ -195,6 +195,48 @@ class Ngc2236(object):
             else:
                 plt.savefig(config.plotpath+'%s(%d).pdf' % (starid,star['corotid']))
             plt.close()
+
+    def set_tab_column(self):
+        
+        self.wifsip.execute('UPDATE ngc2236 set tab=NULL;')
+        query = """SELECT starid
+            FROM ngc2236 
+            WHERE NOT bv IS NULL
+            ORDER BY vmag;"""
+        result = self.wifsip.query(query)
+        starids = [r[0] for r in result]
+        
+        for starid in starids:
+            tab = starids.index(starid)+1
+            print '%4d %s' % (tab,starid)
+            query = "UPDATE ngc2236 set tab=%d WHERE starid='%s';" % (tab,starid)
+            self.wifsip.execute(query)
+    
+    def update_coordinates(self):
+        from datasource import DataSource
+        
+        corot = DataSource(database='corot', user='sro', host='pina.aip.de')
+        
+        query = """SELECT corotid
+            FROM ngc2236 
+            WHERE NOT corotid IS NULL
+            ORDER BY vmag;"""
+        corotids = [c[0] for c in self.wifsip.query(query)]
+        
+        for corotid in corotids:
+            query = """SELECT alpha, delta
+            FROM corot 
+            WHERE corotid = %d;""" % corotid
+        
+            ra, dec = corot.query(query)[0]
+            print corotid,ra,dec
+            record = dict(zip(['corotid','ra','dec'], [corotid,ra,dec]))
+            query = """UPDATE ngc2236 
+            SET ra = %(ra)f, dec = %(dec)f, coord = point(%(ra)f,%(dec)f)
+            WHERE corotid = %(corotid)d;""" % record
+            self.wifsip.execute(query, commit=False)
+        self.wifsip.commit()
+            
             
 def calibrate(objname, filtercol):
     from calibrate import Calibrate
@@ -220,6 +262,8 @@ if __name__ == '__main__':
     parser.add_argument('--bv', action='store_true', help='update B-V')
     parser.add_argument('filter', default='V', type=str, help='filter color to process')
     parser.add_argument('-a', '--analysis', action='store_true', help='analysis')
+    parser.add_argument('-tab', action='store_true', help='update tab column')
+    parser.add_argument('-coords', action='store_true', help='update coordinates')
 
     args = parser.parse_args()
 
@@ -237,3 +281,11 @@ if __name__ == '__main__':
         ngc2236 = Ngc2236()
         ngc2236.getstars()
         ngc2236.analysis()
+        
+    if args.tab: 
+        ngc2236 = Ngc2236()
+        ngc2236.set_tab_column()
+
+    if args.coords: 
+        ngc2236 = Ngc2236()
+        ngc2236.update_coordinates()
