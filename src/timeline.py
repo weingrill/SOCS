@@ -28,8 +28,6 @@ class TimeLine(object):
         FROM frames 
         WHERE object like '%s%%'
         AND 1.*matched/stars>0.8
-        AND datesend>'2014-01-01'
-        AND datesend<'2014-08-01'
         AND backgrnd<500
         AND moondist>40.0
         GROUP BY datum
@@ -41,6 +39,8 @@ class TimeLine(object):
         self.count = [r[1] for r in result]
         
     def plot(self, show=False):
+        import matplotlib
+        matplotlib.use('Agg')
         import matplotlib.pyplot as plt
         from numpy import sum
         fig = plt.figure(figsize=(10,6))
