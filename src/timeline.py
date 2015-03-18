@@ -50,6 +50,7 @@ class TimeLine(object):
         plt.title('%s (total: %d frames)' % (self.target, sum(self.count)))
         plt.grid(which='both')
         plt.ylabel('number of frames')
+        plt.minorticks_on()
         
         if show:
             plt.show()
