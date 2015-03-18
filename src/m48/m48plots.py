@@ -119,7 +119,7 @@ class M48Plots(object):
             return
         t, m, e = sigma_clip(t, m, e)
         m -= np.mean(m)
-        period = star['period']
+        period = star['p_fin']
         tp, yp = phase(t, m, period)
         plt.axvline(period, linestyle='-.', color='0.5')
         plt.axhline(0.0, linestyle='--', color='0.5')
