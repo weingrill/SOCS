@@ -483,7 +483,7 @@ class M48Analysis(object):
 
         query = """SELECT ra, dec
                     FROM m48stars 
-                    WHERE NOT pman IS NULL;"""
+                    WHERE good;"""
         data = self.wifsip.query(query)
         pra = np.array([d[0] for d in data])
         pdec = np.array([d[1] for d in data])
@@ -551,58 +551,56 @@ class M48Analysis(object):
         from astropy import units as u
         from astropy.coordinates import SkyCoord
         
-        query = """SELECT tab, vmag, bv, period, period_err,  clean_period, 
-            clean_sigma, amp, amp_err, member, simbad, notes, provisional
+        query = """SELECT tab, vmag, bv, p_fin, e_pfin, amp, amp_err, member, 
+            simbad, notes, provisional
             FROM m48stars 
             WHERE good
             ORDER BY vmag ;"""
         data = self.wifsip.query(query)
         
-        f = open(config.resultpath+'table1.tex','wt')
-        f.write('\\begin{tabular}{rcccccl}')
-        f.write('\\hline\n')
-        f.write('\\hline\n')
-        f.write('Id & V   & B--V & P    & err  & amp & err & mem & BJG \#\\\\\n')
-        f.write('   & mag & mag  & days & days & mag & mag &     &      \\\\\n')
-        f.write('\\hline\n')
-        
+        f = open(config.resultpath+'table2.tex','wt')
+        f.write("""\\begin{longtable}{rccccccccl}
+\caption{\label{tab:rotators}Rotation periods of stars. "p" marks a provisional member and "c" a candidate member}
+\hline\hline
+Id & V   & B--V & P    & err  & amp & err & mem & c/p & BJG \#\\\\
+   & mag & mag  & days & days & mag & mag &     &     &     \\\\
+\hline
+\endfirsthead\n
+\caption{continued.}\\
+\hline\hline
+Id & V   & B--V & P    & err  & amp & err & mem & c/p & BJG \#\\\\
+   & mag & mag  & days & days & mag & mag &     &     &     \\\\
+\hline
+\endhead
+\hline
+\endfoot
+%%%%\n""")        
         for d in data:
             #print d
             #i = data.index(d)+1
-            tab, vmag, bv, fperiod, period_err,  clean_period, \
-            clean_sigma, amp, amp_err,member, simbad, notes, provisional = d
-            if not provisional:
-                period = fperiod
-                perror = period_err
-            else:
-                period = clean_period
-                perror = clean_sigma
-#             try:
-#                 if pman>0 and abs(fperiod-pman)/pman < abs(clean_period-pman)/pman:
-#                     period = fperiod
-#                 else:
-#                     period = clean_period
-#                 if pman>0 and abs(period-pman)>1:
-#                     period = pman
-#             except TypeError:
-#                 period = pman
+            tab, vmag, bv, period, period_err, \
+            amp, amp_err,member, simbad, notes, provisional = d
+
             if type(simbad) is str and simbad.find('Cl* NGC 2548 ')==0:
                 simbad = simbad[13:]
             if str(simbad) == 'None': simbad = ''
             if str(notes) == 'None': notes = ''
-            memstr='--'
+            memstr = '--'
             if member: memstr='M'
             elif member==False: memstr='N'
+            prostr = '--'
+            if provisional: prostr='p'
+            elif not provisional: prostr='c'
              
             try:
-                s =  '%4d & %.3f & %.2f & %.3f & %.3f & %.3f & %.3f & %s & %s \\\\ %% %s\n' % \
-                (tab, vmag, bv, period, perror, amp, amp_err, memstr, simbad, notes)
+                s =  '%4d & %.3f & %.2f & %.2f & %.2f & %.3f & %.3f & %s & %s & %s \\\\ %% %s\n' % \
+                (tab, vmag, bv, period, period_err, amp, amp_err, memstr, prostr, simbad, notes)
                 print s,
                 f.write(s)
             except TypeError:
                 print d
-        f.write('\\hline\n')
-        f.write('\\end{tabular}')
+        f.write('\\end{longtable}\n')
+        f.write('\\end{longtab}\n')
         f.close()
 
         query = """SELECT tab, vmag, vmag_err, bv, bmag_err, ra, dec, member, simbad, notes
@@ -661,7 +659,7 @@ Id &  V  & err & B--V & err & R.A.  & Dec   & mem & simbad \\\\
                 f.write(s)
             except TypeError:
                 print d
-        f.write('\\end{longtable\n')
+        f.write('\\end{longtable}\n')
         f.write('\\end{longtab}\n')
         f.close()
 
@@ -679,6 +677,26 @@ Id &  V  & err & B--V & err & R.A.  & Dec   & mem & simbad \\\\
             query = "UPDATE m48stars set tab=%d WHERE starid='%s';" % (tab,starid)
             self.wifsip.execute(query)
         pass
+
+    def load_periods(self):
+        f = open(config.datapath+'periods.txt')
+        lines = f.readlines()
+        f.close()
+        
+        for l in lines:
+            if l[0]=="#":
+                continue
+            ls = l.split()
+            tab = int(ls[0].strip())
+            P_fin = float(ls[10].strip())
+            E_pfin = float(ls[11].strip())
+            provisional = ls[12] == 'p'
+            print tab,P_fin,E_pfin, provisional
+            query = """UPDATE m48stars SET (p_fin,e_pfin, provisional)=(%f,%f,%s)
+                WHERE tab=%d;""" % (P_fin, E_pfin, provisional, tab)
+            self.wifsip.execute(query, commit=False)
+        self.wifsip.commit()
+        
             
 if __name__ == '__main__':
     import argparse
@@ -690,6 +708,7 @@ if __name__ == '__main__':
     parser.add_argument('-map', action='store_true', help='plot map')
     parser.add_argument('-cal2', action='store_true', help='calibrate lightcurves')
     parser.add_argument('-e', '--export', action='store_true', help='export to textfile')
+    parser.add_argument('-l', '--load', action='store_true', help='import textfile')
     parser.add_argument('--allstars', action='store_true', help='fetch all stars')
     parser.add_argument('--lightcurves', action='store_true', help='export lightcurves')
     parser.add_argument('--tables', action='store_true', help='export latex tables')
@@ -712,6 +731,7 @@ if __name__ == '__main__':
     if args.analysis: m48.analysis()
     if args.lightcurves: m48.export_lightcurves()
     if args.tab: m48.set_tab_column()
+    if args.load: m48.load_periods() 
     if args.tables: m48.tables()
     if args.cmd: 
         m48.make_cmd()
