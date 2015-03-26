@@ -20,12 +20,13 @@ class ClusterPlan(object):
         
         self.wifsip = DataSource(database='wifsip', user='sro', host='pina.aip.de')
         query = """SELECT name,ra,dec,diam,d,ebv,logage from clusters 
-            WHERE diam<40 and diam>15 
-            AND logage>8.477 and logage<9.3
+            WHERE diam<60 and diam>15 
+            AND logage>8.477 and logage<9.46
             AND dec>-6
             AND (name like 'NGC%' or name like 'IC%')
             AND ebv < 0.5
-            AND d < 1500"""
+            AND d < 1500
+            AND not observed"""
         result = self.wifsip.query(query)
         self.data = []
         for r in result:
@@ -38,6 +39,11 @@ class ClusterPlan(object):
             rec['ebv'] = float(r[5])
             rec['age'] = round(10**float(r[6])/1e6,-1)
             self.data.append(rec)
+    
+    def _eph2dt(self, ephemdate):
+        """converts ephem.Date to datetime"""
+        import datetime
+        return datetime.datetime.strptime( str(ephemdate), "%Y/%m/%d %H:%M:%S" )
 
     def plot(self):
         import matplotlib.pyplot as plt
@@ -45,39 +51,93 @@ class ClusterPlan(object):
         dec = [d['dec'] for d in self.data]
         ebv = [d['ebv'] for d in self.data]
         name = [d['name'] for d in self.data]
-        d = [d['diam']*3 for d in self.data]
+        d = [d['diam']*4 for d in self.data]
         plt.scatter(ra, dec, edgecolor='none', c=ebv, s=d)
         plt.xlim(24,0)
+        plt.xlabel('R.A.')
+        plt.ylabel('Dec.')
         for r,d,n in zip(ra, dec, name):
             plt.text(r, d, n)
-        plt.show()
+        
+        plt.savefig('/work2/jwe/SOCS/clusterplan.pdf')
+        plt.close()
+        #plt.show()
         
     def list(self):
-        for d in self.data[-4:-1]:
+        for d in self.data[-3:]:
             print '%-15s %4dpc %4dMyr %.2f %2d' % (d['name'],d['d'],d['age'],d['ebv'],d['diam'])
-            self.time(d)
-        
-    def time(self, cluster):
+            print self.time(d)
+    
+    def obstime(self):
         import ephem
-        from astropy.coordinates import SkyCoord
-        from astropy import units as u
+        import numpy as np
+        import matplotlib.pyplot as plt
+        
+        darkhours = np.zeros(365)
+        for c in self.data:
+            print c['name']
+            date0 = ephem.Date('2015/1/1 00:00:00')
+            hours = np.zeros(365)
+            dates = []
+            for day in range(365):
+                ephemdate = ephem.Date(date0 + day)
+                t = self.time(c, date = ephemdate)
+                print ephemdate, t
+                dates.append(self._eph2dt(ephemdate))
+                hours[day] = t
+                if darkhours[day] == 0.0:
+                    darkhours[day] = self.darktime(ephemdate) 
+                
+            
+            plt.plot(dates,hours, label=c['name'])
+        plt.plot(dates, darkhours, 'k--')
+        plt.grid()
+        plt.minorticks_on()
+        plt.legend(loc=9, fontsize='small')
+        plt.show()
+    
+    def darktime(self, date):
+        import ephem
         
         izana = ephem.Observer()
-        date = ephem.Date('2015/03/19 00:00:00')
-        izana.date = '2015/03/19 00:00:00'
+        if date is None:
+            date = ephem.Date('2015/8/2 00:00:00')
+        izana.date = date #'2015/03/19 00:00:00'
         izana.lat = '28.301195'
         izana.lon = '-16.509209'
         izana.horizon = '-0:34'
         #izana.elevation = 2096
-        sun = ephem.Sun()  # @UndefinedVariable
+        sun = ephem.Sun(izana)  # @UndefinedVariable
         
-        c = SkyCoord(cluster['ra']*15, cluster['dec'], 'icrs', unit=(u.deg, u.deg))  # @UndefinedVariable
-        rastr = str(c.ra).replace('d', ':').replace('m', ':').rstrip('s')
-        decstr = str(c.dec).replace('d', ':').replace('m', ':').rstrip('s')
+        #set astronomical dawn
+        izana.horizon = '-19:00'
+        spset =  izana.previous_setting(sun)
+        snrise = izana.next_rising(sun)
+        
+        darktime = (ephem.Date(snrise)-ephem.Date(spset))*24.0
+        return darktime
+        
+    def time(self, cluster, date = None, verbose = False):
+        import ephem
+        from astropy.coordinates import SkyCoord
+        from astropy import units as u
+        
+        
+        izana = ephem.Observer()
+        if date is None:
+            date = ephem.Date('2015/8/2 00:00:00')
+        izana.date = date #'2015/03/19 00:00:00'
+        izana.lat = '28.301195'
+        izana.lon = '-16.509209'
+        izana.horizon = '-0:34'
+        #izana.elevation = 2096
+        sun = ephem.Sun(izana)  # @UndefinedVariable
+        c = SkyCoord(cluster['ra'], cluster['dec'], 'icrs', unit=(u.deg, u.deg))  # @UndefinedVariable
+        rastr = c.ra.to_string(unit=u.hour, sep='::') # @UndefinedVariable
+        decstr = c.dec.to_string(unit=u.deg,sep='::') # @UndefinedVariable
         ephemstr = '%s,f|O,%s,%s, 5.,2000' % (cluster['name'],rastr,decstr)
-        
         clusterephem = ephem.readdb(ephemstr)
-        
+        eventlist = []
         # set airmass 2.0 
         izana.horizon = '30:00'
         clusterephem.compute(izana)
@@ -85,40 +145,55 @@ class ClusterPlan(object):
         cnset =  izana.next_setting(clusterephem)
         cprise = izana.previous_rising(clusterephem)
         cpset =  izana.previous_setting(clusterephem)
-        #print cnrise
-        print 'objset ', cprise
-        print 'objrise', cnset
-        #print cpset
-        #set astronomical dawn
-        izana.horizon = '-15:00'
-        spset =  izana.previous_setting(sun)
-        snset =  izana.next_setting(sun)
-        snrise = izana.next_rising(sun)
-        sprise = izana.previous_rising(sun)
-        #print sprise
-        #print snset
-        print 'sunset ', spset
-        print 'sunrise', snrise
-        if cprise<spset: cstart=spset 
-        else: cstart=cprise
-        if cnset>snrise: cstop=snrise
-        else: cstop=cnset  
-        print (cstop-cstart)*24
-        return
-        for i in range(3):
-            newdate = date + i
-            izana.date = newdate
-            sun.compute(izana)
-            at = izana.next_antitransit(sun)
-            
-            izana.date = at 
-            print izana.sidereal_time(), izana.date 
+        eventlist.append([self._eph2dt(cnrise),'cluster rise (next)'])
+        eventlist.append([self._eph2dt(cnset),'cluster set (next)'])
+        eventlist.append([self._eph2dt(cprise),'cluster rise (prev)'])
+        eventlist.append([self._eph2dt(cpset),'cluster set (prev)'])
         
+        #set astronomical dawn
+        izana.horizon = '-19:00'
+        spset =  izana.previous_setting(sun)
+        snrise = izana.next_rising(sun)
+        eventlist.append([self._eph2dt(snrise),'sunrise'])
+        eventlist.append([self._eph2dt(spset),'sunset'])
+        
+        
+        eventlist.sort()
+        sundown = False
+        clusterup = False
+        t0, t1 = None, None
+        
+        for t,e in eventlist:
+            if verbose: print t,e
+            if e == 'sunset': 
+                sundown = True
+                if clusterup: 
+                    t0 = t
+                     
+            if e == 'sunrise': 
+                sundown = False
+                if clusterup: 
+                    t1 = t
+                    
+            if e == 'cluster rise (next)' or \
+               e == 'cluster rise (prev)': 
+                clusterup = True
+                if sundown: t0 = t
+            if e == 'cluster set (next)' or \
+               e == 'cluster set (prev)':
+                clusterup = False
+                if sundown: t1 = t
+                
+        if verbose: print t0,t1
+        if t0 is None and t1 is None:
+            return 0.0
+        return (ephem.Date(t1)-ephem.Date(t0))*24.0
 
 if __name__ == '__main__':
     cp = ClusterPlan()
     #cp.plot()
-    cp.list()
+    cp.obstime()
+    #cp.list()
     
         
     
