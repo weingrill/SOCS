@@ -47,7 +47,7 @@ class OpenCluster(object):
         self.object = {'ObjectName':objectname,
                        'RA':ra,
                        'Dec':dec}
-        self.constraints = {'MoonDistance.Min':40,
+        self.constraints = {'MoonDistance.Min':30,
                             'SolHeight.Max':-16.0,
                             'AirmassTarget.Max':2.0,
                             'AltTarget.Min':30.0}
@@ -96,6 +96,7 @@ class OpenCluster(object):
             # zerofraction is the length of one exposure in days
             self.mode['zerofraction'] = 2.0/24.0
             self.mode['impact'] = 1.0
+            self.constraints['MoonDistance.Min'] = 15
 
         if obsmode == 'Hby':
             self.sequence['ExposureTime'] = 60.0 
@@ -109,6 +110,7 @@ class OpenCluster(object):
             # zerofraction is the length of one exposure in days
             self.mode['zerofraction'] = 2.0/24.0
             self.mode['impact'] = 1.0
+            self.constraints['MoonDistance.Min'] = 15
 
         if obsmode == 'rot':
             self.sequence['ExposureTime'] = 30.0
@@ -493,5 +495,3 @@ class OpenCluster(object):
               grid=False, 
               background=False, 
               show=False)
-
-
