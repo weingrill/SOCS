@@ -17,15 +17,17 @@ def do_uvby(transfer=False, plot=False):
     m67.abstract = 'Photometric monitoring of open stellar clusters'
 
     m67_subframes = m67.plan_wifsip(nfields=5)
+    m67_group = ClusterGroup(m67)
+    
     for sf in m67_subframes:
         print sf.uname
         sf.tofile(config.projectpath)
+        m67_group.add_daughter(sf.uname)
         if transfer: sf.transfer()
-
-    
-    m67.tofile(config.projectpath)
-    if transfer: m67.transfer()
-
+    if transfer: 
+        m67_group.tofile(config.projectpath)
+        m67_group.transfer()
+ 
     
 def do_hby(transfer=False):
     m67 = OpenCluster(objectname='M 67', 
@@ -35,11 +37,17 @@ def do_hby(transfer=False):
     m67.abstract = 'Photometric monitoring of open stellar clusters'
 
     m67_subframes = m67.plan_wifsip(nfields=5)
+    m67_group = ClusterGroup(m67)
+    
     for sf in m67_subframes:
         print sf.uname
         sf.tofile(config.projectpath)
+        m67_group.add_daughter(sf.uname)
         if transfer: sf.transfer()
-
+    if transfer: 
+        m67_group.tofile(config.projectpath)
+        m67_group.transfer()
+ 
 def do_rot(transfer=False):
 
     m67 = OpenCluster(objectname='M 67', uname='M 67 rot', obsmode='rot')
@@ -47,11 +55,17 @@ def do_rot(transfer=False):
     m67.abstract = 'Photometric monitoring of open stellar clusters'
 
     m67_subframes = m67.plan_wifsip(nfields=4)
+    m67_group = ClusterGroup(m67)
+    
     for sf in m67_subframes:
         print sf.uname
         sf.tofile(config.projectpath)
+        m67_group.add_daughter(sf.uname)
         if transfer: sf.transfer()
-
+    if transfer: 
+        m67_group.tofile(config.projectpath)
+        m67_group.transfer()
+ 
 def do_cmd(transfer=False):
     m67 = OpenCluster(objectname='M 67', uname='M 67 BVR', obsmode='BVR')
     m67.title = 'SOCS'
