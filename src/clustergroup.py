@@ -16,15 +16,44 @@ class ClusterGroup():
     address = 'jweingrill@aip.de'
     moondistance = 30.0
     alttarget = 30.0
+    solheight = -16.0
     pernight = 25
     timeout = 0
     periodday = 0.015
     stretch = 1.0
     zerofraction = 0.011111
     duration = 1185.00
+    ra = -1.0 
+    dec = 0.0
+    targetname = ''
+    objectname = ''
+    daughters = []
     
-    def __init__(self):
-        pass
+    
+    def __init__(self, opencluster):
+        #TODO: complete constructor
+        from opencluster import OpenCluster
+        if not type(opencluster) is OpenCluster:
+            raise TypeError('expecting OpenCluster Object')
+        self.ra = opencluster.object['RA']
+        self.dec = opencluster.object['Dec']
+        self.targetname = opencluster.uname+' group'
+        self.filename = self.targetname.lower().replace(' ','_')+'.xml'
+        self.objectname = opencluster.objectname
+        self.moondistance = opencluster.constraints['MoonDistance.Min']
+        self.alttarget = opencluster.constraints['AltTarget.Min']
+        self.solheight = opencluster.constraints['SolHeight.Max']
+        #TODO pernight times fields
+        self.pernight = opencluster.pernight
+        self.timeout = opencluster.timeout
+        self.periodday = opencluster.mode['period_day']
+        self.zerofraction = opencluster.mode['zerofraction']
+        self.duration = opencluster.duration
+        
+        
+
+    def add_daughter(self, daughtername):
+        self.daughters.append(daughtername)
 
     def tofile(self, path='./'):
         """
@@ -33,7 +62,6 @@ class ClusterGroup():
         
         from lxml import etree as ET
         from datetime import datetime as dt
-        
         
         def addtext(parent, tag, value):
             """
@@ -65,7 +93,7 @@ class ClusterGroup():
                             submitted=now.isoformat()+' UTC')
         
         targetname = ET.SubElement(target, 'TargetName', proposal='cluster.survey')
-        targetname.text = 'M 67 rot group'
+        targetname.text = self.targetname
 
         addtext(target, 'Title', self.title)
         addtext(target, 'Abstract', self.abstract)
@@ -84,10 +112,10 @@ class ClusterGroup():
         
         ET.SubElement(target, 'History')
         exception1 = ET.SubElement(target, 'Exception', {'for': 'daughter'})
-        retrymax = ET.SubElement(exception1, 'Retrymax')
-        retrymax.text='5'
+        addtext(exception1, 'Retrymax',5)
         addtext(exception1, 'Retry', 'NO_STAR_ON_ACQUIRE')
         addtext(exception1, 'Retry', 'DROP_TARGET')
+        
         exception2 = ET.SubElement(target, 'Exception', {'for': 'this'})
         addtext(exception2, 'Delay', 'NO_DAUGHTER_AVAILABLE')
         
@@ -102,9 +130,11 @@ class ClusterGroup():
         print round(t.jd) -0.5
         
         addconstraint(select, 'Jd', {'From': round(t.jd) -0.5, 'To': round(t.jd + 356) -0.5})
-        addconstraint(select, 'MoonDistance', {'Min': self.moondistance})
-        addconstraint(select, 'AltTarget', {'Min': self.alttarget})
-        addconstraint(select, 'SolHeight', {'Max': -16.0})
+        if not self.moondistance is None:
+            addconstraint(select, 'MoonDistance', {'Min': self.moondistance})
+        if not self.alttarget is None:
+            addconstraint(select, 'AltTarget', {'Min': self.alttarget})
+        addconstraint(select, 'SolHeight', {'Max': self.solheight})
         
         # -- Merit
         merit = ET.SubElement(select, 'Merit')
@@ -118,24 +148,37 @@ class ClusterGroup():
         
         gain = ET.SubElement(merit, 'Gain', {'class':'stella.merit.FixedDelayMerit'})
         
+        if not self.periodday>0.0:
+            raise ValueError('period_day must be greater than zero')
         addconstant(gain, 'java.lang.Double', 'period_day', self.periodday)
         addconstant(gain, 'java.lang.Double', 'stretch', self.stretch)
+        if not self.zerofraction>0.0:
+            raise ValueError('zerofraction must be greater than zero')
         addconstant(gain, 'java.lang.Double', 'zerofraction', self.zerofraction)
         # </Merit>
         # </Select>
         addtext(target, 'Duration', self.duration)
-        addtext(target, 'Daughter', 'M 67 rot NE')
+        
+        for daughter in self.daughters:
+            addtext(target, 'Daughter', daughter )
         setup = ET.SubElement(target, 'Setup', id='priority')
         addtext(setup, 'Instrument', 'SCS')
         addconstant(setup, 'java.lang.Double', 'PriorityCap', 3.0)
         # </Setup>
         objectnode = ET.SubElement(target, 'Object', id='main')
-        addtext(objectnode, 'ObjectName', 'HTM NB4AE5F')
+        addtext(objectnode, 'ObjectName', self.objectname)
         position =  ET.SubElement(objectnode, 'Position')
-        #TODO: handle coordinates
-        addtext(position, 'RA', 132.825)
-        addtext(position, 'Dec', 11.800)
+        if self.ra<0.0 or self.ra>360.0:
+            raise ValueError('R.A. coordinates out of bounds')
+        addtext(position, 'RA', self.ra)
+        if self.dec<-90.0 or self.dec>90.0:
+            raise ValueError('Dec. coordinates out of bounds')
+        addtext(position, 'Dec', self.dec)
         addtext(position, 'Epoch', 2000.0)
+        addtext(position, 'Equinox', 2000.0)
+        addtext(position, 'V', 22.0)
+        addtext(position, 'B-V', 0.0)
+        
         # </Position>
         # </Object>
         # </Target>
@@ -148,6 +191,24 @@ class ClusterGroup():
         f = open(path + self.filename, 'wt')
         f.write(s)
         f.close()
+        
+    def transfer(self):
+        """
+        al plain copy from Opencluster.transfer method
+        """
+        from subprocess import call
+        import time
+        import os
+        
+        source = self.filename
+        target='sro@stella:/stella/home/www/uploads/weingrill/save/'
+        time.sleep(1) # otherwise submit.jnlp gets confused
+        print 'scp %s %s' % (source, target)
+        call(['/usr/bin/scp', source, target])
+        print os.path.dirname(source)
+        _, filename = os.path.split(source)
+        call(['/usr/bin/ssh', 'operator@ciruelo', 'bin/autosubmit.sh %s' % filename])
+        
         
 if __name__ == '__main__':
     cg = ClusterGroup()
