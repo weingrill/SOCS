@@ -226,6 +226,7 @@ class OpenCluster(object):
         dec = self.coords[p:].strip()
         self.ra_str = ra
         self.dec_str = dec
+        #TODO: new coordinate conversion!
         self.object['RA'] = ast.hms2dd(ra)
         self.object['Dec'] = ast.dms2dd(dec)
         self.coords=[self.object['RA'],self.object['Dec']]
