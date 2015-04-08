@@ -43,18 +43,28 @@ class ClusterGroup():
         self.moondistance = opencluster.constraints['MoonDistance.Min']
         self.alttarget = opencluster.constraints['AltTarget.Min']
         self.solheight = opencluster.constraints['SolHeight.Max']
-        #TODO pernight times fields
-        self.pernight = opencluster.pernight
+        self._pernight = opencluster.pernight
         self.timeout = opencluster.timeout
-        self.periodday = opencluster.mode['period_day']
+        self._periodday = opencluster.mode['period_day']
         self.zerofraction = opencluster.mode['zerofraction']
         self.duration = opencluster.duration
-        
+        self.daughters = []
         
 
     def add_daughter(self, daughtername):
         self.daughters.append(daughtername)
 
+    @property
+    def pernight(self):
+        return self._pernight*len(self.daughters)
+    
+    @property
+    def periodday(self):
+        if len(self.daughters)>0:
+            return self._periodday/len(self.daughters)
+        else:
+            return self._periodday
+    
     def tofile(self, path='./'):
         """
         creates the XML structure and writes it to the given filename
@@ -127,7 +137,7 @@ class ClusterGroup():
         # calculate the JD for beginning and end of observation
         from astropy.time import Time
         t = Time(now.isoformat(), format='isot', scale='utc')
-        print round(t.jd) -0.5
+        
         
         addconstraint(select, 'Jd', {'From': round(t.jd) -0.5, 'To': round(t.jd + 356) -0.5})
         if not self.moondistance is None:
