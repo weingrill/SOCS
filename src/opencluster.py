@@ -126,6 +126,7 @@ class OpenCluster(object):
             self.mode['impact'] = 1.0
         
         if self.object['RA'] is None or self.object['Dec'] is None:
+            print 'fetching coordinates from Simbad'
             self.get_coordiantes()
     
     def plot_ephem(self, obsdate=None):
@@ -431,10 +432,88 @@ class OpenCluster(object):
         """
         loads the data from a save file
         """
-        f = open(self.filename, 'rt')
-#        lines = f.readlines()
-        f.close()
-        #TODO: processing of lines
+        def sbool(s):
+            if s.lower() == 'true': return True
+            elif s.lower() == 'false': return False
+ 
+        with open(self.filename, 'rt') as f:
+            lines = f.readlines()
+        #f.close()
+        floatparams = ['priority',
+                       'mode.period_day',
+                       'mode.zerofraction'
+                       'mode.impact',
+                       'object.RA',
+                       'object.Dec',
+                       'constraints.MoonDistance.Min',
+                       'constraints.SolHeight.Max',
+                       'constraints.AirmassTarget.Max',
+                       'constraints.AltTarget.Min']
+        intparams = ['mode.pickdelay', 
+                     'mode.pernight', 
+                     'camera.XOffCCD',
+                     'camera.YOffCCD',
+                     'camera.XSizeCCD',
+                     'camera.YSizeCCD',
+                     'camera.XBinCCD',
+                     'camera.YBinCCD',
+                     'sequence.ExposureTime',
+                     'sequence.ExposureRepeat',
+                     'duration']
+        boolparams = ['withfocus','withacquire','withguiding']
+        parameters = {}
+        for l in lines:
+            key, value = l.split('=')
+            if key in floatparams:
+                value = float(value)
+            elif key in intparams:
+                value = int(value)
+            elif key in boolparams:
+                value = sbool(value)
+            parameters[key] = value
+           
+        self.startdate =                parameters['startdate']
+        self.enddate =                  parameters['enddate']
+        self.priority =                 parameters['priority']
+        self.telescope =                parameters['TELESCOPE']
+        self.withfocus =                parameters['withfocus']
+        self.withacquire =              parameters['withacquire']
+        self.withguiding =              parameters['withguiding']
+        self.title =                    parameters['title']
+        self.uname =                    parameters['uname']
+        self.propid =                   parameters['propid']
+        self.abstract =                 parameters['abstract']
+        self.pi =                       parameters['pi']
+        self.affil =                    parameters['affil']
+        self.team =                     parameters['team']
+        self.mode =                     parameters['mode']
+        self.mode.pickdelay =           parameters['mode.pickdelay']
+        self.mode.pernight =            parameters['mode.pernight']
+        self.mode.period_day =          parameters['mode.period_day']
+        self.mode.zerofraction =        parameters['mode.zerofraction']
+        self.mode.impact =              parameters['mode.impact']
+        self.camera =                   parameters['camera']
+        self.camera.XOffCCD =           parameters['camera.XOffCCD']
+        self.camera.YOffCCD =           parameters['camera.YOffCCD']
+        self.camera.XSizeCCD =          parameters['camera.XSizeCCD']
+        self.camera.YSizeCCD =          parameters['camera.YSizeCCD']
+        self.camera.XBinCCD =           parameters['camera.XBinCCD']
+        self.camera.YBinCCD =           parameters['camera.YBinCCD']
+        self.sequence =                 parameters['sequence']
+        self.sequence.ExposureTime =    parameters['sequence.ExposureTime']
+        self.sequence.ExposureRepeat =  parameters['sequence.ExposureRepeat']
+        self.sequence.ExposureIncrease = parameters['sequence.ExposureIncrease']
+        self.sequence.FilterSequence =  parameters['sequence.FilterSequence']
+        self.sequence.offset =          parameters['sequence.offset']
+        self.object.ObjectName =        parameters['object.ObjectName']
+        self.object.RA =                parameters['object.RA']
+        self.object.Dec =               parameters['object.Dec']
+        self.constraints.MoonDistance.Min=parameters['constraints.MoonDistance.Min']
+        self.constraints.SolHeight.Max = parameters['constraints.SolHeight.Max']
+        self.constraints.AirmassTarget.Max=parameters['constraints.AirmassTarget.Max']
+        self.constraints.AltTarget.Min = parameters['constraints.AltTarget.Min']
+        self.file =                     parameters['file']
+        self.duration =                 parameters['duration']
         
     def transfer(self):
         '''
