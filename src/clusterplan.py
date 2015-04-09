@@ -47,6 +47,9 @@ class ClusterPlan(object):
 
     def plot(self):
         import matplotlib.pyplot as plt
+        from milkyway import MilkyWay
+        mw = MilkyWay('/work2/jwe/tychomap.npy', magnitudes=True)
+        mw.plot(show=False)
         ra = [d['ra']/15. for d in self.data]
         dec = [d['dec'] for d in self.data]
         ebv = [d['ebv'] for d in self.data]
@@ -54,6 +57,9 @@ class ClusterPlan(object):
         d = [d['diam']*4 for d in self.data]
         plt.scatter(ra, dec, edgecolor='none', c=ebv, s=d)
         plt.xlim(24,0)
+        plt.ylim(-10,60)
+        plt.minorticks_on()
+        plt.grid()
         plt.xlabel('R.A.')
         plt.ylabel('Dec.')
         for r,d,n in zip(ra, dec, name):
@@ -190,10 +196,19 @@ class ClusterPlan(object):
         return (ephem.Date(t1)-ephem.Date(t0))*24.0
 
 if __name__ == '__main__':
+    import argparse
+
+    parser = argparse.ArgumentParser(description='SOCS cluster observation planning')
+    parser.add_argument('--plot', action='store_true', help='plot clusters')
+    parser.add_argument('-obstime', action='store_true', help='plot observation schedule')
+    parser.add_argument('-list', action='store_true', help='list clusters')
+    
+    args = parser.parse_args()
+    
     cp = ClusterPlan()
-    #cp.plot()
-    cp.obstime()
-    #cp.list()
+    if args.plot: cp.plot()
+    if args.obstime: cp.obstime()
+    if args.list: cp.list()
     
         
     
