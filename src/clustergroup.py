@@ -31,7 +31,6 @@ class ClusterGroup():
     
     
     def __init__(self, opencluster):
-        #TODO: complete constructor
         from opencluster import OpenCluster
         if not type(opencluster) is OpenCluster:
             raise TypeError('expecting OpenCluster Object')
@@ -202,7 +201,7 @@ class ClusterGroup():
         f.write(s)
         f.close()
         
-    def transfer(self):
+    def transfer(self, path):
         """
         al plain copy from Opencluster.transfer method
         """
@@ -210,16 +209,13 @@ class ClusterGroup():
         import time
         import os
         
-        source = self.filename
-        target='sro@stella:/stella/home/www/uploads/weingrill/save/'
+        source = path+self.filename
+        #xml goes dirctly to submit
+        target='sro@stella:/stella/home/www/uploads/weingrill/submit/'
         time.sleep(1) # otherwise submit.jnlp gets confused
         print 'scp %s %s' % (source, target)
         call(['/usr/bin/scp', source, target])
         print os.path.dirname(source)
         _, filename = os.path.split(source)
-        call(['/usr/bin/ssh', 'operator@ciruelo', 'bin/autosubmit.sh %s' % filename])
+        call(['/usr/bin/ssh', 'operator@ciruelo', 'bin/groupsubmit.sh %s' % filename])
         
-        
-if __name__ == '__main__':
-    cg = ClusterGroup()
-    cg.tofile(path = '/work2/jwe/m67/')
