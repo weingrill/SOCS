@@ -14,14 +14,25 @@ class PlanWiFSIP(object):
     '''
 
 
-    def __init__(self, objectname, nfields=5, transfer=False):
+    def __init__(self, objectname, nfields=5, transfer=False, path=None):
         '''
         Constructor
         '''
         self.transfer = transfer
         self.objectname = objectname
         self.nfields = nfields
-        self.projectpath = '/work2/jwe/'+objectname.replace(' ','')+'/'
+        if path is None:
+            try:
+                import config
+            except ImportError:
+                path = '/work2/jwe/'+objectname.replace(' ','')+'/'
+            else:
+                path = config.projectpath
+        self.projectpath = path
+        print 'object:      %s' % self.objectname
+        print 'fields:      %d' % self.nfields
+        print 'output path: %s' % self.projectpath
+        print 'Transfer:    %s' % str(self.transfer)
         
     def do_uvby(self):
         obs_uvby = OpenCluster(self.objectname, 
@@ -39,12 +50,11 @@ class PlanWiFSIP(object):
             if self.transfer: sf.transfer()
         obs_uvby_group.tofile(self.projectpath)
         if self.transfer: 
-            obs_uvby_group.transfer()
+            obs_uvby_group.transfer(self.projectpath)
      
         
     def do_hby(self):
-        obs_hby = OpenCluster(self.objectname, 
-                               obsmode='Hby')
+        obs_hby = OpenCluster(self.objectname, obsmode='Hby')
         obs_hby.title = 'SOCS'
         obs_hby.abstract = 'Photometric monitoring of open stellar clusters'
     
@@ -58,12 +68,10 @@ class PlanWiFSIP(object):
             if self.transfer: sf.transfer()
         obs_hby_group.tofile(self.projectpath)
         if self.transfer: 
-            obs_hby_group.transfer()
+            obs_hby_group.transfer(self.projectpath)
      
     def do_rot(self):
-    
-        obs_rot = OpenCluster(self.objectname, 
-                               obsmode='rot')
+        obs_rot = OpenCluster(self.objectname, obsmode='rot')
         obs_rot.title = 'SOCS'
         obs_rot.abstract = 'Photometric monitoring of open stellar clusters'
         
@@ -82,7 +90,7 @@ class PlanWiFSIP(object):
             if self.transfer: sf.transfer()
         obs_rot_group.tofile(self.projectpath)
         if self.transfer: 
-            obs_rot_group.transfer()
+            obs_rot_group.transfer(self.projectpath)
      
     def do_cmd(self):
         obs_cmd = OpenCluster(self.objectname, obsmode='BVR')
@@ -99,26 +107,26 @@ class PlanWiFSIP(object):
             if self.transfer: sf.transfer()
         obs_cmd_group.tofile(self.projectpath)
         if self.transfer: 
-            obs_cmd_group.transfer()
+            obs_cmd_group.transfer(self.projectpath)
 
 if __name__ == '__main__':
     import argparse
 
     parser = argparse.ArgumentParser(description='WiFSIP observation submission')
-    parser.add_argument('objectname', 'name of the cluster to observe')
+    parser.add_argument('objectname', help='name of the cluster to observe')
     parser.add_argument('-rot', action='store_true', help='rot observations')
     parser.add_argument('-cmd', action='store_true', help='CMD observations')
     parser.add_argument('-uvby', action='store_true', help='uvby observations')
     parser.add_argument('-Hby', action='store_true', help='hahb observations')
     parser.add_argument('--transfer', action='store_true', 
-                        help='transfert files via sftp to stella')
+                        help='transfer files via sftp to stella')
 
     args = parser.parse_args()
     
-    pw = PlanWiFSIP(args.objectname)
-    if args.Hby: pw.do_hby(transfer=args.transfer)
-    if args.uvby: pw.do_uvby(transfer=args.transfer)
-    if args.rot: pw.do_rot(transfer=args.transfer)
-    if args.cmd: pw.do_cmd(transfer=args.transfer)
+    pw = PlanWiFSIP(args.objectname, transfer=args.transfer)
+    if args.Hby: pw.do_hby()
+    if args.uvby: pw.do_uvby()
+    if args.rot: pw.do_rot()
+    if args.cmd: pw.do_cmd()
     
         
