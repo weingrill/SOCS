@@ -17,16 +17,26 @@ class ClusterPlan(object):
         Constructor
         '''
         from datasource import DataSource
+        from math import log10
+        
+        criteria = {'minage': log10(125e6),
+            'maxage': log10(2600e6),
+            'maxebv': 0.31,
+            'maxd': 1500,
+            'mindec': -15.0,
+            'mindiam': 10,
+            'maxdiam': 80}
         
         self.wifsip = DataSource(database='wifsip', user='sro', host='pina.aip.de')
         query = """SELECT name,ra,dec,diam,d,ebv,logage from clusters 
-            WHERE diam<60 and diam>15 
-            AND logage>8.477 and logage<9.46
-            AND dec>-6
-            AND (name like 'NGC%' or name like 'IC%')
-            AND ebv < 0.5
-            AND d < 1500
-            AND not observed"""
+            WHERE ((diam<=%(maxdiam)d and diam>=%(mindiam)d) or diam IS NULL) 
+            AND logage>=%(minage)f and logage<=%(maxage)f
+            AND dec>=%(mindec)f
+            AND (name LIKE 'NGC%%' OR name LIKE 'IC%%')
+            AND (ebv <= %(maxebv)f OR ebv IS NULL)
+            AND (d <= %(maxd)d or d IS NULL)
+            AND not observed
+            order by ra""" % criteria
         result = self.wifsip.query(query)
         self.data = []
         for r in result:
@@ -48,6 +58,7 @@ class ClusterPlan(object):
     def plot(self):
         import matplotlib.pyplot as plt
         from milkyway import MilkyWay
+        plt.figure(figsize=(10.69, 7.27))
         mw = MilkyWay('/work2/jwe/tychomap.npy', magnitudes=True)
         mw.plot(show=False)
         ra = [d['ra']/15. for d in self.data]
@@ -55,24 +66,25 @@ class ClusterPlan(object):
         ebv = [d['ebv'] for d in self.data]
         name = [d['name'] for d in self.data]
         d = [d['diam']*4 for d in self.data]
+        
         plt.scatter(ra, dec, edgecolor='none', c=ebv, s=d)
         plt.xlim(24,0)
-        plt.ylim(-10,60)
+        plt.ylim(-15,75)
         plt.minorticks_on()
         plt.grid()
         plt.xlabel('R.A.')
         plt.ylabel('Dec.')
         for r,d,n in zip(ra, dec, name):
-            plt.text(r, d, n)
+            plt.text(r, d, n, fontsize=8)
         
-        plt.savefig('/work2/jwe/SOCS/clusterplan.pdf')
+        plt.savefig('/work2/jwe/SOCS/clusterplan.pdf', papertype='a4')
         plt.close()
         #plt.show()
         
     def list(self):
-        for d in self.data[-3:]:
-            print '%-15s %4dpc %4dMyr %.2f %2d' % (d['name'],d['d'],d['age'],d['ebv'],d['diam'])
-            print self.time(d)
+        for d in self.data:
+            print '%-15s %4dpc %4dMyr E(B-V)=%.2f %2d' % (d['name'],d['d'],d['age'],d['ebv'],d['diam'])
+            #print self.time(d)
     
     def obstime(self):
         import ephem
