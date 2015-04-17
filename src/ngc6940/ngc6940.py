@@ -5,6 +5,7 @@ Created on Oct 9, 2014
 
 @author: jwe
 '''
+import config
 
 def calibrate(objname):
     from calibrate import Calibrate
@@ -28,6 +29,36 @@ def calibrate(objname):
         print 'reference:', ref
         calb.getframes(ref)
         calb.corrframes(ref)
+
+def make_cmd(show=False):
+    import numpy as np
+    import matplotlib.pyplot as plt
+    from datasource import DataSource
+
+    wifsip = DataSource(database='wifsip', user='sro', host='pina.aip.de')
+    
+    query = "SELECT vmag, bmag FROM ngc6940 WHERE vmag>0.0 and bmag>0.0;"
+    data = wifsip.query(query)
+    vmag = np.array([d[0] for d in data])*1.0042005546775856+0.24536565071778343
+    bmag = np.array([d[1] for d in data])*1.0017849466111253+1.3145083952754286
+    bv = bmag-vmag
+    
+    plt.scatter(bv-0.214, vmag, edgecolor='none', alpha=0.5, s=2, c='k')
+    plt.axvline(0.653, linestyle='--', color='y')
+    plt.title('NGC6940 Color Magnitude Diagram E(B-V)=0.214')
+    plt.ylim(21.0, 10.0)
+    plt.xlim(0.0, 1.6)
+    plt.xlabel('(B - V)$_0$')
+    plt.ylabel('V [mag]')
+    plt.grid()
+    plt.minorticks_on()
+    if show:
+        plt.show()
+    else:
+        plt.savefig(config.resultpath+'ngc6940cmd.eps')
+        plt.savefig(config.resultpath+'ngc6940cmd.pdf')
+    plt.close()
+
         
 if __name__ == '__main__':
     import argparse
@@ -39,6 +70,7 @@ if __name__ == '__main__':
     parser.add_argument('--getframes', action='store_true', help='get frames')
     parser.add_argument('--sigmas', action='store_true', help='plot cmd')
     parser.add_argument('--bv', action='store_true', help='update B-V')
+    parser.add_argument('-cmd', action='store_true', help='plot cmd')
     parser.add_argument('filter', default='V', type=str, help='filter color to process')
 
     args = parser.parse_args()
@@ -63,3 +95,5 @@ if __name__ == '__main__':
     if args.getframes: phot.getframes()
     if args.sigmas: phot.update_sigmas()
     if args.bv: phot.update_bv()
+    
+    if args.cmd: make_cmd()
