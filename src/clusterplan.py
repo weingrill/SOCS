@@ -86,6 +86,42 @@ class ClusterPlan(object):
             print '%-15s %4dpc %4dMyr E(B-V)=%.2f %2d' % (d['name'],d['d'],d['age'],d['ebv'],d['diam'])
             #print self.time(d)
     
+    def calc(self):
+        """
+        calculate the exposure for a solar like star
+        """
+        import matplotlib.pyplot as plt
+        import numpy as np
+        
+        isofile = '/work2/jwe/m48/data/1p000Gyr_FeH0p0_Y0p277_AMLTsol.iso'
+        a = np.loadtxt(isofile)
+        iso_mv = a[:,5]
+        iso_bv = a[:,6]
+        x = np.arange(0.4, 1.4, 0.01)
+        m = np.arange(min(iso_mv),max(iso_mv),0.1)
+        i = np.where((iso_bv>0.4) & (iso_bv<1.4)) 
+        p = np.polyfit(iso_bv[i], iso_mv[i], 3)
+        q = np.polyfit(iso_mv, iso_bv, 11)
+        #p1 = [-1.33,  7.27,  0.75]
+        print '[' + ', '.join(['%.2f'%pi for pi in p]) + ']'
+        y = np.polyval(p, x)
+        bv1 = np.polyval(q, m)
+        plt.scatter(iso_bv, iso_mv)
+        
+        plt.plot(x, y, 'g')
+        plt.plot(bv1, m, 'r')
+        plt.axhline(4.83, color='y')
+        plt.axvline(0.653, color='y')
+        plt.xlabel('(B-V)')
+        plt.ylabel('M$_V$')
+        plt.ylim(plt.ylim()[::-1])
+        plt.grid()
+        plt.minorticks_on()
+        plt.show()
+        
+    
+            
+    
     def obstime(self):
         import ephem
         import numpy as np
@@ -214,6 +250,7 @@ if __name__ == '__main__':
     parser.add_argument('--plot', action='store_true', help='plot clusters')
     parser.add_argument('-obstime', action='store_true', help='plot observation schedule')
     parser.add_argument('-list', action='store_true', help='list clusters')
+    parser.add_argument('-calc', action='store_true', help='calculate exposure time')
     
     args = parser.parse_args()
     
@@ -221,6 +258,8 @@ if __name__ == '__main__':
     if args.plot: cp.plot()
     if args.obstime: cp.obstime()
     if args.list: cp.list()
+    if args.calc: cp.calc()
+    
     
         
     
