@@ -9,3 +9,11 @@ syntax: regexp
 ^src/m48/config\.py$
 syntax: regexp
 ^src/ngc2236/config\.py$
+syntax: regexp
+^src/m67/config\.py$
+syntax: regexp
+^src/ngc1528/config\.py$
+syntax: regexp
+^src/ngc6633/config\.py$
+syntax: regexp
+^src/ngc6940/config\.py$
