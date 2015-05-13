@@ -24,7 +24,7 @@ class M48Plots(object):
         '''
         from datasource import DataSource
     
-        self.wifsip = DataSource(database='wifsip', user='sro', host='pina.aip.de')
+        self.wifsip = DataSource(database='wifsip', user='sro', host='oldpina.aip.de')
         self.stars = []
         self.getstars()
 

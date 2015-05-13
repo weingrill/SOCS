@@ -6,6 +6,8 @@ Created on Jul 14, 2014
 
 from m48 import M48Star
 from functions import sigma_clip, phase
+import numpy as np
+import pylab as plt
 
 
 class M48TalkStar(M48Star):
@@ -44,9 +46,6 @@ class M48TalkStar(M48Star):
         """
         plot the lightcurve for a given star
         """
-        import pylab as plt
-        import numpy as np
-
         mean = np.mean(self.m)
         std = np.std(self.m)
         
@@ -64,8 +63,6 @@ class M48TalkStar(M48Star):
      
     def plot_psd(self):
         from psd import ppsd
-        import numpy as np
-        import pylab as plt
         # perform a power spectrum analysis
 
         px, f = ppsd(self.t, self.m- np.mean(self.m), lower=1./30, upper=1./0.1)
@@ -86,8 +83,6 @@ class M48TalkStar(M48Star):
         
 
     def plot_pdm(self):
-        import numpy as np
-        import pylab as plt
         from pdm import pdm
 
         # look at 20 days or at most at the length of dataset
@@ -107,10 +102,6 @@ class M48TalkStar(M48Star):
         plt.close()
 
     def phase_plot(self):
-        import numpy as np
-        import pylab as plt
-
-        
         period = self.period
         tp, yp = phase(self.t,self.m, period)
         s1 = np.sin(2*np.pi*tp/period)
@@ -145,14 +136,51 @@ class M48TalkStar(M48Star):
         plt.savefig('/work1/jwe/Dropbox/Documents/Talks/AIP2014a/phase.pdf')
         plt.close()
         
+    def plot_cpd(self):
+        '''
+        create plot for Heraeus Talk
+        '''
+        from datasource import DataSource
+        wifsip = DataSource(database='wifsip', user='sro', host='oldpina.aip.de')
+        query = """SELECT bv, period 
+                    FROM m48stars 
+                    WHERE good;"""
+
+        data = wifsip.query(query)
+        
+        bv = np.array([d[0] for d in data])
+        period = np.array([d[1] for d in data])
+        
+        import gyroage
+        from functions import logspace
+        
+        bv360 = logspace(0.5, 2.0, num=100)
+        #P = gyroage.gyroperiod(bv360, 360.0, version=2007)
+        P, pc = gyroage.gyroperiod(bv360, 360.0, version=2003)
+        plt.plot(bv360, pc, color='b', linestyle='--')
+        plt.plot(bv360, P, color='r')
+        
+        plt.scatter(bv-self.ebv, period, s=1, 
+                    edgecolor='none', c='k')
+         
+        plt.xlabel('(B - V)$_0$')
+        plt.ylabel('period [days]')
+        plt.ylim(0.0, 20.0)
+        plt.xlim(0.0, 2.0)
+        plt.grid()
+        plt.savefig('/home/jwe/Documents/Talks/Heraeus2015/m48cpd.eps')
+        plt.savefig('/home/jwe/Documents/Talks/Heraeus2015/m48cpd.pdf')
+        plt.close()
+
         
 
 
 if __name__ == '__main__':
     star = M48TalkStar('20140302A-0000-0015#278')
-    star._load_lightcurve()
-    star._init_plot()
+    star.plot_cpd()
+    #star._load_lightcurve()
+    #star._init_plot()
     
-    star.plot_lightcurve()
-    star.plot_psd()
+    #star.plot_lightcurve()
+    #star.plot_psd()
     star.phase_plot()
