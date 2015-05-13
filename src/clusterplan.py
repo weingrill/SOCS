@@ -93,23 +93,39 @@ class ClusterPlan(object):
         import matplotlib.pyplot as plt
         import numpy as np
         
-        isofile = '/work2/jwe/m48/data/1p000Gyr_FeH0p0_Y0p277_AMLTsol.iso'
+        isofile = '/home/jwe/data/iso_01.000_Gyr.dat'
+        
         a = np.loadtxt(isofile)
-        iso_mv = a[:,5]
-        iso_bv = a[:,6]
-        x = np.arange(0.4, 1.4, 0.01)
-        m = np.arange(min(iso_mv),max(iso_mv),0.1)
-        i = np.where((iso_bv>0.4) & (iso_bv<1.4)) 
-        p = np.polyfit(iso_bv[i], iso_mv[i], 3)
-        q = np.polyfit(iso_mv, iso_bv, 11)
+        iso_mass = a[:, 0]
+        iso_mv = a[:, 5]
+        iso_bv = a[:, 8]
+        
+        minbv, maxbv = 0.2,1.45
+        
+        bv = np.arange(minbv, maxbv, 0.01)
+        mv = np.arange(min(iso_mv), max(iso_mv), 0.1)
+        mass = np.arange(min(iso_mass), max(iso_mass), 0.01)
+        
+        i = np.where((iso_bv>minbv) & (iso_bv<maxbv) & (iso_mv>2.0))
+        p = np.polyfit(iso_bv[i], iso_mv[i], 5)
+        #q = np.polyfit(iso_mv, iso_bv, 11)
+        massmvp = np.polyfit(iso_mass, iso_mv, 12)
+        massbvp = np.polyfit(iso_mass, iso_bv, 12)
+        
+        mv_int = np.polyval(massmvp, mass)
+        bv_int = np.polyval(massbvp, mass)
+        
         #p1 = [-1.33,  7.27,  0.75]
         print '[' + ', '.join(['%.2f'%pi for pi in p]) + ']'
-        y = np.polyval(p, x)
-        bv1 = np.polyval(q, m)
+        y = np.polyval(p, bv)
+        print np.polyval(p, [0.4,1.4])
+        
         plt.scatter(iso_bv, iso_mv)
         
-        plt.plot(x, y, 'g')
-        plt.plot(bv1, m, 'r')
+        plt.plot(bv, y, 'g')
+        
+        plt.plot(bv_int, mv_int, 'r')
+        
         plt.axhline(4.83, color='y')
         plt.axvline(0.653, color='y')
         plt.xlabel('(B-V)')

@@ -126,7 +126,6 @@ class OpenCluster(object):
             self.mode['impact'] = 1.0
         
         if self.object['RA'] is None or self.object['Dec'] is None:
-            print 'fetching coordinates from Simbad'
             self.get_coordiantes()
     
     def plot_ephem(self, obsdate=None):
@@ -140,7 +139,7 @@ class OpenCluster(object):
         
         stella = ephem.Observer()
         #stella.lon, stella.lat = '13.104659', '52.404963' # Potsdam
-        stella.lat, stella.lon = 31.9583, -111.59867 # KPNO
+        #stella.lat, stella.lon = 31.9583, -111.59867 # KPNO
         stella.lat, stella.lon = 28.301214,-16.509246
         sun, moon = ephem.Sun(), ephem.Moon()  # @UndefinedVariable
         
@@ -214,22 +213,13 @@ class OpenCluster(object):
         """
         queries the object coordinates
         """
-        import PySimbad
-        import astronomy as ast
+        from cluster import Cluster
         
-        self.coords = PySimbad.SimbadCoord(self.object['ObjectName'])
+        c = Cluster(self.object['ObjectName'])
         
-        if self.coords.find('+')>0:
-            p = self.coords.find('+')
-        else:
-            p = self.coords.find('-')
-        ra = self.coords[:p].strip()    
-        dec = self.coords[p:].strip()
-        self.ra_str = ra
-        self.dec_str = dec
-        #TODO: new coordinate conversion!
-        self.object['RA'] = ast.hms2dd(ra)
-        self.object['Dec'] = ast.dms2dd(dec)
+        self.ra_str,  self.dec_str = c.coordinatestring
+        self.object['RA'] = c['ra']
+        self.object['Dec'] = c['dec']
         self.coords=[self.object['RA'],self.object['Dec']]
         
     def plan_wifsip(self, nfields=4):
