@@ -1,54 +1,30 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
 '''
 Created on Apr 12, 2013
 
 @author: jwe <jweingrill@aip.de>
 '''
+import config
+from opencluster import OpenCluster
 
-def do_rot(transfer=False):
-    from opencluster import OpenCluster
+def do_rot(cluster, transfer=False):
+    ngc6709 = OpenCluster(objectname = cluster, obsmode = 'rot')
+    ngc6709.title = 'SOCS'
+    ngc6709.abstract = 'Photometric monitoring of open stellar clusters'
+    ngc6709.tofile(config.projectpath)
+    if transfer:
+        ngc6709.transfer()
+            
+def do_bvr(cluster, transfer=False):
 
-    ngc6940 = OpenCluster(objectname='NGC 6940', uname='NGC 6940 rot', obsmode='rot')
-    ngc6940.title = 'SOCS'
-    ngc6940.abstract = 'Photometric monitoring of open stellar clusters'
-    ngc6940_subframes = ngc6940.plan_wifsip(nfields=4)
-
-    
-    for sf in ngc6940_subframes:
-        print sf.uname, sf.duration
-        sf.tofile('/work2/jwe/NGC6940')
-        if transfer:
-            sf.transfer()
-
-def do_bvi(transfer=False):
-    from opencluster import OpenCluster
-
-    ngc6940 = OpenCluster(objectname='NGC6940', uname='NGC6940 BVI', obsmode='BVI')
-    ngc6940.title = 'SOCS'
-    ngc6940.abstract = 'Photometric monitoring of open stellar clusters'
-    ngc6940_subframes = ngc6940.plan_wifsip(nfields=5)
-    for sf in ngc6940_subframes:
-        print sf.uname, sf.duration
-        sf.tofile('/work2/jwe/NGC6940')
-        if transfer:
-            sf.transfer()
-
-def do_bvr(transfer=False):
-    from opencluster import OpenCluster
-
-    ngc6940 = OpenCluster(objectname='NGC6940', uname='NGC6940 BVR', obsmode='BVR')
-    ngc6940.title = 'SOCS'
-    ngc6940.abstract = 'Photometric monitoring of open stellar clusters'
-    ngc6940_subframes = ngc6940.plan_wifsip(nfields=5)
-    for sf in ngc6940_subframes:
-        print sf.uname, sf.duration
-        
-        sf.tofile('/work2/jwe/NGC6940')
-        if transfer:
-            sf.transfer()
+    ngc6709 = OpenCluster(objectname = cluster, obsmode='BVR')
+    ngc6709.title = 'SOCS'
+    ngc6709.abstract = 'Photometric monitoring of open stellar clusters'
+    ngc6709.tofile(config.projectpath)
+    if transfer:
+        ngc6709.transfer()
         
 if __name__ == '__main__':
-    import matplotlib
-    matplotlib.use('WXAgg')
-    do_rot(transfer=True)
-    #do_bvi()
-    do_bvr(transfer=True)
+    do_rot('NGC 6709', transfer=True)
+    do_bvr('NGC 6709', transfer=True)

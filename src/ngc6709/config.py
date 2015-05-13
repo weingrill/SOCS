@@ -3,11 +3,11 @@ Created on Oct 7, 2014
 
 @author: jwe
 
-global configurationfile for ngc6940
+global configurationfile for NGC 6709
 '''
 import os
 
-projectpath = '/work2/jwe/NGC6940/'
+projectpath = '/work2/jwe/NGC6709/'
 
 resultpath = projectpath+'results/'
 plotpath = projectpath+'plots/'
