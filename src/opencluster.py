@@ -519,7 +519,8 @@ class OpenCluster(object):
         oder FCP1
         findet alle aktuellen (max. 24h alten) dateien und kopiert nach wifsip.
         
-        Dann weiter wie im Wiki.
+        Dann weiter wie im Wiki:
+        http://stella.aip.de/groups/activity/wiki/index.php/Adding_targets
         
         script-update (aus .save .xml files machen ohne GUI):
         
