@@ -538,6 +538,7 @@ class OpenCluster(object):
         
         d.h. relativer pfad von uploads aus.
 
+        stella@wifsip:~/stella/master1/testing/targets
         '''
         from subprocess import call
         import time
@@ -550,7 +551,7 @@ class OpenCluster(object):
         call(['/usr/bin/scp', source, target])
         print os.path.dirname(source)
         _, filename = os.path.split(source)
-        #call(['/usr/bin/ssh', 'operator@ciruelo', '"ls ~/bin/autosubmit.sh %s"' % filename])
+        print'executing operator@ciruelo:autosubmit.sh %s' % filename
         call(['/usr/bin/ssh', 'operator@ciruelo', 'bin/autosubmit.sh %s' % filename])
         
     def tycho(self):
