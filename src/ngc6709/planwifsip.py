@@ -27,4 +27,4 @@ def do_bvr(cluster, transfer=False):
         
 if __name__ == '__main__':
     do_rot('NGC 6709', transfer=True)
-    do_bvr('NGC 6709', transfer=True)
+    #do_bvr('NGC 6709', transfer=True)
