@@ -81,12 +81,10 @@ class Cluster(dict):
     @property
     def solarmagnitude(self):
         """
-        calculates the distance modulus of the cluster from the distance in 
-        parsec
+        calculates the magnitude of a solar like star at the cluster distance
         """
         from numpy import log10
         return 5.0*log10(self['d']) - 5.0 + 4.862
-
 
 if __name__ == '__main__':
     import argparse
