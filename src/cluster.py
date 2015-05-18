@@ -20,6 +20,9 @@ class Cluster(dict):
         self.name = name
         
         self.wifsip = DataSource(database='stella', user='stella', host='pera.aip.de')
+        self.separator = ' '
+        self.ra_precision = 1
+        self.dec_precision = 0
         
     def keys(self):
         query = """SELECT column_name, data_type, character_maximum_length
@@ -59,8 +62,11 @@ class Cluster(dict):
         ra = self['ra']
         dec = self['dec']
         c = SkyCoord(ra=ra*u.deg, dec=dec*u.deg)  # @UndefinedVariable
-        ra_str =  c.ra.to_string(unit=u.hourangle,sep=' ', precision=1)  # @UndefinedVariable
-        dec_str =  c.dec.to_string(sep=' ', precision=0)
+        ra_str =  c.ra.to_string(unit=u.hourangle, # @UndefinedVariable
+                                 sep=self.separator, 
+                                 precision=self.ra_precision)  
+        dec_str =  c.dec.to_string(sep=self.separator, 
+                                   precision=self.dec_precision)
         return ra_str, dec_str
     
     @property
@@ -72,12 +78,46 @@ class Cluster(dict):
         from numpy import log10
         return 5.0*log10(self['d']) - 5.0
         
+    @property
+    def solarmagnitude(self):
+        """
+        calculates the distance modulus of the cluster from the distance in 
+        parsec
+        """
+        from numpy import log10
+        return 5.0*log10(self['d']) - 5.0 + 4.862
 
 
 if __name__ == '__main__':
-    c = Cluster('NGC 6709')
-    print c['ra'],c['dec']
-    print c['d'],c['diam']
-    print c.coordinates
-    print c.coordinatestring 
-    print c.distancemodulus       
+    import argparse
+
+    parser = argparse.ArgumentParser(description='Cluster table query')
+    parser.add_argument('clustername', help='name of the cluster')
+    parser.add_argument('-k', '--keys', action='store_true',
+                        help='list of available keys')
+    parser.add_argument('-p', help='return specific parameter')
+    
+    args = parser.parse_args()
+    
+    c = Cluster(args.clustername)
+    c.separator = ':'
+    if args.keys:
+        for key in c.keys(): print key 
+    elif args.p:
+        print c[args.p]
+    else:
+        print 'cluster:          %s' % c['name']
+        print 'coordinates:      %s %s' % c.coordinatestring
+        print 'proper motions    %.2f %.2f' % (c['pmra'],c['pmdec'])
+        print 'radial velocity   %.2f' % c['rv']
+        print 'diameter:         %.1f' % c['diam']
+        print 'distance:         %d' % c['d']
+        print 'E(B - V):         %.2f' % c['ebv']
+        try:
+            print '[Fe/H]:           %.2f' % c['me']
+        except TypeError:
+            pass
+        print 'distance modulus: %.2f' % c.distancemodulus 
+        print 'solar magnitude:  %.2f' % c.solarmagnitude
+        print 'log age           %.3f' % c['logage']
+            
