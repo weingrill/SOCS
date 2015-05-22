@@ -6,6 +6,8 @@ Created on May 11, 2015
 @author: Joerg Weingrill <jweingrill@aip.de>
 '''
 import numpy as np
+import matplotlib
+matplotlib.use('Agg')
 import pylab as plt
 from datasource import DataSource
 
@@ -45,6 +47,7 @@ plt.ylim(0.0, 14.0)
 plt.xlim(0.4, 1.6)
 plt.minorticks_on()
 plt.grid()
-plt.savefig('/home/jwe/Documents/Talks/Heraeus2015/m48cpd.svg',transparent=True)
-plt.savefig('/home/jwe/Documents/Talks/Heraeus2015/m48cpd.png',transparent=True)
+#plt.savefig('/home/jwe/Documents/Talks/Heraeus2015/m48cpd.svg',transparent=True)
+plt.savefig('/home/jwe/Documents/Poster/Heraeus2015/m48cpd.eps',transparent=True)
+plt.savefig('/home/jwe/Documents/Poster/Heraeus2015/m48cpd.pdf',transparent=True)
 plt.close()
