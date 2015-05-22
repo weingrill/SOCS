@@ -7,6 +7,7 @@ Created on Sep 18, 2014
 
 class definiton for paper plots on M48
 '''
+import config
 from m48star import M48Star            
 import numpy as np
 import pylab as plt
@@ -42,7 +43,7 @@ class M48Plots(object):
         print '... %d stars found' % len(result)
         self.stars = [s[0] for s in result]
 
-    def plot_lightcurve(self, starid):
+    def _plot_lightcurve(self, starid):
         """
         plot the lightcurve for a given star
         """
@@ -98,13 +99,13 @@ class M48Plots(object):
             ax.set_yticklabels([])
             ax.set_xticklabels([])
             sp += 1
-            self.plot_lightcurve(starid)
+            self._plot_lightcurve(starid)
             if sp==7*4+1 or starid==self.stars[-1]:
                 plt.tight_layout()
                 if show: plt.show()
                 else: 
-                    plt.savefig('/work2/jwe/m48/plots/lightcurves%d.pdf' % lc)
-                    plt.savefig('/work2/jwe/m48/plots/lightcurves%d.eps' % lc)
+                    plt.savefig(config.plotpath+'lightcurves%d.pdf' % lc)
+                    plt.savefig(config.plotpath+'lightcurves%d.eps' % lc)
                 lc += 1
                 sp = 1 
                 plt.close()
@@ -169,12 +170,82 @@ class M48Plots(object):
                 plt.tight_layout()
                 if show: plt.show()
                 else: 
-                    plt.savefig('/work2/jwe/m48/plots/phase%d.pdf' % phase)
-                    plt.savefig('/work2/jwe/m48/plots/phase%d.eps' % phase)
+                    plt.savefig(config.plotpath+'phase%d.pdf' % phase)
+                    plt.savefig(config.plotpath+'phase%d.eps' % phase)
                 phase += 1
                 sp = 1 
                 plt.close()
 
+    def _plot_spectrum(self, starid, axis):
+        from numpy import std
+        
+        star = M48Star(starid)
+        try:
+            freq, amp = star.cleanspectrum()
+        except TypeError:
+            print 'no data'
+            return
+        period = star['p_fin']
+        
+        plt.axvline(period, linestyle='-.', color='green')
+        plt.axvline(1.0, linestyle='-.', color='red')
+        
+        plt.axhline(5.0*std(amp), linestyle='--', color='blue')
+        
+        plt.plot(1./freq,amp, 'k')
+        
+        #plt.xticks(np.arange(60))
+        plt.xlim(0,15.0)
+        #plt.ylim(plt.ylim()[1],plt.ylim()[0])
+        
+        plt.text(1., 1., star['tab'], 
+                 fontsize=12,
+                 verticalalignment='top',
+                 horizontalalignment='right',
+                 transform=axis.transAxes)
+
+
+    def make_spectra(self, show=False):
+        """
+        plots the CLEANed spectra
+        """
+        fig_width = 18.3/2.54  # width in inches, was 7.48in
+        fig_height = 23.3/2.54  # height in inches, was 25.5
+        fig_size =  [fig_width,fig_height]
+        #set plot attributes
+        params = {'backend': 'Agg',
+          'axes.labelsize': 8,
+          'axes.titlesize': 10,
+          'font.size': 8,
+          'xtick.labelsize': 8,
+          'ytick.labelsize': 8,
+          'figure.figsize': fig_size,
+          'savefig.dpi' : 300,
+          'font.family': 'sans-serif',
+          'axes.linewidth' : 0.5,
+          'xtick.major.size' : 2,
+          'ytick.major.size' : 2,
+          }
+        rcParams.update(params)
+        
+        sp = 1
+        lc = 1
+        for starid in self.stars:
+            print starid
+            ax = plt.subplot(7,4,sp)
+            ax.set_yticklabels([])
+            ax.set_xticklabels([])
+            sp += 1
+            self._plot_spectrum(starid, ax)
+            if sp==7*4+1 or starid==self.stars[-1]:
+                plt.tight_layout()
+                if show: plt.show()
+                else: 
+                    plt.savefig(config.plotpath+'spectra%d.pdf' % lc)
+                    plt.savefig(config.plotpath+'spectra%d.eps' % lc)
+                lc += 1
+                sp = 1 
+                plt.close()
 
 if __name__ == '__main__':
     import argparse
@@ -184,6 +255,8 @@ if __name__ == '__main__':
                         help='make phaseplots')
     parser.add_argument('-l','--lightcurves', action='store_true', 
                         help='make lightcurve plots')
+    parser.add_argument('-s','--spectra', action='store_true', 
+                        help='make lightcurve plots')
     parser.add_argument('-show', action='store_true', 
                         help='show plots instead of saving to file')
 
@@ -192,3 +265,5 @@ if __name__ == '__main__':
     m48plots = M48Plots()
     if args.phaseplots: m48plots.make_phaseplots(show=args.show)
     if args.lightcurves: m48plots.make_lightcurves(show=args.show)
+    if args.spectra: m48plots.make_spectra(show=args.show)
+    

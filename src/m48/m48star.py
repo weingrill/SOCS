@@ -6,7 +6,7 @@ Created on Jul 18, 2014
 
 import config
 import logging
-logging.basicConfig(filename='/work2/jwe/m48/m48star.log', 
+logging.basicConfig(filename=config.projectpath+'m48star.log', 
                     format='%(asctime)s %(levelname)s %(message)s',
                     level=logging.INFO)
 logger = logging.getLogger('M48 analysis')
@@ -111,7 +111,7 @@ class M48Star(dict):
     def __init__(self, starid):
         from datasource import DataSource
         self.starid = starid
-        self.wifsip = DataSource(database='wifsip', user='sro', host='pina.aip.de')
+        self.wifsip = DataSource(database='wifsip', user='sro', host='oldpina.aip.de')
         if '%' in self.starid:
             self.starid = self['starid']
 
@@ -155,3 +155,14 @@ class M48Star(dict):
     def lightcurve(self):
         lc = LightCurve(self.starid)
         return lc.hjd, lc.mag, lc.err
+    
+    def cleanspectrum(self):
+        #20140305A-0003-0017#359 <-- starid
+        #       6A-0097-0013#1648.ncfile <-- filename
+        #01234567
+        from numpy import loadtxt
+        filename = '/work2/jwe/owncloud/M48/data/spectra_syd/'+self.starid[7:] + '.ncfile'
+        a = loadtxt(filename)
+        freq = a[:1600,0]
+        amp = a[:1600,1]
+        return freq, amp
