@@ -57,11 +57,12 @@ class DiffPhotometry(object):
         load the objids corresponding to the field
         """
         query = """SELECT objid, hjd, stars 
-        FROM frames 
-        WHERE object LIKE '%s' 
-        AND filter='V'
-        AND expt>60
-        ORDER BY objid;""" % self.field
+            FROM frames 
+            WHERE object LIKE '%s' 
+            AND filter='V'
+            ORDER BY objid;""" % self.field
+        #AND expt>60
+        
         result = self.wifsip.query(query)
         
         self.objids = [r[0] for r in result] 
@@ -95,10 +96,10 @@ class DiffPhotometry(object):
             WHERE object like '%s'
             AND frames.objid = phot.objid
             AND filter='V'
-            AND expt > 60
             AND phot.flags<4
             AND circle(phot.coord,0) <@ circle(point%s, 0.2/3600.0)""" % \
             (self.field, coords)
+        #AND expt>60
         result = self.wifsip.query(query)
         objids = [r[0] for r in result] 
         mags = np.array([r[1] for r in result])
@@ -130,7 +131,6 @@ class DiffPhotometry(object):
         self.stars, refcoords = self._loadcoords(self.refobjid)
         self.numstars = len(self.stars)
         self.starids = ['%s#%d' % (self.refobjid, s) for s in self.stars]
-        self._savestars()
 
         print 'number of reference stars: %d' % self.numstars
         
@@ -162,7 +162,7 @@ class DiffPhotometry(object):
         self._saveimage(self.filename+'_photmatrix.png', photmatrix)
         
     
-    def _saveimage(self, filename, myarray):
+    def _saveimage(self, filename, myarray,sort='std'):
         """
         
         First ensure your numpy array, myarray, is normalised with the max value at 1.0.
@@ -173,6 +173,24 @@ class DiffPhotometry(object):
 
         """
         from PIL import Image  # @UnresolvedImport
+        
+        mavg = np.mean(myarray)
+        myarray -= mavg
+        mstd = 3.0*np.std(myarray)
+        if sort == 'std':
+            s = np.std(myarray, axis=0)        
+            ind = np.argsort(s)
+            myarray = myarray[:, ind]
+        elif sort == 'mean':
+            s = np.mean(myarray, axis=0)        
+            ind = np.argsort(s)
+            myarray = myarray[:, ind]
+
+        
+        i = np.where(myarray > mstd)
+        myarray[i] = mstd
+        j = np.where(myarray < -mstd)
+        myarray[j] = -mstd
         
         myarray *= -1.0
         myarray -= np.nanmin(myarray)
@@ -221,6 +239,7 @@ class DiffPhotometry(object):
         assert numstars == len(self.stars)
         
         maxnan = 1
+        print 'removing stars and epochs'
         while maxnan>0:
             maxnan0 = 0
             delvec0 = None
@@ -245,14 +264,14 @@ class DiffPhotometry(object):
                 M = np.delete(M, delvec0, 0)
                 self.objids.pop(delvec0)
                 self.hjds = np.delete(self.hjds, delvec0)
-                print 'deleted epoch %3d (%.3f)' % (delvec0, maxnan0)
+                print 'e%3d, ' % delvec0,
             elif maxnan1 > maxnan0:
                 M = np.delete(M, delvec1, 1)
                 self.stars.pop(delvec1)
                 self.starids.pop(delvec1)
-                print 'deleted star %4d (%.3f)' % (delvec1, maxnan1)
+                print 's%4d, ' % delvec1,
             else:
-                print maxnan0, maxnan1
+                print 'done (%.4f, %.4f)' % (maxnan0, maxnan1)
                 
             maxnan = max(maxnan0,maxnan1)
             epochs, numstars = M.shape
@@ -265,7 +284,7 @@ class DiffPhotometry(object):
         
         print 'saving reduced matrix', M.shape
         
-        self._saveimage(self.filename+'_reducedmatrix.png', M)
+        self._saveimage(self.filename+'_reducedmatrix.png', M, sort='mean')
         
     def clean(self, twosigma=False, sigmaclip=5.0):
         from scipy.linalg import svd
@@ -298,8 +317,6 @@ class DiffPhotometry(object):
         P = np.ones(M.shape)
         P =   (P.T * meanvec1).T
         
-        # create a new matrix with mean zero in time and in lightcurve
-        M1 = M - O #- P
         
 #         plt.subplot(3, 2, 1)
 #         plt.imshow(M)
@@ -313,21 +330,23 @@ class DiffPhotometry(object):
 #         plt.subplot(3, 2, 6)
 #         plt.imshow(M-O-P, vmin = -v, vmax = v)
 #         plt.show()
-        
+        M1 = M
         if twosigma:
+            # create a new matrix with mean zero in time and in lightcurve
+            M1 = M - O - P
             # remove the stars where the stddev is larger than 2 sigmas
-            m1std = np.std(M1)*2.0
-            stdvec = np.where(np.std(M1, axis=0) > m1std)[0]
+#            m1std = np.std(M1)*2.0
+#            stdvec = np.where(np.std(M1, axis=0) > m1std)[0]
             
-            M1 = np.delete(M1, stdvec, 1)
-            O = np.delete(O, stdvec, 1)
-            P = np.delete(P, stdvec, 1)
-            if len(stdvec) > 1:
-                for i in stdvec: self.starids.pop(i)
-            elif len(stdvec) == 1: 
-                self.starids.pop(stdvec)
+#            M1 = np.delete(M1, stdvec, 1)
+#            O = np.delete(O, stdvec, 1)
+#            P = np.delete(P, stdvec, 1)
+#            if len(stdvec) > 1:
+#                for i in stdvec: self.starids.pop(i)
+#            elif len(stdvec) == 1: 
+#                self.starids.pop(stdvec)
                 
-            print 'matrix after 2sigma star reduction:', M1.shape
+#            print 'matrix after 2sigma star reduction:', M1.shape
             
             m1std = np.std(M1)*2.0
             stdvec = np.where(np.std(M1, axis=1) > m1std)[0]
@@ -356,19 +375,19 @@ class DiffPhotometry(object):
                     self.objids.pop(stdvec)
                     
             print 'matrix after 2sigma epoch reduction:', M1.shape
-            
-        print 'reference star: ',np.argmin(np.std(M1, axis=0))
+            M = M1 + O
+        refstar = np.argmin(np.std(M1, axis=0))
+        print 'reference star: %d, std = %.4f' % (refstar, np.std(M1[:, refstar]))
         
         
         # perform sigma clipping at a level of 3 sigmas
-        m1std = np.std(M1)
+        #m1std = np.std(M1)
         
-        i = np.where(M1 > sigmaclip*m1std)
-        M1[i] = sigmaclip*m1std
-        j = np.where(M1 < -sigmaclip*m1std)
-        M1[j] = -sigmaclip*m1std
+        #i = np.where(M1 > sigmaclip*m1std)
+        #M1[i] = sigmaclip*m1std
+        #j = np.where(M1 < -sigmaclip*m1std)
+        #M1[j] = -sigmaclip*m1std
         
-        M = M1 + O
         epochs, numstars = M.shape
         
 #         plt.subplot(3, 1, 1)
@@ -392,7 +411,7 @@ class DiffPhotometry(object):
         
         # if we use all of the PCs we can reconstruct the noisy signal perfectly
         S = np.diag(s)
-        Mhat = np.dot(U, np.dot(S, V.T))
+        #Mhat = np.dot(U, np.dot(S, V.T))
         #print "Using all PCs, MSE = %.6G" %(np.mean((M - Mhat)**2))
         
         # if we use only the first n PCs the reconstruction is less accurate
@@ -405,13 +424,13 @@ class DiffPhotometry(object):
         np.save(self.filename+'_cleanedmatrix.npy', M-Mhat2)
         self._saveepochs()
         self._savestars()
-        plt.semilogy(s)
+        plt.semilogy(s[0:30])
         plt.title('singular values')
         plt.savefig(self.filename+'_cleanedmatrixs.pdf')
         plt.close()
-        self._saveimage(self.filename+'_cleanedmatrix.png', M-Mhat2)
-        self._saveimage(self.filename+'_cleanedmatrixM.png', M)
-        self._saveimage(self.filename+'_cleanedmatrixM1.png', M1)
+        self._saveimage(self.filename+'_cleanedmatrix.png', M-Mhat2, sort='std')
+        self._saveimage(self.filename+'_cleanedmatrixM.png', M, sort='mean')
+        self._saveimage(self.filename+'_cleanedmatrixM1.png', M1, sort='std')
         
     def _loadstars(self):
         f = open(self.filename+'_starids.txt', 'rt')
@@ -509,17 +528,27 @@ class DiffPhotometry(object):
                 lc += 1
                 sp = 1 
                 plt.close()
-        
 
 if __name__ == '__main__':
+    import argparse
+
+    parser = argparse.ArgumentParser(description='Differential photometry')
+    parser.add_argument('-l', '--load',   action='store_true', help='loads the objids from database')
+    parser.add_argument('-b', '--build',  action='store_true', help='build the photometry matrix')
+    parser.add_argument('-r', '--reduce', action='store_true', help='reduce the photometry matrix')
+    parser.add_argument('-c', '--clean',  action='store_true', help='clean the matrix and perform PCA')
+    parser.add_argument('-s', '--save',   action='store_true', help='save lightcurves')
+    parser.add_argument('-m', '--make',   action='store_true', help='make plots of lightcurves')
+
+    args = parser.parse_args()
     
 #    fields = ['M 48 rot NE','M 48 rot NW','M 48 rot SE','M 48 rot SW']
     fields =    ['M 48 rot NE']
     for field in fields:
         diffphot = DiffPhotometry(field)
-        diffphot.load_objids()
-        diffphot.build_photmatrix()
-        diffphot.reduce()
-        diffphot.clean(twosigma = False)
-        #diffphot.save_lightcurves()
-        diffphot.make_lightcurves(show=True)
+        if args.load:   diffphot.load_objids()
+        if args.build:  diffphot.build_photmatrix()
+        if args.reduce: diffphot.reduce()
+        if args.clean:  diffphot.clean(twosigma = True)
+        if args.save:   diffphot.save_lightcurves()
+        if args.make:   diffphot.make_lightcurves(show=True)
