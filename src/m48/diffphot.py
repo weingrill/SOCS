@@ -11,6 +11,26 @@ import config
 import numpy as np
 import matplotlib.pyplot as plt
 
+class Epoch(object):
+    def __init__(self):
+        self.frame_objid = ''
+        self.hjd = 0.0
+    
+class Star(object):
+    def __init__(self, starid):
+        self.starid = starid
+        self.mag = 0.0
+        self.coord = (0.0, 0.0)
+    
+    @property    
+    def objid(self):
+        return self.starid.split('#')[0]
+
+    @property    
+    def star(self):
+        return self.starid.split('#')[1]
+
+
 class DiffPhotometry(object):
     '''
     classdocs
@@ -25,9 +45,10 @@ class DiffPhotometry(object):
                                  host='pera', 
                                  user='stella')
         self.coords = {}
-        self.starids = []
+        #self.starids = []
         self.objids = []
         self.field = field
+        self.filename = config.datapath+self.field
         print self.field
         
     
@@ -39,6 +60,7 @@ class DiffPhotometry(object):
         FROM frames 
         WHERE object LIKE '%s' 
         AND filter='V'
+        AND expt>60
         ORDER BY objid;""" % self.field
         result = self.wifsip.query(query)
         
@@ -52,16 +74,19 @@ class DiffPhotometry(object):
         i = np.argmax(starcounts)
         self.refobjid = self.objids[i]
         print 'number of objids: %3d' % len(self.objids)
-        print 'number of stars: %4d' % self.numstars
+        print 'maximum stars: %4d' % self.numstars
     
     def _loadcoords(self, objid):
-        query = """SELECT coord 
+        query = """SELECT star, coord 
         FROM phot 
         WHERE objid = '%s'
+        AND flags<4
         ORDER BY star""" % objid
         result = self.wifsip.query(query)
         print 'number of coordinates: %4d' % len(result)
-        return [r[0] for r in result]
+        stars = [r[0] for r in result]
+        coords = [r[1] for r in result] 
+        return stars, coords
     
     def _loadmags(self, coords):
         #print '%s'  % coords
@@ -70,6 +95,7 @@ class DiffPhotometry(object):
             WHERE object like '%s'
             AND frames.objid = phot.objid
             AND filter='V'
+            AND expt > 60
             AND phot.flags<4
             AND circle(phot.coord,0) <@ circle(point%s, 0.2/3600.0)""" % \
             (self.field, coords)
@@ -77,6 +103,23 @@ class DiffPhotometry(object):
         objids = [r[0] for r in result] 
         mags = np.array([r[1] for r in result])
         return objids, mags
+    
+    def _savestars(self):
+        f = open(self.filename+'_starids.txt', 'wt')
+        
+#         for s in self.stars:
+#             f.write('%s#%d\n' % (self.refobjid, s))
+        
+        for s in self.starids:
+            f.write('%s\n' % s)
+        f.close()
+
+        
+    def _saveepochs(self):
+        f = open(self.filename+'_epochs.txt', 'wt')
+        for o, h in zip(self.objids, self.hjds):
+            f.write('%s %f\n' % (o, h))
+        f.close()
         
     def build_photmatrix(self):
         """
@@ -84,11 +127,15 @@ class DiffPhotometry(object):
         """
         print 'reference objid: %s' % self.refobjid
         
-        refcoords = self._loadcoords(self.refobjid)
-        print 'number of reference coords: %d' % len(refcoords)
+        self.stars, refcoords = self._loadcoords(self.refobjid)
+        self.numstars = len(self.stars)
+        self.starids = ['%s#%d' % (self.refobjid, s) for s in self.stars]
+        self._savestars()
+
+        print 'number of reference stars: %d' % self.numstars
         
         try:
-            photmatrix = np.load(config.datapath+self.field+'_photmatrix.npy')
+            photmatrix = np.load(self.filename+'_photmatrix.npy')
         except IOError:
             photmatrix = np.zeros([self.epochs,self.numstars])*np.nan
         else:    
@@ -106,23 +153,73 @@ class DiffPhotometry(object):
                 k = objids.index(objid)
                 photmatrix[epoch, star] = mags[k]
         
-        np.save(config.datapath+self.field+'_photmatrix.npy', photmatrix)
+        epochs, numstars = photmatrix.shape
+        assert epochs == len(self.hjds)
+        assert numstars == len(self.stars)
+        np.save(self.filename+'_photmatrix.npy', photmatrix)
+        self._savestars()
+        self._saveepochs()
+        self._saveimage(self.filename+'_photmatrix.png', photmatrix)
         
-        cmap = plt.cm.get_cmap('jet')
-        cmap.set_bad('grey')
-        plt.imshow(photmatrix, interpolation='nearest', cmap=cmap)
-        plt.show()
+    
+    def _saveimage(self, filename, myarray):
+        """
+        
+        First ensure your numpy array, myarray, is normalised with the max value at 1.0.
+        Apply the colormap directly to myarray.
+        Rescale to the 0-255 range.
+        Convert to integers, using np.uint8().
+        Use Image.fromarray().
+
+        """
+        from PIL import Image  # @UnresolvedImport
+        
+        myarray *= -1.0
+        myarray -= np.nanmin(myarray)
+        myarray *= np.trunc(256.0/np.nanmax(myarray))
+        
+        simg = np.rint(myarray)
+        simg = simg.astype('uint8')
+        
+        im = Image.fromarray(plt.cm.jet(simg, bytes=True))  # @UndefinedVariable
+        im.save(filename)
+        
+        #plt.imshow(myarray, interpolation='nearest', cmap=cmap)
+        #plt.axis('off')
+        #plt.savefig(filename)
+        #plt.close()
+        
     
     def reduce(self):
         try:
-            M = np.load(config.datapath+self.field+'_reducedmatrix.npy')
+            M = np.load(self.filename+'_reducedmatrix.npy')
         except IOError:
-            M = np.load(config.datapath+self.field+'_photmatrix.npy')
+            M = np.load(self.filename+'_photmatrix.npy')
+            #self.load_objids()
+            #self.stars, _ = self._loadcoords(self.refobjid)
         else:
             return
         
+        try:
+            self._loadstars()
+        except IOError:
+            self.stars, _ = self._loadcoords(self.refobjid)
+            self.starids = ['%s#%d' % (self.refobjid, s) for s in self.stars]
+        try:
+            self._loadepochs()
+        except IOError:
+            self.load_objids()
+        #
+        
         epochs, numstars = M.shape
-        print 'reducing (%d,%d)', M.shape
+        print 'reducing (%d,%d)' % M.shape
+        print 'hjds, objids, stars = %d, %d' % (len(self.hjds), len(self.stars))
+        
+        assert len(self.stars) == len(self.starids)
+        assert epochs == len(self.hjds)
+        assert len(self.hjds) == len(self.objids)
+        assert numstars == len(self.stars)
+        
         maxnan = 1
         while maxnan>0:
             maxnan0 = 0
@@ -146,9 +243,13 @@ class DiffPhotometry(object):
                     
             if maxnan0 >= maxnan1 and maxnan0 > 0:
                 M = np.delete(M, delvec0, 0)
+                self.objids.pop(delvec0)
+                self.hjds = np.delete(self.hjds, delvec0)
                 print 'deleted epoch %3d (%.3f)' % (delvec0, maxnan0)
             elif maxnan1 > maxnan0:
                 M = np.delete(M, delvec1, 1)
+                self.stars.pop(delvec1)
+                self.starids.pop(delvec1)
                 print 'deleted star %4d (%.3f)' % (delvec1, maxnan1)
             else:
                 print maxnan0, maxnan1
@@ -156,24 +257,34 @@ class DiffPhotometry(object):
             maxnan = max(maxnan0,maxnan1)
             epochs, numstars = M.shape
         
-        #np.save(config.datapath+field+'_reducedmatrix.npy', M)
+        assert epochs == len(self.hjds)
+        assert numstars == len(self.starids)
+        np.save(config.datapath+field+'_reducedmatrix.npy', M)
+        self._saveepochs()
+        self._savestars()
         
-        print M.shape
-        cmap = plt.cm.get_cmap('jet')
-        cmap.set_bad('grey')
-        plt.imshow(M, interpolation='nearest', cmap=cmap)
-        plt.show()
-    
-    def clean(self):
+        print 'saving reduced matrix', M.shape
+        
+        self._saveimage(self.filename+'_reducedmatrix.png', M)
+        
+    def clean(self, twosigma=False, sigmaclip=5.0):
         from scipy.linalg import svd
         
         try:
-            M = np.load(config.datapath+self.field+'_cleanedmatrix.npy')
+            M = np.load(self.filename+'_cleanedmatrix.npy')
         except IOError:
-            M = np.load(config.datapath+self.field+'_reducedmatrix.npy')
+            M = np.load(self.filename+'_reducedmatrix.npy')
         else:
             return
+        
+        print 'matrix to clean:', M.shape
+        self._loadepochs()
+        self._loadstars()
 
+        epochs, numstars = M.shape
+        assert epochs == len(self.hjds)
+        assert numstars == len(self.starids)
+        
         # calculate the mean for each lightcurve-vector
         meanvec = np.mean(M, axis=0)
         
@@ -188,48 +299,86 @@ class DiffPhotometry(object):
         P =   (P.T * meanvec1).T
         
         # create a new matrix with mean zero in time and in lightcurve
-        M1 = M - O - P
+        M1 = M - O #- P
         
-        m1std = np.std(M1)*2.0
-        stdvec = np.where(np.std(M1, axis=0) > m1std)
-        #plt.plot(np.sort(np.std(M1, axis=0)))
-        #plt.axhline(m1std)
-        #plt.show()
+#         plt.subplot(3, 2, 1)
+#         plt.imshow(M)
+#         plt.subplot(3, 2, 3)
+#         plt.imshow(O)
+#         plt.subplot(3, 2, 5)
+#         plt.imshow(P)
+#         plt.subplot(3, 2, 4)
+#         v = 3.0
+#         plt.imshow(M-O, vmin = -v, vmax = v)
+#         plt.subplot(3, 2, 6)
+#         plt.imshow(M-O-P, vmin = -v, vmax = v)
+#         plt.show()
         
-        # remove the stars where the stddev is larger than 2 sigmas
-        M1 = np.delete(M1, stdvec, 1)
-        O = np.delete(O, stdvec, 1)
-        P = np.delete(P, stdvec, 1)
-        print M1.shape
-        
-        m1std = np.std(M1)*2.0
-        stdvec = np.where(np.std(M1, axis=1) > m1std)
-        
-        #plt.plot(np.sort(np.std(M1, axis=1)))
-        #plt.axhline(m1std)
-        #plt.show()
-        print stdvec
-        
-        # remove the epochs where the stddev is larger than 2 sigmas
-        M1 = np.delete(M1, stdvec, 0)
-        O = np.delete(O, stdvec, 0)
-        P = np.delete(P, stdvec, 0)
-        #t = np.delete(t, stdvec)
-        print M1.shape
-        
+        if twosigma:
+            # remove the stars where the stddev is larger than 2 sigmas
+            m1std = np.std(M1)*2.0
+            stdvec = np.where(np.std(M1, axis=0) > m1std)[0]
+            
+            M1 = np.delete(M1, stdvec, 1)
+            O = np.delete(O, stdvec, 1)
+            P = np.delete(P, stdvec, 1)
+            if len(stdvec) > 1:
+                for i in stdvec: self.starids.pop(i)
+            elif len(stdvec) == 1: 
+                self.starids.pop(stdvec)
+                
+            print 'matrix after 2sigma star reduction:', M1.shape
+            
+            m1std = np.std(M1)*2.0
+            stdvec = np.where(np.std(M1, axis=1) > m1std)[0]
+            
+            fig, [ax1, ax2] = plt.subplots(1, 2)
+            ax1.plot(np.sort(np.std(M1, axis=0)))
+            ax1.axhline(m1std)
+            ax1.set_ylabel('std')
+            ax1.set_xlabel('stars')
+            
+            ax2.plot(np.sort(np.std(M1, axis=1)))
+            ax2.axhline(m1std)
+            ax2.set_xlabel('epochs')
+            fig.savefig(self.filename+'_matrixstat.pdf')
+            plt.close()
+            
+            # remove the epochs where the stddev is larger than 2 sigmas
+            M1 = np.delete(M1, stdvec, 0)
+            O = np.delete(O, stdvec, 0)
+            P = np.delete(P, stdvec, 0)
+            self.hjds = np.delete(self.hjds, stdvec)
+            if len(stdvec) > 1:
+                for i in stdvec: 
+                    self.objids.pop(i)
+            elif len(stdvec) == 1: 
+                    self.objids.pop(stdvec)
+                    
+            print 'matrix after 2sigma epoch reduction:', M1.shape
+            
         print 'reference star: ',np.argmin(np.std(M1, axis=0))
         
         
+        # perform sigma clipping at a level of 3 sigmas
         m1std = np.std(M1)
-        s = 3.0
         
-        i = np.where(M1 > s*m1std)
-        M1[i] = s*m1std
-        j = np.where(M1 < -s*m1std)
-        M1[j] = -s*m1std
+        i = np.where(M1 > sigmaclip*m1std)
+        M1[i] = sigmaclip*m1std
+        j = np.where(M1 < -sigmaclip*m1std)
+        M1[j] = -sigmaclip*m1std
         
         M = M1 + O
         epochs, numstars = M.shape
+        
+#         plt.subplot(3, 1, 1)
+#         plt.imshow(M1)
+#         plt.subplot(3, 1, 2)
+#         plt.imshow(O)
+#         plt.subplot(3, 1, 3)
+#         plt.imshow(P)
+#         plt.show()
+        
         
         U, s, Vt = svd(M, full_matrices=False)
         V = Vt.T
@@ -251,56 +400,117 @@ class DiffPhotometry(object):
         Mhat2 = np.dot(U[:, :level], np.dot(S[:level, :level], V[:,:level].T))
         #print "Using first %d PCs, MSE = %.6G" %(level, np.mean((M - Mhat2)**2))
 
-        #np.save(config.datapath+field+'_cleanedmatrix.npy', M-Mhat2)
+        assert epochs == len(self.hjds)
+        assert numstars == len(self.starids)
+        np.save(self.filename+'_cleanedmatrix.npy', M-Mhat2)
+        self._saveepochs()
+        self._savestars()
+        plt.semilogy(s)
+        plt.title('singular values')
+        plt.savefig(self.filename+'_cleanedmatrixs.pdf')
+        plt.close()
+        self._saveimage(self.filename+'_cleanedmatrix.png', M-Mhat2)
+        self._saveimage(self.filename+'_cleanedmatrixM.png', M)
+        self._saveimage(self.filename+'_cleanedmatrixM1.png', M1)
         
-        cmap = plt.cm.get_cmap('jet')
-        cmap.set_bad('grey')
-        plt.imshow(M-Mhat2, interpolation='nearest', cmap=cmap)
-        plt.show()
+    def _loadstars(self):
+        f = open(self.filename+'_starids.txt', 'rt')
+        self.starids = [starid.rstrip('\n') for starid in f.readlines()]
+        f.close()
+        
+    def _loadepochs(self):
+        f = open(self.filename+'_epochs.txt', 'rt')
+        lines = f.readlines()
+        f.close()
+        
+        self.objids = [l.split()[0] for l in lines]
+        self.hjds = np.array([float(l.split()[1].rstrip('\n')) for l in lines])
+        
+    def save_lightcurves(self):
+        M = np.load(self.filename+'_cleanedmatrix.npy')
+        epochs, numstars = M.shape
+        self._loadstars()
+        self._loadepochs()
+        
+        assert epochs == len(self.hjds)
+        assert numstars == len(self.starids)
+        
+        a = np.empty([epochs, 2])
+        
+        for starid in self.starids:
+            i = self.starids.index(starid)
+            filename = config.projectpath+'lightcurves.new/%s.dat' % starid
+            a[:, 0] = self.hjds
+            a[:, 1] = M[:, i]
+            np.savetxt(filename, a, fmt='%.5f %.4f')
+        
+    def _plot_lightcurve(self, starid, t, m, axis):
+        """
+        plot the lightcurve for a given star
+        """
+        plt.xlim(min(t),max(t))
+        plt.scatter(t, m, edgecolor='none', facecolor='g', s=5)
+        plt.plot(t,m,'gray')
+        std = 5.0*np.std(m)
+        plt.text(0.95, 0.95, '#'+starid.split('#')[1], 
+                 fontsize=12,
+                 verticalalignment='top',
+                 horizontalalignment='right',
+                 transform=axis.transAxes)
+        plt.ylim([std, -std])
 
-        exit()
-        k = 450
+    def make_lightcurves(self, show=False):
+        """plot lightcurve"""
+        from matplotlib import rcParams
         
-        for k in range(numstars):
-            fig, [ax1, ax2] = plt.subplots(2, 1)
-            ax1.set_title('star %d' % k)
-            t = np.arange(len(M1[:, k]))
-            ax1.scatter(t, M1[:, k], edgecolor='none')
-            ax1.axis('tight')
-            
-            
-            ax2.scatter(t, M[:, k]-Mhat2[:, k], edgecolor='none')
-            ax2.axis(ax1.axis())
-            
-            #ax3.semilogy(s[:10])
-            lc0std = np.std(M1[:, k])
-            lc1std = np.std(M[:, k]-Mhat2[:, k])
-            ax2.set_xlabel('%.4f --> %.4f' % (lc0std, lc1std  ))
-            plt.show()
+        fig_width = 18.3/2.54  # width in inches, was 7.48in
+        fig_height = 23.3/2.54  # height in inches, was 25.5
+        fig_size =  [fig_width,fig_height]
+        #set plot attributes
+        params = {'backend': 'Agg',
+          'axes.labelsize': 8,
+          'axes.titlesize': 10,
+          'font.size': 8,
+          'xtick.labelsize': 8,
+          'ytick.labelsize': 8,
+          'figure.figsize': fig_size,
+          'savefig.dpi' : 300,
+          'font.family': 'sans-serif',
+          'axes.linewidth' : 0.5,
+          'xtick.major.size' : 2,
+          'ytick.major.size' : 2,
+          }
+        rcParams.update(params)
         
-        Mimg = M - Mhat2
-        plt.imshow(Mimg, 
-                   interpolation='nearest')
-        plt.show()        
+        M = np.load(self.filename+'_cleanedmatrix.npy')
+        epochs, numstars = M.shape
+        self._loadstars()
+        self._loadepochs()
+        
+        assert epochs == len(self.hjds)
+        assert numstars == len(self.starids)
+        
+        sp = 1
+        lc = 1
+        rows = 7
+        cols = 4
+        for starid in self.starids:
+            i = self.starids.index(starid)
+            ax = plt.subplot(rows, cols,sp)
+            ax.set_yticklabels([])
+            ax.set_xticklabels([])
+            sp += 1
+            self._plot_lightcurve(starid, self.hjds, M[:, i], ax)
+            if sp == rows*cols + 1 or starid == self.starids[-1]:
+                plt.tight_layout()
+                if show: plt.show()
+                else: 
+                    plt.savefig(config.plotpath+'newlightcurves%d.pdf' % lc)
+                lc += 1
+                sp = 1 
+                plt.close()
+        
 
-    def _lightcurve(self, starid):
-        print 'lightcurve for star: %s' % starid
-        coords = self.coords[starid]
-        query = """SELECT frames.objid, hjd, mag_auto 
-            FROM phot, frames
-            WHERE object like '%s'
-            AND frames.objid = phot.objid
-            AND filter='V'
-            AND phot.flags<4
-            AND circle(phot.coord,0) <@ circle(point(%f, %f), 0.2/3600.0)""" % \
-            (self.field, coords[0], coords[1])
-        result = self.wifsip.query(query)
-        objids = [r[0] for r in result] 
-        hjds = np.array([r[1] for r in result]) 
-        mags = np.array([r[2] for r in result])
-        return objids, hjds, mags
-    
-        
 if __name__ == '__main__':
     
 #    fields = ['M 48 rot NE','M 48 rot NW','M 48 rot SE','M 48 rot SW']
@@ -310,4 +520,6 @@ if __name__ == '__main__':
         diffphot.load_objids()
         diffphot.build_photmatrix()
         diffphot.reduce()
-        diffphot.clean()
+        diffphot.clean(twosigma = False)
+        #diffphot.save_lightcurves()
+        diffphot.make_lightcurves(show=True)
