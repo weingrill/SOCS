@@ -209,14 +209,7 @@ class DiffPhotometry(object):
         
     
     def reduce(self):
-        try:
-            M = np.load(self.filename+'_reducedmatrix.npy')
-        except IOError:
-            M = np.load(self.filename+'_photmatrix.npy')
-            #self.load_objids()
-            #self.stars, _ = self._loadcoords(self.refobjid)
-        else:
-            return
+        M = np.load(self.filename+'_photmatrix.npy')
         
         try:
             self._loadstars()
@@ -285,23 +278,21 @@ class DiffPhotometry(object):
         print 'saving reduced matrix', M.shape
         
         self._saveimage(self.filename+'_reducedmatrix.png', M, sort='mean')
-        
+
     def clean(self, twosigma=False, sigmaclip=5.0):
         from scipy.linalg import svd
         
-        try:
-            M = np.load(self.filename+'_cleanedmatrix.npy')
-        except IOError:
-            M = np.load(self.filename+'_reducedmatrix.npy')
-        else:
-            return
+        M = np.load(self.filename+'_reducedmatrix.npy')
         
         print 'matrix to clean:', M.shape
         self._loadepochs()
         self._loadstars()
 
         epochs, numstars = M.shape
-        assert epochs == len(self.hjds)
+        try:
+            assert epochs == len(self.hjds)
+        except AssertionError:
+            print epochs, len(self.hjds)
         assert numstars == len(self.starids)
         
         # calculate the mean for each lightcurve-vector
@@ -309,7 +300,6 @@ class DiffPhotometry(object):
         
         O = np.ones(M.shape)
         O = O * meanvec
-        #M = M - O
         
         # calculate the mean for each epoch
         meanvec1 = np.mean(M-O, axis=1)
@@ -330,10 +320,9 @@ class DiffPhotometry(object):
 #         plt.subplot(3, 2, 6)
 #         plt.imshow(M-O-P, vmin = -v, vmax = v)
 #         plt.show()
-        M1 = M
+        M1 = M - O - P
         if twosigma:
             # create a new matrix with mean zero in time and in lightcurve
-            M1 = M - O - P
             # remove the stars where the stddev is larger than 2 sigmas
 #            m1std = np.std(M1)*2.0
 #            stdvec = np.where(np.std(M1, axis=0) > m1std)[0]
@@ -373,11 +362,13 @@ class DiffPhotometry(object):
                     self.objids.pop(i)
             elif len(stdvec) == 1: 
                     self.objids.pop(stdvec)
+            else:
+                print stdvec
                     
             print 'matrix after 2sigma epoch reduction:', M1.shape
-            M = M1 + O
-        refstar = np.argmin(np.std(M1, axis=0))
-        print 'reference star: %d, std = %.4f' % (refstar, np.std(M1[:, refstar]))
+        M = M1
+        refstar = np.argmin(np.std(M, axis=0))
+        print 'reference star: %d, std = %.4f' % (refstar, np.std(M[:, refstar]))
         
         
         # perform sigma clipping at a level of 3 sigmas
@@ -389,15 +380,6 @@ class DiffPhotometry(object):
         #M1[j] = -sigmaclip*m1std
         
         epochs, numstars = M.shape
-        
-#         plt.subplot(3, 1, 1)
-#         plt.imshow(M1)
-#         plt.subplot(3, 1, 2)
-#         plt.imshow(O)
-#         plt.subplot(3, 1, 3)
-#         plt.imshow(P)
-#         plt.show()
-        
         
         U, s, Vt = svd(M, full_matrices=False)
         V = Vt.T
@@ -418,19 +400,58 @@ class DiffPhotometry(object):
         level = 1
         Mhat2 = np.dot(U[:, :level], np.dot(S[:level, :level], V[:,:level].T))
         #print "Using first %d PCs, MSE = %.6G" %(level, np.mean((M - Mhat2)**2))
+        #M = M - Mhat2
+        M = np.dot(U[:, level:], np.dot(S[level:, level:], V[:,level:].T))
+        
+        # calculate where the std for each lightcurve-vector is < 0.01 mag
+        stdvec = np.std(M, axis=0)
+        i = np.where(stdvec < 0.01)[0]
+        print 'stars with std<0.01: %d' % len(i)
+        # calculate the mean for each epoch
+        meanvec2 = np.mean(M[:, i], axis=1)
+        
+        Q = np.ones(M.shape)
+        Q =   (Q.T * meanvec2).T
+        
+        M = M - Q
+        refstar = np.argmin(np.std(M, axis=0))
+        print 'new reference star: %d, std = %.4f' % (refstar, np.std(M[:, refstar]))
 
+        # test for trends in matrix: ##########################################
+        
+#         i = np.argsort(meanvec)
+#         R = M[:, i]
+#         for i in range(epochs):
+#             #plt.scatter(np.arange(numstars), R[i, :], edgecolor='none')
+#             x = np.arange(numstars)
+#             z = np.polyfit(x, R[i, :], 1)
+#             x = [0.0, numstars]
+#             #plt.plot(x, np.polyval(z, x))
+#             R[i, :] -= np.polyval(z, np.arange(numstars))
+#             #plt.show()
+#         plt.imshow(R)
+#         plt.show()
+#         self._saveimage(self.filename+'_cleanedmatrixR.png', R, sort='std')
+        
+        
+        # ######################################################################
+        
         assert epochs == len(self.hjds)
         assert numstars == len(self.starids)
-        np.save(self.filename+'_cleanedmatrix.npy', M-Mhat2)
+        np.save(self.filename+'_cleanedmatrix.npy', M) #M only!
         self._saveepochs()
         self._savestars()
         plt.semilogy(s[0:30])
         plt.title('singular values')
         plt.savefig(self.filename+'_cleanedmatrixs.pdf')
         plt.close()
-        self._saveimage(self.filename+'_cleanedmatrix.png', M-Mhat2, sort='std')
-        self._saveimage(self.filename+'_cleanedmatrixM.png', M, sort='mean')
+        self._saveimage(self.filename+'_cleanedmatrix.png', M, sort='std')
+        #self._saveimage(self.filename+'_cleanedmatrixM.png', M, sort='std')
+        #self._saveimage(self.filename+'_cleanedmatrixO.png', O, sort='mean')
+        #self._saveimage(self.filename+'_cleanedmatrixP.png', P, sort='mean')
+        #self._saveimage(self.filename+'_cleanedmatrixQ.png', Q, sort='mean')
         self._saveimage(self.filename+'_cleanedmatrixM1.png', M1, sort='std')
+        self._saveimage(self.filename+'_cleanedmatrixMhat.png', Mhat2, sort='std')
         
     def _loadstars(self):
         f = open(self.filename+'_starids.txt', 'rt')
@@ -467,6 +488,10 @@ class DiffPhotometry(object):
         """
         plot the lightcurve for a given star
         """
+        m -= np.mean(m)
+        t -= min(t)
+        plt.xticks(np.arange(0,100,10))
+        plt.yticks(np.arange(-0.5,0.5,0.01))
         plt.xlim(min(t),max(t))
         plt.scatter(t, m, edgecolor='none', facecolor='g', s=5)
         plt.plot(t,m,'gray')
@@ -524,7 +549,7 @@ class DiffPhotometry(object):
                 plt.tight_layout()
                 if show: plt.show()
                 else: 
-                    plt.savefig(config.plotpath+'newlightcurves%d.pdf' % lc)
+                    plt.savefig(config.plotpath+self.field+'_lc%d.pdf' % lc)
                 lc += 1
                 sp = 1 
                 plt.close()
@@ -543,7 +568,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
     
 #    fields = ['M 48 rot NE','M 48 rot NW','M 48 rot SE','M 48 rot SW']
-    fields =    ['M 48 rot NE']
+    fields = ['M 48 rot NW','M 48 rot SE','M 48 rot SW']
+#    fields =    ['M 48 rot NE']
     for field in fields:
         diffphot = DiffPhotometry(field)
         if args.load:   diffphot.load_objids()
@@ -551,4 +577,4 @@ if __name__ == '__main__':
         if args.reduce: diffphot.reduce()
         if args.clean:  diffphot.clean(twosigma = True)
         if args.save:   diffphot.save_lightcurves()
-        if args.make:   diffphot.make_lightcurves(show=True)
+        if args.make:   diffphot.make_lightcurves(show=False)
