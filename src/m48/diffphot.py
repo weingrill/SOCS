@@ -12,11 +12,17 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 class Epoch(object):
+    """
+    class to represent an epoch in the dataset
+    """
     def __init__(self):
         self.frame_objid = ''
         self.hjd = 0.0
     
 class Star(object):
+    """
+    class to represent a star in the dataset
+    """
     def __init__(self, starid):
         self.starid = starid
         self.mag = 0.0
@@ -33,7 +39,7 @@ class Star(object):
 
 class DiffPhotometry(object):
     '''
-    classdocs
+    class for performing differential photometry on a rot dataset
     '''
 
     def __init__(self, field):
@@ -45,7 +51,6 @@ class DiffPhotometry(object):
                                  host='pera', 
                                  user='stella')
         self.coords = {}
-        #self.starids = []
         self.objids = []
         self.field = field
         self.filename = config.datapath+self.field
@@ -77,12 +82,15 @@ class DiffPhotometry(object):
         print 'number of objids: %3d' % len(self.objids)
         print 'maximum stars: %4d' % self.numstars
     
-    def _loadcoords(self, objid):
+    def _loadcoords(self, objid, flaglimit=4):
+        """
+        load the star number and its coordinate
+        """
         query = """SELECT star, coord 
         FROM phot 
         WHERE objid = '%s'
-        AND flags<4
-        ORDER BY star""" % objid
+        AND flags<%d
+        ORDER BY star""" % (objid, flaglimit)
         result = self.wifsip.query(query)
         print 'number of coordinates: %4d' % len(result)
         stars = [r[0] for r in result]
@@ -90,7 +98,10 @@ class DiffPhotometry(object):
         return stars, coords
     
     def _loadmags(self, coords):
-        #print '%s'  % coords
+        """
+        returns the frame's objid and the magnitude for the stars at coordinate
+        'coords' throughout all the frames
+        """
         query = """SELECT frames.objid, mag_auto 
             FROM phot, frames
             WHERE object like '%s'
@@ -104,20 +115,26 @@ class DiffPhotometry(object):
         objids = [r[0] for r in result] 
         mags = np.array([r[1] for r in result])
         return objids, mags
-    
-    def _savestars(self):
-        f = open(self.filename+'_starids.txt', 'wt')
-        
-#         for s in self.stars:
-#             f.write('%s#%d\n' % (self.refobjid, s))
-        
+
+    def _savestars(self, stage=''):
+        """
+        saves the starids in a textfile; requires the correct stage to be set
+        """
+        if not stage in ['phot', 'reduced', 'cleaned']:
+            raise(TypeError)
+        f = open(self.filename+'_%sstarids.txt' % stage, 'wt')
         for s in self.starids:
             f.write('%s\n' % s)
         f.close()
-
         
-    def _saveepochs(self):
-        f = open(self.filename+'_epochs.txt', 'wt')
+    def _saveepochs(self, stage=''):
+        """
+        saves the epochs (objids) and the corresponding hjd in a textfile; 
+        requires the correct stage to be set
+        """
+        if not stage in ['phot', 'reduced', 'cleaned']:
+            raise(TypeError)
+        f = open(self.filename+'_%sepochs.txt' % stage, 'wt')
         for o, h in zip(self.objids, self.hjds):
             f.write('%s %f\n' % (o, h))
         f.close()
@@ -156,33 +173,86 @@ class DiffPhotometry(object):
         epochs, numstars = photmatrix.shape
         assert epochs == len(self.hjds)
         assert numstars == len(self.stars)
-        np.save(self.filename+'_photmatrix.npy', photmatrix)
-        self._savestars()
-        self._saveepochs()
+        self._savematrix(photmatrix, 'phot')
         self._saveimage(self.filename+'_photmatrix.png', photmatrix)
         
+    def _loadmatrix(self, stage):
+        """
+        loads the matrix at the given stage and sets the following properties:
+        objids
+        hjds,
+        stars,
+        starids
+        """
+        if not stage in ['phot', 'reduced', 'cleaned']:
+            raise(TypeError)
+        matrix = np.load(self.filename+'_%smatrix.npy' % stage)
+        
+        try:
+            f = open(self.filename+'_%sstarids.txt' % stage, 'rt')
+            self.starids = [starid.rstrip('\n') for starid in f.readlines()]
+            f.close()
+        except IOError:
+            self.load_objids() # to populate self.refobjid
+            self.stars, _ = self._loadcoords(self.refobjid)
+            self.starids = ['%s#%d' % (self.refobjid, s) for s in self.stars]
+
+        try:
+            f = open(self.filename+'_%sepochs.txt' % stage, 'rt')
+            lines = f.readlines()
+            f.close()
+            self.objids = [l.split()[0] for l in lines]
+            self.hjds = np.array([float(l.split()[1].rstrip('\n')) for l in lines])
+        except IOError:
+            self.load_objids()
+        
+        self.stars = [int(starid.split('#')[1]) for starid in self.starids]
+        epochs, numstars = matrix.shape
+        assert len(self.stars) == len(self.starids)
+        assert epochs == len(self.hjds)
+        assert len(self.hjds) == len(self.objids)
+        assert numstars == len(self.stars)
+        
+        return matrix
+    
+    def _savematrix(self, matrix, stage):
+        """
+        saves the matrix into a numpy file at the given stage
+        """
+        if not stage in ['phot', 'reduced', 'cleaned']:
+            raise(TypeError)
+        epochs, numstars = matrix.shape
+        
+        assert epochs == len(self.hjds)
+        assert numstars == len(self.starids)
+
+        np.save(self.filename+'_%smatrix.npy' % stage, matrix)
+       
+        self._savestars(stage)
+        self._saveepochs(stage)
     
     def _saveimage(self, filename, myarray,sort='std'):
         """
-        
         First ensure your numpy array, myarray, is normalised with the max value at 1.0.
         Apply the colormap directly to myarray.
         Rescale to the 0-255 range.
         Convert to integers, using np.uint8().
         Use Image.fromarray().
-
         """
         from PIL import Image  # @UnresolvedImport
         
-        mavg = np.mean(myarray)
+        mavg = np.nanmean(myarray)
+        
         myarray -= mavg
-        mstd = 3.0*np.std(myarray)
+        mstd = 2.0*np.nanstd(myarray)
+        i = np.where(np.isnan(myarray))
+        myarray[i] = 0.0
         if sort == 'std':
-            s = np.std(myarray, axis=0)        
+            s = np.nanstd(myarray, axis=0)        
             ind = np.argsort(s)
             myarray = myarray[:, ind]
         elif sort == 'mean':
-            s = np.mean(myarray, axis=0)        
+            s = np.nanmean(myarray, axis=0)        
             ind = np.argsort(s)
             myarray = myarray[:, ind]
 
@@ -209,27 +279,14 @@ class DiffPhotometry(object):
         
     
     def reduce(self):
-        M = np.load(self.filename+'_photmatrix.npy')
-        
-        try:
-            self._loadstars()
-        except IOError:
-            self.stars, _ = self._loadcoords(self.refobjid)
-            self.starids = ['%s#%d' % (self.refobjid, s) for s in self.stars]
-        try:
-            self._loadepochs()
-        except IOError:
-            self.load_objids()
-        #
-        
+        """
+        reduce the original matrix by removing epochs or starswith the most nan 
+        values successively
+        """
+        M = self._loadmatrix('phot')
         epochs, numstars = M.shape
+
         print 'reducing (%d,%d)' % M.shape
-        print 'hjds, objids, stars = %d, %d' % (len(self.hjds), len(self.stars))
-        
-        assert len(self.stars) == len(self.starids)
-        assert epochs == len(self.hjds)
-        assert len(self.hjds) == len(self.objids)
-        assert numstars == len(self.stars)
         
         maxnan = 1
         print 'removing stars and epochs'
@@ -269,31 +326,27 @@ class DiffPhotometry(object):
             maxnan = max(maxnan0,maxnan1)
             epochs, numstars = M.shape
         
-        assert epochs == len(self.hjds)
-        assert numstars == len(self.starids)
-        np.save(config.datapath+field+'_reducedmatrix.npy', M)
-        self._saveepochs()
-        self._savestars()
+        self._savematrix(M, 'reduced')
         
-        print 'saving reduced matrix', M.shape
+        print 'saved reduced matrix', M.shape
         
         self._saveimage(self.filename+'_reducedmatrix.png', M, sort='mean')
 
     def clean(self, twosigma=False, sigmaclip=5.0):
+        """
+        cleans the reduced matrix by performing the following tasks:
+        * subtract the mean magnitude for each star --> O
+        * subtract the mean magnitude for each epoch --> P
+        * remove the epochs where the stddev is larger than 2 sigmas
+        * calculate the PCA and remove the first component
+        * subtract the mean magnitude for each epoch where the stddev for the 
+          star is below 0.01 mag --> Q
+        """
         from scipy.linalg import svd
         
-        M = np.load(self.filename+'_reducedmatrix.npy')
+        M = self._loadmatrix('reduced')
         
         print 'matrix to clean:', M.shape
-        self._loadepochs()
-        self._loadstars()
-
-        epochs, numstars = M.shape
-        try:
-            assert epochs == len(self.hjds)
-        except AssertionError:
-            print epochs, len(self.hjds)
-        assert numstars == len(self.starids)
         
         # calculate the mean for each lightcurve-vector
         meanvec = np.mean(M, axis=0)
@@ -307,19 +360,6 @@ class DiffPhotometry(object):
         P = np.ones(M.shape)
         P =   (P.T * meanvec1).T
         
-        
-#         plt.subplot(3, 2, 1)
-#         plt.imshow(M)
-#         plt.subplot(3, 2, 3)
-#         plt.imshow(O)
-#         plt.subplot(3, 2, 5)
-#         plt.imshow(P)
-#         plt.subplot(3, 2, 4)
-#         v = 3.0
-#         plt.imshow(M-O, vmin = -v, vmax = v)
-#         plt.subplot(3, 2, 6)
-#         plt.imshow(M-O-P, vmin = -v, vmax = v)
-#         plt.show()
         M1 = M - O - P
         if twosigma:
             # create a new matrix with mean zero in time and in lightcurve
@@ -379,8 +419,6 @@ class DiffPhotometry(object):
         #j = np.where(M1 < -sigmaclip*m1std)
         #M1[j] = -sigmaclip*m1std
         
-        epochs, numstars = M.shape
-        
         U, s, Vt = svd(M, full_matrices=False)
         V = Vt.T
         
@@ -436,53 +474,35 @@ class DiffPhotometry(object):
         
         # ######################################################################
         
-        assert epochs == len(self.hjds)
-        assert numstars == len(self.starids)
-        np.save(self.filename+'_cleanedmatrix.npy', M) #M only!
-        self._saveepochs()
-        self._savestars()
+        self._savematrix(M, 'cleaned')
+        
         plt.semilogy(s[0:30])
         plt.title('singular values')
         plt.savefig(self.filename+'_cleanedmatrixs.pdf')
         plt.close()
+        
         self._saveimage(self.filename+'_cleanedmatrix.png', M, sort='std')
-        #self._saveimage(self.filename+'_cleanedmatrixM.png', M, sort='std')
-        #self._saveimage(self.filename+'_cleanedmatrixO.png', O, sort='mean')
-        #self._saveimage(self.filename+'_cleanedmatrixP.png', P, sort='mean')
-        #self._saveimage(self.filename+'_cleanedmatrixQ.png', Q, sort='mean')
         self._saveimage(self.filename+'_cleanedmatrixM1.png', M1, sort='std')
         self._saveimage(self.filename+'_cleanedmatrixMhat.png', Mhat2, sort='std')
         
-    def _loadstars(self):
-        f = open(self.filename+'_starids.txt', 'rt')
-        self.starids = [starid.rstrip('\n') for starid in f.readlines()]
-        f.close()
-        
-    def _loadepochs(self):
-        f = open(self.filename+'_epochs.txt', 'rt')
-        lines = f.readlines()
-        f.close()
-        
-        self.objids = [l.split()[0] for l in lines]
-        self.hjds = np.array([float(l.split()[1].rstrip('\n')) for l in lines])
         
     def save_lightcurves(self):
-        M = np.load(self.filename+'_cleanedmatrix.npy')
-        epochs, numstars = M.shape
-        self._loadstars()
-        self._loadepochs()
-        
-        assert epochs == len(self.hjds)
-        assert numstars == len(self.starids)
+        """
+        save the lightcurves for all starids
+        """
+        M = self._loadmatrix('cleaned')
+        epochs, _ = M.shape
         
         a = np.empty([epochs, 2])
         
         for starid in self.starids:
+            print '.',
             i = self.starids.index(starid)
             filename = config.projectpath+'lightcurves.new/%s.dat' % starid
             a[:, 0] = self.hjds
             a[:, 1] = M[:, i]
             np.savetxt(filename, a, fmt='%.5f %.4f')
+        print 'done'
         
     def _plot_lightcurve(self, starid, t, m, axis):
         """
@@ -526,13 +546,7 @@ class DiffPhotometry(object):
           }
         rcParams.update(params)
         
-        M = np.load(self.filename+'_cleanedmatrix.npy')
-        epochs, numstars = M.shape
-        self._loadstars()
-        self._loadepochs()
-        
-        assert epochs == len(self.hjds)
-        assert numstars == len(self.starids)
+        M = self._loadmatrix('cleaned')
         
         sp = 1
         lc = 1
@@ -567,9 +581,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     
-#    fields = ['M 48 rot NE','M 48 rot NW','M 48 rot SE','M 48 rot SW']
-    fields = ['M 48 rot NW','M 48 rot SE','M 48 rot SW']
-#    fields =    ['M 48 rot NE']
+    fields = ['M 48 rot NE','M 48 rot NW','M 48 rot SE','M 48 rot SW']
     for field in fields:
         diffphot = DiffPhotometry(field)
         if args.load:   diffphot.load_objids()
