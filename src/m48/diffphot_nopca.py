@@ -166,21 +166,10 @@ class DiffPhotometryNoPCA(DiffPhotometry):
         refstar = np.argmin(np.nanstd(M, axis=0))
         print 'reference star: %d, std = %.4f' % (refstar, np.nanstd(M[:, refstar]))
         
-        
-        # perform sigma clipping at a level of 3 sigmas
-        #m1std = np.std(M1)
-        
-        #i = np.where(M1 > sigmaclip*m1std)
-        #M1[i] = sigmaclip*m1std
-        #j = np.where(M1 < -sigmaclip*m1std)
-        #M1[j] = -sigmaclip*m1std
-        
-        epochs, numstars = M.shape
-        
         # calculate where the std for each lightcurve-vector is < 0.01 mag
         stdvec = np.nanstd(M, axis=0)
-        i = np.where(stdvec < 0.01)[0]
-        print 'stars with std<0.01: %d' % len(i)
+        i = np.where(stdvec < 0.02)[0]
+        print 'stars with std<0.02: %d' % len(i)
         # calculate the mean for each epoch
         meanvec2 = np.nanmean(M[:, i], axis=1)
         
@@ -193,19 +182,33 @@ class DiffPhotometryNoPCA(DiffPhotometry):
 
         # test for trends in matrix: ##########################################
         
-#         i = np.argsort(meanvec)
-#         R = M[:, i]
-#         for i in range(epochs):
-#             #plt.scatter(np.arange(numstars), R[i, :], edgecolor='none')
-#             x = np.arange(numstars)
-#             z = np.polyfit(x, R[i, :], 1)
-#             x = [0.0, numstars]
-#             #plt.plot(x, np.polyval(z, x))
-#             R[i, :] -= np.polyval(z, np.arange(numstars))
-#             #plt.show()
-#         plt.imshow(R)
-#         plt.show()
-#         self._saveimage(self.filename+'_cleanedmatrixR.png', R, sort='std')
+        epochs, numstars = M.shape
+        k = np.argsort(meanvec)
+        w = 0.006*1.6**(meanvec[k]-14.3)
+        R = M[:, k]
+        for i in range(epochs):
+            #plt.scatter(np.arange(numstars), R[i, :], edgecolor='none')
+            x = np.arange(numstars)
+            y = R[i, :]
+            j = np.isfinite(y)
+            z = np.polyfit(x[j], y[j], 2, w=1./w[j])
+            if i==9:
+                plt.scatter(x[j], y[j], edgecolor='none',alpha=0.5)
+                plt.plot(x, np.polyval(z, x),'r')
+                plt.show()
+            R[i, :] -= np.polyval(z, np.arange(numstars))
+            
+        plt.imshow(R)
+        plt.show()
+        self._saveimage(self.filename+'_cleanedmatrixR.png', R, sort='std')
+        
+        plt.semilogy(meanvec[k], np.nanstd(R, axis=0), 'ro')
+        plt.semilogy(meanvec,stdvec, 'o', mec='g', fillstyle='none')
+        plt.xlabel('V mag')
+        plt.ylabel('sigma')
+        plt.grid()
+        plt.savefig('/work2/jwe/owncloud/M48/plots/cleanedmatrixR.pdf')
+        #plt.show()
         
         
         # ######################################################################
@@ -335,6 +338,6 @@ if __name__ == '__main__':
         if args.load:   diffphot.load_objids()
         if args.build:  diffphot.build_photmatrix()
         if args.reduce: diffphot.reduce()
-        if args.clean:  diffphot.clean(twosigma = True)
+        if args.clean:  diffphot.clean(twosigma = False)
         if args.save:   diffphot.save_lightcurves()
         if args.make:   diffphot.make_lightcurves(show=False)
