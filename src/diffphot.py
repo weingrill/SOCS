@@ -57,15 +57,15 @@ class DiffPhotometry(object):
         print self.field
         
     
-    def load_objids(self):
+    def load_objids(self, filtercol='R'):
         """
         load the objids corresponding to the field
         """
         query = """SELECT objid, hjd, stars 
             FROM frames 
             WHERE object LIKE '%s' 
-            AND filter='V'
-            ORDER BY objid;""" % self.field
+            AND filter='%s'
+            ORDER BY objid;""" % (self.field, filtercol)
         #AND expt>60
         
         result = self.wifsip.query(query)
@@ -97,7 +97,7 @@ class DiffPhotometry(object):
         coords = [r[1] for r in result] 
         return stars, coords
     
-    def _loadmags(self, coords):
+    def _loadmags(self, coords, filtercol='R', flaglimit=4):
         """
         returns the frame's objid and the magnitude for the stars at coordinate
         'coords' throughout all the frames
@@ -106,10 +106,10 @@ class DiffPhotometry(object):
             FROM phot, frames
             WHERE object like '%s'
             AND frames.objid = phot.objid
-            AND filter='V'
-            AND phot.flags<4
+            AND filter='%s'
+            AND phot.flags<%d
             AND circle(phot.coord,0) <@ circle(point%s, 0.2/3600.0)""" % \
-            (self.field, coords)
+            (self.field, filtercol, flaglimit, coords)
         #AND expt>60
         result = self.wifsip.query(query)
         objids = [r[0] for r in result] 
@@ -578,15 +578,17 @@ if __name__ == '__main__':
     parser.add_argument('-c', '--clean',  action='store_true', help='clean the matrix and perform PCA')
     parser.add_argument('-s', '--save',   action='store_true', help='save lightcurves')
     parser.add_argument('-m', '--make',   action='store_true', help='make plots of lightcurves')
+    parser.add_argument('--twosigma',   action='store_true', help='two sigma removal of epochs')
+    parser.add_argument('field', help='field to process')
 
     args = parser.parse_args()
     
-    fields = ['M 48 rot NE','M 48 rot NW','M 48 rot SE','M 48 rot SW']
-    for field in fields:
+    fields = ['M 67 rot NE','M 67 rot NW','M 67 rot SE','M 67 rot SW']
+    for field in fields[:1]:
         diffphot = DiffPhotometry(field)
         if args.load:   diffphot.load_objids()
         if args.build:  diffphot.build_photmatrix()
         if args.reduce: diffphot.reduce()
-        if args.clean:  diffphot.clean(twosigma = True)
+        if args.clean:  diffphot.clean(twosigma = args.twosigma)
         if args.save:   diffphot.save_lightcurves()
         if args.make:   diffphot.make_lightcurves(show=False)

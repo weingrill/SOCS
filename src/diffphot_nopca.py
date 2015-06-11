@@ -330,10 +330,8 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     
-#    fields = ['M 48 rot NE','M 48 rot NW','M 48 rot SE','M 48 rot SW']
-#    fields = ['M 48 rot NW','M 48 rot SE','M 48 rot SW']
-    fields =    ['M 48 rot NE']
-    for field in fields:
+    fields = ['M 67 rot NE','M 67 rot NW','M 67 rot SE','M 67 rot SW']
+    for field in fields[:1]:
         diffphot = DiffPhotometryNoPCA(field)
         if args.load:   diffphot.load_objids()
         if args.build:  diffphot.build_photmatrix()
