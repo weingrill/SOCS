@@ -7,7 +7,7 @@ Created on Jun 2, 2015
 
 perform differential photometry on the M48 dataset using PCA
 '''
-import config
+#import config
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -242,7 +242,7 @@ class DiffPhotometryNoPCA(DiffPhotometry):
         
         for starid in self.starids:
             i = self.starids.index(starid)
-            filename = config.projectpath+'lightcurves.new/%s.dat' % starid
+            filename = self.lightcurvepath+'/%s.dat' % starid
             a[:, 0] = self.hjds
             a[:, 1] = M[:, i]
             np.savetxt(filename, a, fmt='%.5f %.4f')
@@ -312,30 +312,8 @@ class DiffPhotometryNoPCA(DiffPhotometry):
                 plt.tight_layout()
                 if show: plt.show()
                 else: 
-                    plt.savefig(config.plotpath+self.field+'_lc%d.pdf' % lc)
+                    plt.savefig(self.plotpath+self.field+'_lc%d.pdf' % lc)
                 lc += 1
                 sp = 1 
                 plt.close()
 
-if __name__ == '__main__':
-    import argparse
-
-    parser = argparse.ArgumentParser(description='Differential photometry')
-    parser.add_argument('-l', '--load',   action='store_true', help='loads the objids from database')
-    parser.add_argument('-b', '--build',  action='store_true', help='build the photometry matrix')
-    parser.add_argument('-r', '--reduce', action='store_true', help='reduce the photometry matrix')
-    parser.add_argument('-c', '--clean',  action='store_true', help='clean the matrix and perform PCA')
-    parser.add_argument('-s', '--save',   action='store_true', help='save lightcurves')
-    parser.add_argument('-m', '--make',   action='store_true', help='make plots of lightcurves')
-
-    args = parser.parse_args()
-    
-    fields = ['M 67 rot NE','M 67 rot NW','M 67 rot SE','M 67 rot SW']
-    for field in fields[:1]:
-        diffphot = DiffPhotometryNoPCA(field)
-        if args.load:   diffphot.load_objids()
-        if args.build:  diffphot.build_photmatrix()
-        if args.reduce: diffphot.reduce()
-        if args.clean:  diffphot.clean(twosigma = False)
-        if args.save:   diffphot.save_lightcurves()
-        if args.make:   diffphot.make_lightcurves(show=False)
