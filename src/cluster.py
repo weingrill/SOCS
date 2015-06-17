@@ -23,6 +23,11 @@ class Cluster(dict):
         self.separator = ' '
         self.ra_precision = 1
         self.dec_precision = 0
+        self._keys = self.keys()
+        self._values = self.values()
+        for k, v in zip(self._keys, self._values):
+            self[k] = v
+        
         
     def keys(self):
         query = """SELECT column_name, data_type, character_maximum_length
@@ -37,12 +42,6 @@ class Cluster(dict):
         values = [r for r in result[0]]
         return values
 
-    def __getitem__(self, key):
-        result = self.wifsip.query("""SELECT %s 
-        FROM clusters 
-        WHERE name='%s';""" % (key, self.name))
-        return result[0][0]  
-    
     @property
     def coordinates(self):
         """
