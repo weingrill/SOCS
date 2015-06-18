@@ -178,7 +178,7 @@ class DiffPhotometryNoPCA(DiffPhotometry):
         
         M = M - Q
         refstar = np.argmin(np.nanstd(M, axis=0))
-        print 'new reference star: %d, std = %.4f' % (refstar, np.std(M[:, refstar]))
+        print 'new reference star: %d, std = %.4f' % (refstar, np.nanstd(M[:, refstar]))
 
         # test for trends in matrix: ##########################################
         
@@ -230,10 +230,8 @@ class DiffPhotometryNoPCA(DiffPhotometry):
         self.hjds = np.array([float(l.split()[1].rstrip('\n')) for l in lines])
         
     def save_lightcurves(self):
-        M = np.load(self.filename+'_cleanedmatrix.npy')
+        M = self._loadmatrix('cleaned')
         epochs, numstars = M.shape
-        self._loadstars()
-        self._loadepochs()
         
         assert epochs == len(self.hjds)
         assert numstars == len(self.starids)
@@ -247,73 +245,3 @@ class DiffPhotometryNoPCA(DiffPhotometry):
             a[:, 1] = M[:, i]
             np.savetxt(filename, a, fmt='%.5f %.4f')
         
-    def _plot_lightcurve(self, starid, t, m, axis):
-        """
-        plot the lightcurve for a given star
-        """
-        m -= np.mean(m)
-        t -= min(t)
-        plt.xticks(np.arange(0,100,10))
-        plt.yticks(np.arange(-0.5,0.5,0.01))
-        plt.xlim(min(t),max(t))
-        plt.scatter(t, m, edgecolor='none', facecolor='g', s=5)
-        plt.plot(t,m,'gray')
-        std = 5.0*np.std(m)
-        plt.text(0.95, 0.95, '#'+starid.split('#')[1], 
-                 fontsize=12,
-                 verticalalignment='top',
-                 horizontalalignment='right',
-                 transform=axis.transAxes)
-        plt.ylim([std, -std])
-
-    def make_lightcurves(self, show=False):
-        """plot lightcurve"""
-        from matplotlib import rcParams
-        
-        fig_width = 18.3/2.54  # width in inches, was 7.48in
-        fig_height = 23.3/2.54  # height in inches, was 25.5
-        fig_size =  [fig_width,fig_height]
-        #set plot attributes
-        params = {'backend': 'Agg',
-          'axes.labelsize': 8,
-          'axes.titlesize': 10,
-          'font.size': 8,
-          'xtick.labelsize': 8,
-          'ytick.labelsize': 8,
-          'figure.figsize': fig_size,
-          'savefig.dpi' : 300,
-          'font.family': 'sans-serif',
-          'axes.linewidth' : 0.5,
-          'xtick.major.size' : 2,
-          'ytick.major.size' : 2,
-          }
-        rcParams.update(params)
-        
-        M = np.load(self.filename+'_cleanedmatrix.npy')
-        epochs, numstars = M.shape
-        self._loadstars()
-        self._loadepochs()
-        
-        assert epochs == len(self.hjds)
-        assert numstars == len(self.starids)
-        
-        sp = 1
-        lc = 1
-        rows = 7
-        cols = 4
-        for starid in self.starids:
-            i = self.starids.index(starid)
-            ax = plt.subplot(rows, cols,sp)
-            ax.set_yticklabels([])
-            ax.set_xticklabels([])
-            sp += 1
-            self._plot_lightcurve(starid, self.hjds, M[:, i], ax)
-            if sp == rows*cols + 1 or starid == self.starids[-1]:
-                plt.tight_layout()
-                if show: plt.show()
-                else: 
-                    plt.savefig(self.plotpath+self.field+'_lc%d.pdf' % lc)
-                lc += 1
-                sp = 1 
-                plt.close()
-

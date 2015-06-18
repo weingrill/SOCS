@@ -54,6 +54,7 @@ class DiffPhotometry(object):
         self.field = field
         self.filename = datapath+self.field
         self.lightcurvepath = lightcurvepath
+        self.plotpath = plotpath
         print self.field
         
     
@@ -65,6 +66,8 @@ class DiffPhotometry(object):
             FROM frames 
             WHERE object LIKE '%s' 
             AND filter='%s'
+            AND stars<6000
+            AND dettemp<-110
             ORDER BY objid;""" % (self.field, filtercol)
         #AND expt>60
         
@@ -108,6 +111,8 @@ class DiffPhotometry(object):
             AND frames.objid = phot.objid
             AND filter='%s'
             AND phot.flags<%d
+            AND stars<6000
+            AND dettemp<-110
             AND circle(phot.coord,0) <@ circle(point%s, 0.2/3600.0)""" % \
             (self.field, filtercol, flaglimit, coords)
         #AND expt>60
@@ -508,9 +513,12 @@ class DiffPhotometry(object):
         """
         plot the lightcurve for a given star
         """
-        m -= np.mean(m)
+        m -= np.nanmean(m)
         t -= min(t)
-        plt.xticks(np.arange(0,100,10))
+        i = np.where(np.isfinite(m))
+        t = t[i]
+        m = m[i]
+        plt.xticks(np.arange(0,200,10))
         plt.yticks(np.arange(-0.5,0.5,0.01))
         plt.xlim(min(t),max(t))
         plt.scatter(t, m, edgecolor='none', facecolor='g', s=5)
@@ -558,11 +566,14 @@ class DiffPhotometry(object):
             ax.set_yticklabels([])
             ax.set_xticklabels([])
             sp += 1
+            if len(np.where(np.isfinite(M[:, i])))==0:
+                continue
             self._plot_lightcurve(starid, self.hjds, M[:, i], ax)
             if sp == rows*cols + 1 or starid == self.starids[-1]:
                 plt.tight_layout()
                 if show: plt.show()
                 else: 
+                    print self.plotpath+self.field+'_lc%d.pdf' % lc
                     plt.savefig(self.plotpath+self.field+'_lc%d.pdf' % lc)
                 lc += 1
                 sp = 1 
