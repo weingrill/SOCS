@@ -25,9 +25,11 @@ class M48Plots(object):
         '''
         from datasource import DataSource
     
-        self.wifsip = DataSource(database='wifsip', user='sro', host='oldpina.aip.de')
+        self.wifsip = DataSource(database=config.dbname, user=config.dbuser, host=config.dbhost)
         self.stars = []
         self.getstars()
+        self.rows = 6
+        self.columns = 4
 
     def getstars(self):
         """
@@ -66,7 +68,11 @@ class M48Plots(object):
         #plt.errorbar(t, m, yerr=e*0.5, fmt='o', s=5)
         #ylim=plt.ylim()
         ylim=[max(m)+0.01, min(m)-0.01]
-        plt.text(1, ylim[1]+0.0025, star['tab'], fontsize=12)
+        if star['provisional']:
+            startab = '(%d)' % star['tab']
+        else:
+            startab = star['tab']
+        plt.text(1, ylim[1]+0.0025, startab, fontsize=12)
         plt.ylim(ylim[1],ylim[0])
 
     def make_lightcurves(self, show=False):
@@ -95,12 +101,12 @@ class M48Plots(object):
         lc = 1
         for starid in self.stars:
             print starid
-            ax = plt.subplot(7,4,sp)
+            ax = plt.subplot(self.rows, self.columns,sp)
             ax.set_yticklabels([])
             ax.set_xticklabels([])
             sp += 1
             self._plot_lightcurve(starid)
-            if sp==7*4+1 or starid==self.stars[-1]:
+            if sp==self.rows*self.columns + 1 or starid==self.stars[-1]:
                 plt.tight_layout()
                 if show: plt.show()
                 else: 
@@ -126,10 +132,17 @@ class M48Plots(object):
         plt.axhline(0.0, linestyle='--', color='0.5')
         plt.scatter(tp, yp-np.mean(yp), edgecolor='none', facecolor='k', s=5)
         plt.scatter(tp+period, yp-np.mean(yp), edgecolor='none', facecolor='k', s=5)
+        
         plt.xticks(np.arange(60))
-        plt.xlim(0,period*2)
-        plt.ylim(plt.ylim()[1],plt.ylim()[0])
-        plt.text(0, 0, star['tab'], 
+        plt.xlim(0, period*2)
+        plt.ylim(plt.ylim()[1], plt.ylim()[0])
+        
+        if star['provisional']:
+            startab = '(%d)' % star['tab']
+        else:
+            startab = star['tab']
+        
+        plt.text(0, 0, startab, 
                  fontsize=12,
                  verticalalignment='bottom',
                  transform=axis.transAxes)
@@ -161,12 +174,12 @@ class M48Plots(object):
         phase=1
         for starid in self.stars:
             print starid
-            ax = plt.subplot(7,4,sp)
+            ax = plt.subplot(self.rows, self.columns,sp)
             ax.set_yticklabels([])
             ax.set_xticklabels([])
             sp += 1
             self.phase_plot(starid, ax)
-            if sp==7*4+1 or starid==self.stars[-1]:
+            if sp==self.rows * self.columns+1 or starid==self.stars[-1]:
                 plt.tight_layout()
                 if show: plt.show()
                 else: 
@@ -194,11 +207,15 @@ class M48Plots(object):
         
         plt.plot(1./freq,amp, 'k')
         
-        #plt.xticks(np.arange(60))
+        plt.xticks(np.arange(60))
         plt.xlim(0,15.0)
         #plt.ylim(plt.ylim()[1],plt.ylim()[0])
         
-        plt.text(1., 1., star['tab'], 
+        if star['provisional']:
+            startab = '(%d)' % star['tab']
+        else:
+            startab = star['tab']
+        plt.text(1., 1., startab, 
                  fontsize=12,
                  verticalalignment='top',
                  horizontalalignment='right',
@@ -232,12 +249,12 @@ class M48Plots(object):
         lc = 1
         for starid in self.stars:
             print starid
-            ax = plt.subplot(7,4,sp)
+            ax = plt.subplot(self.rows, self.columns,sp)
             ax.set_yticklabels([])
             ax.set_xticklabels([])
             sp += 1
             self._plot_spectrum(starid, ax)
-            if sp==7*4+1 or starid==self.stars[-1]:
+            if sp==self.rows*self.columns+1 or starid==self.stars[-1]:
                 plt.tight_layout()
                 if show: plt.show()
                 else: 

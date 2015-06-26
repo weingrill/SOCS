@@ -20,7 +20,7 @@ class LightCurve(object):
     def __init__(self, starid):
         from datasource import DataSource
         self.starid = starid
-        self.wifsip = DataSource(database='wifsip', user='sro', host='pina.aip.de')
+        self.wifsip = DataSource(database=config.dbname, user=config.dbuser, host=config.dbhost)
         self.fromdb()
 
     def fromdb(self):
