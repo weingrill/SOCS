@@ -29,7 +29,7 @@ class M48Analysis(object):
         '''
         from datasource import DataSource
     
-        self.wifsip = DataSource(database='wifsip', user='sro', host='pina.aip.de')
+        self.wifsip = DataSource(database='stella', user='stella', host='pera.aip.de')
         self.stars = []
         self.path = path
         self.age = 10**8.557/1e6 # in Myr from Webda
@@ -547,54 +547,54 @@ class M48Analysis(object):
         '''
         produce the tables for the publication
         '''
-        
         from astropy import units as u
         from astropy.coordinates import SkyCoord
         
-        query = """SELECT tab, vmag, bv, p_fin, e_pfin, amp, amp_err, member, 
+        query = """SELECT tab, vmag, bv, p_fin, e_pfin, amp, member, 
             simbad, notes, provisional
             FROM m48stars 
             WHERE good
             ORDER BY vmag ;"""
-        data = self.wifsip.query(query)
+        result = self.wifsip.query(query)
+        
+        from record import Record  # @UnresolvedImport
+        datarecord = Record(key='tab', 
+            columns = ['tab', 'vmag', 'bv', 'p_fin', 'e_pfin', 'amp', 'member', 
+            'simbad', 'notes', 'provisional'])
+        datarecord.append(result)
         
         f = open(config.resultpath+'table2.tex','wt')
         f.write("""\\begin{longtable}{rccccccccl}
 \caption{\label{tab:rotators}Rotation periods of stars. "p" marks a provisional member and "c" a candidate member}
 \hline\hline
-Id & V   & B--V & P    & err  & amp & err & mem & c/p & BJG \#\\\\
-   & mag & mag  & days & days & mag & mag &     &     &     \\\\
+Id & V   & B--V & P    & Perr & amp & mem & c/p & BJG \#\\\\
+   & mag & mag  & days & days & mag &     &     &     \\\\
 \hline
 \endfirsthead\n
 \caption{continued.}\\
 \hline\hline
-Id & V   & B--V & P    & err  & amp & err & mem & c/p & BJG \#\\\\
-   & mag & mag  & days & days & mag & mag &     &     &     \\\\
+Id & V   & B--V & P    & Perr  & amp &  mem & c/p & BJG \#\\\\
+   & mag & mag  & days & days  & mag &      &     &     \\\\
 \hline
 \endhead
 \hline
 \endfoot
 %%%%\n""")        
-        for d in data:
-            #print d
-            #i = data.index(d)+1
-            tab, vmag, bv, period, period_err, \
-            amp, amp_err,member, simbad, notes, provisional = d
-
-            if type(simbad) is str and simbad.find('Cl* NGC 2548 ')==0:
-                simbad = simbad[13:]
-            if str(simbad) == 'None': simbad = ''
-            if str(notes) == 'None': notes = ''
-            memstr = '--'
-            if member: memstr='M'
-            elif member==False: memstr='N'
-            prostr = '--'
-            if provisional: prostr='p'
-            elif not provisional: prostr='c'
+        for d in datarecord:
+            if type(d['simbad']) is str and d['simbad'].find('Cl* NGC 2548 ')==0:
+                d['simbad'] = d['simbad'][13:]
+            if str(d['simbad']) == 'None': d['simbad'] = ''
+            if str(d['notes']) == 'None': d['notes'] = ''
+            d['memstr'] = '--'
+            if d['member']: d['memstr']='M'
+            elif d['member']==False: d['memstr']='N'
+            
+            d['prostr'] = '--'
+            if d['provisional']: d['prostr']='p'
+            elif not d['provisional']: d['prostr']='c'
              
             try:
-                s =  '%4d & %.3f & %.2f & %.2f & %.2f & %.3f & %.3f & %s & %s & %s \\\\ %% %s\n' % \
-                (tab, vmag, bv, period, period_err, amp, amp_err, memstr, prostr, simbad, notes)
+                s =  '%(tab)4d & %(vmag).3f & %(bv).2f & %(p_fin).2f & %(e_pfin).2f & %(amp).3f & %(memstr)2s & %(prostr)s & %(simbad)s \\\\ %% %(notes)s\n' % d
                 print s,
                 f.write(s)
             except TypeError:
@@ -602,7 +602,7 @@ Id & V   & B--V & P    & err  & amp & err & mem & c/p & BJG \#\\\\
         f.write('\\end{longtable}\n')
         f.write('\\end{longtab}\n')
         f.close()
-
+        return 
         query = """SELECT tab, vmag, vmag_err, bv, bmag_err, ra, dec, member, simbad, notes
             FROM m48stars 
             WHERE not bv IS NULL

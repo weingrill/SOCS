@@ -28,8 +28,8 @@ class M48Plots(object):
         self.wifsip = DataSource(database=config.dbname, user=config.dbuser, host=config.dbhost)
         self.stars = []
         self.getstars()
-        self.rows = 6
-        self.columns = 4
+        self.rows = 7
+        self.columns = 3
 
     def getstars(self):
         """
@@ -45,7 +45,7 @@ class M48Plots(object):
         print '... %d stars found' % len(result)
         self.stars = [s[0] for s in result]
 
-    def _plot_lightcurve(self, starid):
+    def _plot_lightcurve(self, starid, axis):
         """
         plot the lightcurve for a given star
         """
@@ -60,19 +60,22 @@ class M48Plots(object):
         mean = np.mean(m)
         m -= mean
         mean = 0.0
-        plt.hlines(mean,min(t),max(t),linestyle='--')
+        plt.axhline(mean,linestyle='--', color='b')
         plt.xlim(min(t),max(t))
-#        plt.grid()
+        plt.xticks(np.arange(0.0,70.0,10.0))
+        plt.yticks(np.arange(-0.1,0.1,0.01))
         plt.scatter(t, m, edgecolor='none', facecolor='k', s=5)
         plt.plot(t,m,'gray')
-        #plt.errorbar(t, m, yerr=e*0.5, fmt='o', s=5)
-        #ylim=plt.ylim()
         ylim=[max(m)+0.01, min(m)-0.01]
         if star['provisional']:
             startab = '(%d)' % star['tab']
         else:
             startab = star['tab']
-        plt.text(1, ylim[1]+0.0025, startab, fontsize=12)
+        plt.text(0.01, 0.01, startab, 
+                 fontsize=12, 
+                 horizontalalignment='left',
+                 verticalalignment='bottom',
+                 transform=axis.transAxes)
         plt.ylim(ylim[1],ylim[0])
 
     def make_lightcurves(self, show=False):
@@ -105,7 +108,7 @@ class M48Plots(object):
             ax.set_yticklabels([])
             ax.set_xticklabels([])
             sp += 1
-            self._plot_lightcurve(starid)
+            self._plot_lightcurve(starid, ax)
             if sp==self.rows*self.columns + 1 or starid==self.stars[-1]:
                 plt.tight_layout()
                 if show: plt.show()
@@ -142,7 +145,7 @@ class M48Plots(object):
         else:
             startab = star['tab']
         
-        plt.text(0, 0, startab, 
+        plt.text(0.01, 0.01, startab, 
                  fontsize=12,
                  verticalalignment='bottom',
                  transform=axis.transAxes)
@@ -215,7 +218,7 @@ class M48Plots(object):
             startab = '(%d)' % star['tab']
         else:
             startab = star['tab']
-        plt.text(1., 1., startab, 
+        plt.text(0.99, 0.99, startab, 
                  fontsize=12,
                  verticalalignment='top',
                  horizontalalignment='right',

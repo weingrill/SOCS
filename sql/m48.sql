@@ -65,8 +65,8 @@ SELECT objid,object, filter, good from frames
 WHERE object like 'M 48 BVI%%';
 
 UPDATE m48stars set good=NULL, provisional=NULL;
-update m48stars set good=true where tab in (284, 287, 303, 313, 332, 336, 343, 363, 368, 386, 407, 418, 421, 425, 437, 467, 482, 485, 501, 507, 511, 517, 536, 540, 555, 556, 602, 620, 633, 649, 652, 657, 674, 679, 699, 713, 796, 807, 862, 864, 872, 898, 909, 920, 921, 923, 931, 935, 937, 969, 974, 975, 1227, 1455, 1456, 1605, 1711, 1744, 2010, 2071, 2285, 2346, 2632);
-update m48stars set provisional=true where tab in (316, 562, 752, 772, 954, 1096, 1162);
+update m48stars set good=true where tab in (284, 287, 332, 336, 343, 368, 386, 407, 418, 421, 425, 437, 467, 482, 485, 501, 507, 511, 540, 555, 556, 602, 620, 633, 649, 652, 657, 699, 713, 796, 807, 862, 864, 872, 898, 909, 920, 921, 923, 931, 935, 937, 969, 974, 975, 1227, 1456, 1605, 1711, 2010, 2071, 2285, 2346, 2632);
+update m48stars set provisional=true where tab in (303, 363, 517, 752, 772, 954, 1455, 1744);
 
 --- update m48stars set provisional=false where good;
 update m48stars set good=true where provisional or not provisional;

@@ -19,6 +19,7 @@ def medfit(x, y):
     return res.x
         
 
+import numpy as np
 class Landolt(object):
     '''
     classdocs
@@ -35,7 +36,7 @@ class Landolt(object):
                                  user='stella')
     
     def match(self, objid):
-        import numpy as np
+        
         queryparam = {'objid': objid}
         query = """SELECT name, vmag, mag_auto, bv, magerr_auto, flux_auto
             FROM frames, phot, landolt
@@ -56,16 +57,67 @@ class Landolt(object):
         y = self.vmag-self.mag_auto
         n = self.names
         p = medfit(x,y)
-        print 'corr = %.3f; k" = %.3f' % (p[0],p[1])
-        plt.plot(self.bv, self.vmag-self.mag_auto, 'o')
+        plt.title( 'corr = %.3f; k" = %.3f' % (p[0],p[1]))
+        #plt.plot(self.bv, self.vmag-self.mag_auto, 'o')
+        plt.errorbar(x, y, self.err, fmt='go')
         x1 = np.array(plt.xlim())
-        plt.plot(x1, p[0] + p[1]*x1, '--')
-        plt.errorbar(x, y, self.err, fmt='o')
+        plt.plot(x1, p[0] + p[1]*x1, 'r--')
         for xi,yi,ni in zip(x,y,n):
             plt.text(xi,yi,ni)
         plt.show()
         #print result
+    
+    def extinction(self):
+        import pickle
+        try:
+            with open('/work1/jwe/Landolt/data/20130328A.pickle','rb') as picklefile:
+                result = pickle.load(picklefile)
+        except:
+            query = """SELECT name, airmass, mag_auto, flux_auto
+            FROM frames, phot, landolt
+            WHERE filter = 'V'
+            AND frames.objid like '20130328A%%'
+            AND frames.objid = phot.objid
+            AND circle(phot.coord,0.4/3600.) @> circle(landolt.coord,0)
+            AND phot.flags<4
+            ORDER BY name;"""
+            result = self.landolt.query(query)
+            for r in result:
+                print r
+            with open('/work1/jwe/Landolt/data/20130328A.pickle','wb') as picklefile:
+                pickle.dump(result, picklefile)
+            
+        self.names = [r[0] for r in result]
+        self.airmass = np.array([r[1] for r in result])
+        self.mag_auto = np.array([r[2] for r in result])
+        self.flux = np.array([r[3] for r in result])
+        self.mag = -2.5*np.log10(self.flux)
+        
+        mags = []
+        airmasses = []
+        n = len(result)
+        for i in range(n):
+            for j in range(i+1,n):
+                if self.airmass[i]>self.airmass[j]:
+                    mags.append(self.mag[i]-self.mag[j])
+                    airmasses.append(self.airmass[i]-self.airmass[j])
+        mags = np.array(mags)
+        airmasses = np.array(airmasses)
+        
+        import matplotlib.pyplot as plt
+        
+        k = np.median(mags[mags>-.1]/airmasses[mags>-.1])
+        print k
+        
+        plt.scatter(airmasses, mags, edgecolor='none', alpha= 0.75)
+        #plt.xlim(0.0, 4.0)
+        plt.ylim(-1.0, 1.0)
+        x1 = np.array(plt.xlim())
+        plt.plot(x1,k*x1,'r-')
+        plt.xlabel('$\Delta$X')
+        plt.show()
         
 if __name__ == '__main__':
     l = Landolt()
-    l.match('20130327A-0077-0003')
+    l.extinction()
+    #l.match('20130327A-0077-0003')
