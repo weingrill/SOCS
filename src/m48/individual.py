@@ -124,6 +124,22 @@ class M48Analysis(M48Star):
         plt.minorticks_on()
         plt.grid()
 
+    def plot_lombscargle(self):
+        from scipy.signal import lombscargle
+        
+        n = 2000
+        f = np.linspace(2.*np.pi/20, 2.*np.pi/0.1, n)
+        pgram = lombscargle(self.t, self.m, f)
+        period = 1./(f/(2.*np.pi))
+        plt.plot(period, np.sqrt(4*(pgram/n)), 'r')
+        plt.xlabel('period [days]')
+        plt.ylabel('FAP')
+        plt.xticks(np.arange(20))
+        plt.xlim(0.1, 20)
+        plt.minorticks_on()
+        plt.grid()
+        
+
     def plot_lsq(self, show=False, save = False):
         from analysis import lsqspectrum
         t,l = self.t, self.m-np.mean(self.m)
@@ -307,7 +323,7 @@ if __name__ == '__main__':
 20140302A-0000-0015#488"""
 
     pdf = PdfPages(config.plotpath+'M48analysis.pdf')
-    for starid in starids.split('\n'):
+    for starid in starids.split('\n')[1:5]:
         print starid
         star = M48Analysis(starid)
         star._load_lightcurve()
@@ -315,7 +331,7 @@ if __name__ == '__main__':
         plt.subplot(511)
         star.plot_lightcurve()
         plt.subplot(512)
-        star.plot_psd()
+        star.plot_lombscargle()
         plt.subplot(513)
         star.plot_clean()
         plt.subplot(514)
