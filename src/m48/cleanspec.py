@@ -4,7 +4,7 @@ Created on Aug 8, 2014
 @author: jwe
 '''
 from m48star import M48Star
-
+import numpy as np
 
 def loadspectra():
     path = '/work1/jwe/Dropbox/M48/data/spectra_syd'
@@ -178,8 +178,75 @@ def plot_clean():
     plt.grid()
     plt.show()
 
+def redoclean():
+    #from datasource import DataSource
+    #wifsip = DataSource(database='stella', user='stella', host='pera.aip.de')
+    #query = """SELECT tab FROM m48stars WHERE good;"""
+    #result = wifsip.query(query)
+    from starids import starids
+    from matplotlib import pyplot as plt
+    from functions import gauss, gauss_fit
+
+    for starid in starids.split('\n'):
+        doplot = False
+        star = M48Star(starid)
+        f, a = star.cleanspectrum()
+        p = 1./f
+        i = np.where((p>1.3) & (p<20.0))
+        pi = p[i]
+        fi = f[i]
+        ai = a[i]
+        j = np.argmax(ai)
+        pnew = pi[j]
+        anew = ai[j]
+        pman = star['pman']
+        diff = abs(pnew-pman)
+        if diff > 0.5:
+            k = np.where((p>pman-1.0) & (p<pman+1.0))
+            pk = p[k]
+            fk = f[k]
+            ak = a[k]
+            j = np.argmax(ak)
+            pnew = pk[j]
+            anew = ak[j]
+            diff = abs(pnew-pman)
+            doplot = True
+        
+        # find local minima
+        h = np.argwhere(pi == pnew)[0][0] 
+        h0 = h
+        while ai[h0 - 1] <= ai[h0] and h0>0:
+            h0 -= 1
+        h1 = h
+        while ai[h1 + 1] <= ai[h1] and h1<len(ai):
+            h1 += 1
+        # perform gauss fit
+        par = gauss_fit(pi[h0:h1], ai[h0:h1]-min(ai[h0:h1]), amp=anew, mean=pnew, sigma=0.5 )
+        #print p
+        pgauss = par[1]
+        perr = par[2]
+        if perr>1.0:
+            doplot = True
+        # update database
+        x = np.linspace(pi[0], pi[-1], 500)
+        #gauss(x, a, x0, sigma):
+        diff = abs(pnew-pman)
+            
+        print '%25s %4d %6.3f %5.2f %6.3f %6.3f' % (starid, star['tab'], pman, diff, pgauss, perr)
+        star['clean_period'] = pgauss
+        star['clean_sigma'] = perr
+        if doplot:
+            plt.plot(pi, ai)
+            plt.axvline(pnew, linestyle='--')
+            plt.plot(x, gauss(x, par[0], par[1], par[2]), 'r')
+            plt.title('#%d' % star['tab'])
+            plt.xlabel('period = %.3f days' % pnew)
+            plt.show()
+            
+
     
 if __name__ == '__main__':
     #inject_periods()
     #update_periodic()
-    plot_clean()
+    #plot_clean()
+    redoclean()
