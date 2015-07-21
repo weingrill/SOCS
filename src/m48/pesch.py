@@ -8,23 +8,11 @@ Created on May 8, 2015
 
 import numpy as np
 import pylab as plt
+import config
 
+from table import Table  # @UnresolvedImport
 
-class Record(list):
-    '''
-    simulates data records
-    '''
-    def __init__(self):
-        self.table=[]
-    
-    def __getitem__(self, key):
-        if type(key) is int:
-            return self.table[key]
-        
-        if type(key) is str:
-            return [t[key] for t in self.table]
-
-class Pesch(object):
+class Pesch(Table):
     '''
     classdocs
     '''
@@ -34,22 +22,37 @@ class Pesch(object):
         '''
         Constructor
         '''
-        
-        self.table=[]
-        self._loadpesch()
+        #super(ChildB, self).__init__()
+        Table.__init__(self, key = 'No', columns = ['No', 'Ref', 'V', 'B-V'])
+        #super(Record, self).__init__()
+        #self.key = 'No' 
+        self.columns = ['No', 'Ref', 'V', 'B-V']
+        #self.table= []
+        self._load()
     
-    def _loadpesch(self):
-        filename = '/work2/jwe/M48/data/reftable.txt'
+    def _load(self):
+        filename = config.datapath+'reftable.txt'
         data = np.loadtxt(filename)
-        print data
+        #print data
         for d in data:
             rec = {'No': int(d[0]),
                    'Ref': int(d[1]),
                    'V': float(d[2]),
                    'B-V': float(d[3])}
-            self.table.append(rec)
-        plt.scatter([t['B-V'] for t in self.table],[t['B-V'] for t in self.table])
-        plt.show()
+            self.append(rec)
         
 if __name__ == '__main__':
     p = Pesch()
+    p.keys()
+    print len(p)
+    print p
+    print p['B-V']
+    print set(p['Ref'])
+    ref48 = p(Ref=48)
+    ref1601 = p(Ref=1601)
+    #plt.scatter(p['B-V'], p['V'], edgecolor='none', c=p['Ref'])
+    plt.scatter(ref48['B-V'], ref48['V'], edgecolor='none', c='g')
+    plt.scatter(ref1601['B-V'], ref1601['V'], edgecolor='none', c='r')
+    plt.ylim(plt.ylim()[::-1])
+    plt.show()
+    
