@@ -4,7 +4,7 @@ Created on Dec 11, 2014
 @author: jwe
 '''
 from m48 import M48Star
-from functions import sigma_clip, phase
+from functions import phase
 import config
 import pylab as plt
 import numpy as np
