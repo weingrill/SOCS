@@ -448,10 +448,10 @@ class M48Analysis(object):
         ORDER BY tab;"""
         data = self.wifsip.query(query)
 
-        with open(config.datapath+'bvtable.txt','wt') as file:
-            file.write('#tab  B-V    Vmag   mem\n')
+        with open(config.datapath+'bvtable.txt','wt') as textfile:
+            textfile.write('#tab  B-V    Vmag   mem\n')
             for d in data:
-                file.write('%4d %6.3f %7.4f %-5.5s\n' % d)
+                textfile.write('%4d %6.3f %7.4f %-5.5s\n' % d)
 
     def export_lightcurves(self):
         for starid in self.stars:
