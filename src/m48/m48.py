@@ -419,28 +419,39 @@ class M48Analysis(object):
         export db to file
         """
         query = """select tab, bv, sqrt(bmag_err^2+vmag_err^2) "bv_err", vmag, 
-        vmag_err, period, period_err, clean_period, clean_sigma, pman 
+        vmag_err, clean_period, clean_sigma 
         from m48stars 
         where good 
         order by tab;"""
-# tab   = table number from publication
+        comments = """# tab   = table number from publication
 # B-V   = B-V color
 # B-V_e = error of B-V
 # Vmag  = V magnitude
 # V_err = error of V magnitude
-# P     = period, if negative not confirmed by either FFT or phase
-#          dispersion
-# P_err = period error
-# Pc    = period = 1./freq from cleaned spectrum
-# Pc_e  = width of freq-peak in cleaned spectrum
-# Pman  = period as found manually by Sydney
-#tab B-V   B-V_e  Vmag   V_err    P     P_err  P_c  Pc_e  Pman 
+# P     = period from cleaned spectrum
+# P_err = period error width of freq-peak in cleaned spectrum
+"""
+
+        header = "#tab  B-V   B-V_e  Vmag   V_err   P      P_err" 
 
         data = self.wifsip.query(query)
         
         np.savetxt(config.datapath+'periods.txt', 
                    data, 
-                   fmt='%4d %.3f %.4f %.3f %.4f %7.3f %.3f %5.2f %.3f %5.2f')
+                   fmt='%4d %.3f %.4f %.3f %.4f %7.3f %.3f',
+                   comments = comments,
+                   header = header)
+
+        query = """SELECT tab, bv, vmag, member 
+        FROM m48stars 
+        WHERE NOT bv IS NULL
+        ORDER BY tab;"""
+        data = self.wifsip.query(query)
+
+        with open(config.datapath+'bvtable.txt','wt') as file:
+            file.write('#tab  B-V    Vmag   mem\n')
+            for d in data:
+                file.write('%4d %6.3f %7.4f %-5.5s\n' % d)
 
     def export_lightcurves(self):
         for starid in self.stars:
@@ -471,31 +482,43 @@ class M48Analysis(object):
         '''
         #import pywcsgrid2
         import astronomy as ast
-
-        query = """SELECT ra, dec, vmag 
-                    FROM m48stars 
-                    WHERE vmag<12;"""
-        data = self.wifsip.query(query)
+        from dbtable import DBTable  # @UnresolvedImport
+        from matplotlib import rcParams
         
-        sra = np.array([d[0] for d in data])
-        sdec = np.array([d[1] for d in data])
-        vmag = np.array([d[2] for d in data])
-
-        query = """SELECT ra, dec
-                    FROM m48stars 
-                    WHERE good;"""
-        data = self.wifsip.query(query)
-        pra = np.array([d[0] for d in data])
-        pdec = np.array([d[1] for d in data])
+        astars = DBTable(self.wifsip, 'm48stars', condition='vmag<12.0 and good is NULL')
+        gstars = DBTable(self.wifsip, 'm48stars', condition='good and provisional is null')
+        pstars = DBTable(self.wifsip, 'm48stars', condition='provisional')
         
-
+        fig_width = 8.9/2.54  # width in inches, was 7.48in
+        fig_height = 8.9/2.54  # height in inches, was 25.5
+        fig_size =  [fig_width,fig_height]
+        #set plot attributes
+        params = {'backend': 'Agg',
+          'axes.labelsize': 8,
+          'axes.titlesize': 10,
+          'font.size': 8,
+          'xtick.labelsize': 8,
+          'ytick.labelsize': 8,
+          'figure.figsize': fig_size,
+          'savefig.dpi' : 300,
+          'font.family': 'sans-serif',
+          'axes.linewidth' : 0.2,
+          'xtick.major.size' : -2,
+          'ytick.major.size' : -2,
+          u'figure.subplot.bottom' : 0.11,                                                                                                                             
+          u'figure.subplot.left' : 0.11,                                                                                                                               
+          u'figure.subplot.right' : 0.89,                                                                                                                              
+          u'figure.subplot.top' : 0.89
+          }
+        rcParams.update(params)
         
         fig = plt.figure()
         ax = fig.add_subplot(111)
-        #ax = pywcsgrid2.subplot(111)
+        
         ax.set_aspect(1.)
-        ax.scatter(sra,sdec, s=(12.-vmag)*20,facecolor='gray', edgecolor='none')
-        ax.scatter(pra,pdec, marker='+',edgecolor='k', s=30)
+        ax.scatter(astars['ra'],astars['dec'], marker='*', s=(12.-astars['vmag'])*15,facecolor='gray', edgecolor='none')
+        ax.scatter(pstars['ra'],pstars['dec'], marker='o',edgecolor='r', facecolor='none', s=10)
+        ax.scatter(gstars['ra'],gstars['dec'], marker='o',edgecolor='r', facecolor='r', s=10)
         
         ra = np.array([8.24242, 8.21705, 8.20416])*15.0
         de = np.array([-6.08887,-5.70876,-5.51204])
@@ -523,15 +546,15 @@ class M48Analysis(object):
         
         #xticks = ax.get_xticks()
         xticks = [ast.hms2dd((8,m,0)) for m in [16,15,14,13,12]]
-        xlabels = ['$8^h%d^m$' % m for m in [16,15,14,13,12]]
+        xlabels = ['$8^h%2d^m$' % m for m in [16,15,14,13,12]]
         plt.xticks(xticks, xlabels)
         declist = [(-5,15),(-5,30),(-5,45),(-6,0),(-6,15)]
         yticks = [ast.dms2dd(dl) for dl in declist]
-        ylabels = ['$%d^{\circ}%d^m$' % dl for dl in declist]
-        plt.yticks(yticks, ylabels)
+        ylabels = ['$%d^{\circ}%2d^m$' % dl for dl in declist]
+        plt.yticks(yticks, ylabels, rotation=-90)
         ax.grid()
-        ax.set_ylim(-6.2,-5.3)
-        ax.set_xlim(123.9,123)
+        ax.set_ylim(cdec-0.4,cdec+0.4)
+        ax.set_xlim(cra+0.4,cra-0.4)
         plt.xlabel('R.A. (J2000)')
         plt.ylabel('Dec. (J2000)')
         if show:
