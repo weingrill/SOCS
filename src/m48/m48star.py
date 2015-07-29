@@ -18,9 +18,7 @@ class LightCurve(object):
     ability to store lightcurve to file
     """
     def __init__(self, starid):
-        from datasource import DataSource
         self.starid = starid
-        self.wifsip = DataSource(database=config.dbname, user=config.dbuser, host=config.dbhost)
         self.fromdb()
 
     def fromdb(self):
@@ -30,6 +28,9 @@ class LightCurve(object):
         """
         import numpy as np
         import os.path
+        from datasource import DataSource
+
+        self.wifsip = DataSource(database=config.dbname, user=config.dbuser, host=config.dbhost)
         
         filename = config.lightcurvespath+self.starid+'.dat'
         if os.path.isfile(filename):
@@ -82,12 +83,8 @@ class LightCurve(object):
         if filename is None:
             filename = config.lightcurvespath+self.starid+'.dat'
         logger.info('load file %s' % filename)
-        data = np.loadtxt(filename)
+        self.hjd, self.mag, self.err = np.loadtxt(filename, unpack = True)
         
-        self.hjd = data[:,0]
-        self.mag = data[:,1]
-        self.err = data[:,2]
-                
         logger.info('%d datapoints' % len(self.hjd))
         
         return (self.hjd, self.mag, self.err)
@@ -102,6 +99,42 @@ class LightCurve(object):
             
         a = np.column_stack((self.hjd,self.mag,self.err))
         np.savetxt(filename, a, fmt='%.6f %.3f %.4f')        
+
+    def rebin(self, interval = 512./86400., medianbins=False):
+        """
+        rebin to new interval using the mean of each bin
+        interval determines the length of each bin
+        medianbins calculates the median in each bin otherwise the mean is taken
+        """
+        from numpy import seterr, zeros, isnan, compress, arange, mean
+        data = self.hjd
+        # ...+interval so that the last bin includes the last epoch
+        bins = arange(self.hjd[0], self.hjd[-1]+interval, interval)
+        nbins = len(bins)-1
+        t = zeros(nbins)
+        f = zeros(nbins)
+        # adopted from Ian's Astro-Python Code v0.3
+        # http://www.mpia-hd.mpg.de/homes/ianc/python/_modules/tools.html
+        # def errxy()
+        idx = [[data.searchsorted(bins[i]), \
+                data.searchsorted(bins[i+1])] for i in range(nbins)]
+        seterr(invalid='ignore')
+        for i in range(nbins):
+            f[i] = mean(self.mag[idx[i][0]:idx[i][1]])
+            t[i] = mean(self.hjd[idx[i][0]:idx[i][1]])
+                
+        seterr(invalid='warn')
+        valid = ~isnan(t)
+        self.mag = compress(valid,f)
+        self.hjd = compress(valid,t)
+        
+    def sigma_clip(self):
+        from functions import sigma_clip
+        self.hjd, self.mag = sigma_clip(self.hjd, self.mag)
+
+    @property
+    def data(self):
+        return self.hjd, self.mag
     
 
 class M48Star(dict):
@@ -111,7 +144,7 @@ class M48Star(dict):
     def __init__(self, starid):
         from datasource import DataSource
         self.starid = starid
-        self.wifsip = DataSource(database='wifsip', user='sro', host='oldpina.aip.de')
+        self.wifsip = DataSource(database='stella', user='stella', host='pera.aip.de')
         if '%' in self.starid:
             self.starid = self['starid']
 
@@ -153,15 +186,14 @@ class M48Star(dict):
         return result[0][0]    
 
     def lightcurve(self):
-        lc = LightCurve(self.starid)
-        return lc.hjd, lc.mag, lc.err
+        return LightCurve(self.starid)
     
     def cleanspectrum(self):
         #20140305A-0003-0017#359 <-- starid
         #       6A-0097-0013#1648.ncfile <-- filename
         #01234567
         from numpy import loadtxt
-        filename = '/work2/jwe/owncloud/M48/data/spectra_syd/'+self.starid[7:] + '.ncfile'
+        filename = config.datapath+'clean/%s.ncfile' % self.starid[7:]
         a = loadtxt(filename)
         freq = a[:1600,0]
         amp = a[:1600,1]
