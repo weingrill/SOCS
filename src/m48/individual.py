@@ -16,12 +16,13 @@ class M48Analysis(M48Star):
 
 
     def _load_lightcurve(self):
-        t, m, _ = self.lightcurve()
-        t -= min(t)
         
         # perform a 3sigma clipping
-        self.t, self.m = sigma_clip(t, m)
-
+        lc = self.lightcurve()
+        lc.sigma_clip()
+        lc.rebin(interval = 0.05)
+        self.t, self.m = lc.data
+        self.t -= min(self.t)
     
     def _init_plot(self):
             
@@ -68,8 +69,7 @@ class M48Analysis(M48Star):
      
     def plot_psd(self, show=False, save=False):
         from psd import ppsd
-        
-        # perform a power spectrum analysis
+
         t, m = self.t, self.m- np.mean(self.m)
         n = len(t)
         t_padded = np.zeros(8*n)
@@ -78,7 +78,13 @@ class M48Analysis(M48Star):
         m_padded = np.zeros(8*n)
         m_padded[:n] = m
         
-        px, f = ppsd(t_padded, m_padded, lower=1./20, upper=1./0.1)
+        filename = config.datapath+'/psd/%s.psd' % self.starid
+        try:
+            px, f = np.loadtxt(filename, unpack=True)
+        except IOError:
+            # perform a power spectrum analysis
+            px, f = ppsd(t_padded, m_padded, lower=1./20, upper=1./0.1)
+            np.savetxt(filename, np.column_stack((px, f)))
         px = np.sqrt(px)
         i = np.argmax(px)
         period1 = 1./f[i]
@@ -113,7 +119,14 @@ class M48Analysis(M48Star):
         from pdm import pdm
         # look at 20 days or at most at the length of dataset
         length = min([max(self.t), 20.0])
-        p1, t1 = pdm(self.t, self.m, 0.1, length, 1.0/24)
+        filename = config.datapath+'/pdm/%s.pdm' % self.starid
+        try:
+            p1, t1 = np.loadtxt(filename, unpack=True)
+        except IOError:
+            # perform a phased dispersion minimization
+            p1, t1 = pdm(self.t, self.m, 0.1, length, 1.0/24)
+            np.savetxt(filename, np.column_stack((p1, t1)))
+        
         period = p1[np.argmin(t1)]
         theta = min(t1)
         plt.plot(p1, t1, 'k')
@@ -193,6 +206,29 @@ class M48Analysis(M48Star):
         plt.grid()
 
     def lightcurve_overplot(self, show=False, save = False):
+        fig_width = 8.9/2.54  # width in inches, was 7.48in
+        fig_height = 0.75*8.9/2.54  # height in inches, was 25.5
+        fig_size =  [fig_width,fig_height]
+        #set plot attributes
+        from matplotlib import rcParams
+        params = {'backend': 'Agg',
+          'axes.labelsize': 8,
+          'axes.titlesize': 10,
+          'font.size': 8,
+          'xtick.labelsize': 8,
+          'ytick.labelsize': 8,
+          'figure.figsize': fig_size,
+          'savefig.dpi' : 300,
+          'font.family': 'sans-serif',
+          'axes.linewidth' : 0.2,
+          'xtick.major.size' : -2,
+          'ytick.major.size' : -2,
+          u'figure.subplot.bottom' : 0.15,                                                                                                                             
+          u'figure.subplot.left' : 0.20,                                                                                                                               
+          #u'figure.subplot.right' : 0.95,                                                                                                                              
+          #u'figure.subplot.top' : 0.9
+          }
+        rcParams.update(params)
         
         period = self['period']
         tp, yp = phase(self.t,self.m, period)
@@ -226,8 +262,31 @@ class M48Analysis(M48Star):
         elif save: 
             plt.savefig(config.plotpath+'%s_lcsine.pdf' % self.starid)
             plt.savefig(config.plotpath+'%s_lcsine.eps' % self.starid)
+        plt.close()
 
     def plot_clean(self, show=False, save = False):
+        from matplotlib import rcParams
+        fig_width = 8.9/2.54  # width in inches, was 7.48in
+        fig_height = 0.75*8.9/2.54  # height in inches, was 25.5
+        fig_size =  [fig_width,fig_height]
+        params = {'backend': 'Agg',
+          'axes.labelsize': 8,
+          'axes.titlesize': 10,
+          'font.size': 8,
+          'xtick.labelsize': 8,
+          'ytick.labelsize': 8,
+          'figure.figsize': fig_size,
+          'savefig.dpi' : 300,
+          'font.family': 'sans-serif',
+          'axes.linewidth' : 0.1,
+          #'xtick.major.size' : 2,
+          #'ytick.major.size' : 2,
+          #u'figure.subplot.bottom' : 0.15,                                                                                                                             
+          u'figure.subplot.left' : 0.10,                                                                                                                               
+          u'figure.subplot.right' : 0.9,                                                                                                                              
+          #u'figure.subplot.top' : 0.9
+          }
+        rcParams.update(params)
         a = np.loadtxt(config.datapath+'/clean/%s.ncfile' % self.starid[7:])
         f = a[:,0]
         px = a[:,1]*1000.0
@@ -235,25 +294,25 @@ class M48Analysis(M48Star):
         #px = np.sqrt(px*1000.0)/2.0
         
         plt.plot(1./f[1:],px[1:], 'r')
-        plt.xticks(np.arange(20))
-        plt.xlim(0.1, 20)
-        plt.minorticks_on()
+        plt.xticks(np.arange(16))
+        plt.xlim(0.1, 16)
+        #plt.minorticks_on()
         plt.xlabel('period [days]')
         plt.ylabel('power')
         plt.axvline(1./f[np.argmax(px)], color='green', alpha=0.5)
         plt.axhline(np.std(px)*5.0, color='blue', linestyle='--')
-        plt.grid()
+        #plt.grid()
         if show: plt.show()
         elif save: 
             plt.savefig(config.plotpath+'%s_clean.pdf' % self.starid)
             plt.savefig(config.plotpath+'%s_clean.eps' % self.starid)
+        plt.close()
         
-
-if __name__ == '__main__':
+def make_catalog():
     from matplotlib.backends.backend_pdf import PdfPages
     from starids import starids
     pdf = PdfPages(config.plotpath+'M48analysis.pdf')
-    for starid in starids.split('\n')[1:5]:
+    for starid in starids.split('\n'):
         print starid
         star = M48Analysis(starid)
         star._load_lightcurve()
@@ -261,7 +320,7 @@ if __name__ == '__main__':
         plt.subplot(511)
         star.plot_lightcurve()
         plt.subplot(512)
-        star.plot_lombscargle()
+        star.plot_psd()
         plt.subplot(513)
         star.plot_clean()
         plt.subplot(514)
@@ -272,4 +331,22 @@ if __name__ == '__main__':
         pdf.savefig()
         plt.close()
         #plt.savefig(config.plotpath+'%s.pdf' % star.starid)
-    pdf.close()
+    pdf.close()        
+
+if __name__ == '__main__':
+    import argparse
+    parser = argparse.ArgumentParser(description='M48 individual')
+    parser.add_argument('-cat', '--catalog', action='store_true', help='make catalog')
+    parser.add_argument('-lc', '--lightcurve', action='store_true', help='plot lightcurve')
+    parser.add_argument('-cmd', action='store_true', help='plot cmd')
+
+    args = parser.parse_args()
+
+    if args.catalog: make_catalog()
+    if args.lightcurve:
+        starid = '20140301A-0071-0013#125'
+        star = M48Analysis(starid)
+        star._load_lightcurve()
+        star.lightcurve_overplot(save=True)
+        star.plot_clean(save=True)
+        
