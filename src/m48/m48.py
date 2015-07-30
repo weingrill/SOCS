@@ -307,112 +307,6 @@ class M48Analysis(object):
             if good: print comment,'*'
             else: print comment
             
-    def make_cmd(self, show=False, mark_active=False):
-        query = "SELECT vmag, bv FROM m48stars WHERE NOT bv is NULL;"
-        data = self.wifsip.query(query)
-        vmag = np.array([d[0] for d in data])
-        bv   = np.array([d[1] for d in data])
-        
-        iso_v, iso_bv = self.load_isochrone() 
-        query = """SELECT vmag, bv FROM m48stars WHERE good;"""
-        data = self.wifsip.query(query)
-        vmag_good = np.array([d[0] for d in data])
-        bv_good   = np.array([d[1] for d in data])
-
-        
-        plt.plot(iso_bv, iso_v, 'g', alpha=0.3, lw=5.0,label='800 Myr iso')
-        plt.scatter(bv-self.ebv,vmag, edgecolor='none', alpha=0.75, s=4, c='k')
-
-        query = """SELECT vmag, bv 
-                    FROM m48stars 
-                    WHERE member
-                    and NOT bv IS NULL 
-                    ;"""
-        data = self.wifsip.query(query)
-        
-        if mark_active:
-            plt.scatter(bv_good-self.ebv, vmag_good, edgecolor='none', alpha=0.9, s=30, c='r',label='rotators')
-        plt.legend()
-        plt.title('M48 Color Magnitude Diagram')
-        plt.ylim(20.0, 10.0)
-        plt.xlim(0.0, 2.0)
-        plt.xlabel('(B - V)$_0$')
-        plt.ylabel('V [mag]')
-        plt.grid()
-        if show:
-            plt.show()
-        else:
-            if mark_active:
-                plt.savefig(config.resultpath+'m48cmd_active.eps')
-                plt.savefig(config.resultpath+'m48cmd_active.pdf')
-                plt.savefig(config.resultpath+'m48cmd_active.png', dpi=300)
-            else:
-                plt.savefig(config.resultpath+'m48cmd.eps')
-                plt.savefig(config.resultpath+'m48cmd.pdf')
-        plt.close()
-
-    def make_cpd(self, show=False):
-        query = """SELECT bv, period, amp 
-                    FROM m48stars 
-                    WHERE NOT good
-                    AND NOT bv IS NULL
-                    AND period>0;"""
-        data = self.wifsip.query(query)
-        
-        bv = np.array([d[0] for d in data])
-        period = np.array([d[1] for d in data])
-        
-        query = """SELECT bv, period, amp 
-                    FROM m48stars 
-                    WHERE vmag<4*bv + 13 
-                    AND NOT bv IS NULL
-                    AND period>0
-                    AND good;"""
-        data = self.wifsip.query(query)
-        bv_ms = np.array([d[0] for d in data])
-        period_ms = np.array([d[1] for d in data])
-        amp_ms = np.array([d[2] for d in data])
-        
-        query = """SELECT bv, period, amp 
-                    FROM m48stars 
-                    WHERE NOT bv IS NULL
-                    AND period>0
-                    AND member;"""
-        data = self.wifsip.query(query)
-        bv_mem = np.array([d[0] for d in data])
-        period_mem = np.array([d[1] for d in data])
-        amp_mem = np.array([d[2] for d in data])
-        
-        
-        import gyroage
-        from functions import logspace
-        
-        bv360 = logspace(0.5, 2.0, num=100)
-        #P = gyroage.gyroperiod(bv360, 360.0, version=2007)
-        P, pc = gyroage.gyroperiod(bv360, 360.0, version=2003)
-        plt.plot(bv360, pc, color='b', linestyle='--')
-        plt.plot(bv360, P, color='r')
-        
-        plt.scatter(bv-self.ebv, period, s=1, 
-                    edgecolor='none', c='k')
-        plt.scatter(bv_ms-self.ebv, period_ms, s=(1.0-amp_ms)*50., 
-                    edgecolor='none', facecolor='green')
-        
-        plt.scatter(bv_mem-self.ebv, period_mem, s=(1.0-amp_mem)*50., 
-                    edgecolor='blue',
-                    facecolor='none')
-        
-        plt.xlabel('(B - V)$_0$')
-        plt.ylabel('period [days]')
-        plt.ylim(0.0, 20.0)
-        plt.xlim(0.0, 2.0)
-        plt.grid()
-        if show:
-            plt.show()
-        else:
-            plt.savefig(config.resultpath+'m48cpd.eps')
-            plt.savefig(config.resultpath+'m48cpd.pdf')
-        plt.close()
     
     def export(self):
         """
@@ -468,100 +362,6 @@ class M48Analysis(object):
                     np.savetxt(filename, (a), fmt='%.6f %.3f %.4f')
                     print 'exported'
         
-    def load_isochrone(self):
-        from numpy import loadtxt
-        isofile = config.datapath+'0p500Gyr_FeH0p0_Y0p277_AMLTsol.iso'
-        a = loadtxt(isofile)
-        iso_mv = a[:,5]
-        iso_bv = a[:,6]
-        return iso_mv+self.dm, iso_bv
-    
-    def plot_map(self, show=False):
-        '''
-        plots the map of the M48 observation including the BJG field
-        '''
-        #import pywcsgrid2
-        import astronomy as ast
-        from dbtable import DBTable  # @UnresolvedImport
-        from matplotlib import rcParams
-        
-        astars = DBTable(self.wifsip, 'm48stars', condition='vmag<12.0 and good is NULL')
-        gstars = DBTable(self.wifsip, 'm48stars', condition='good and provisional is null')
-        pstars = DBTable(self.wifsip, 'm48stars', condition='provisional')
-        
-        fig_width = 8.9/2.54  # width in inches, was 7.48in
-        fig_height = 8.9/2.54  # height in inches, was 25.5
-        fig_size =  [fig_width,fig_height]
-        #set plot attributes
-        params = {'backend': 'Agg',
-          'axes.labelsize': 8,
-          'axes.titlesize': 10,
-          'font.size': 8,
-          'xtick.labelsize': 8,
-          'ytick.labelsize': 8,
-          'figure.figsize': fig_size,
-          'savefig.dpi' : 300,
-          'font.family': 'sans-serif',
-          'axes.linewidth' : 0.2,
-          'xtick.major.size' : -2,
-          'ytick.major.size' : -2,
-          u'figure.subplot.bottom' : 0.11,                                                                                                                             
-          u'figure.subplot.left' : 0.11,                                                                                                                               
-          u'figure.subplot.right' : 0.89,                                                                                                                              
-          u'figure.subplot.top' : 0.89
-          }
-        rcParams.update(params)
-        
-        fig = plt.figure()
-        ax = fig.add_subplot(111)
-        
-        ax.set_aspect(1.)
-        ax.scatter(astars['ra'],astars['dec'], marker='*', s=(12.-astars['vmag'])*15,facecolor='gray', edgecolor='none')
-        ax.scatter(pstars['ra'],pstars['dec'], marker='o',edgecolor='r', facecolor='none', s=10)
-        ax.scatter(gstars['ra'],gstars['dec'], marker='o',edgecolor='r', facecolor='r', s=10)
-        
-        ra = np.array([8.24242, 8.21705, 8.20416])*15.0
-        de = np.array([-6.08887,-5.70876,-5.51204])
-        
-        x = [ra[0],ra[2],ra[2],ra[1],ra[1],ra[0],ra[0]]
-        y = [de[0],de[0],de[1],de[1],de[2],de[2],de[0]]
-        
-        
-        cra, cdec = (123.42916666666666,-5.75)
-        d2 = 0.5*1320.2/3600.0
-        
-        fields = [(cra    , cdec),
-                 (cra - d2, cdec + d2),
-                 (cra + d2, cdec + d2),
-                 (cra - d2, cdec - d2),
-                 (cra + d2, cdec - d2)]
-        for field in fields:
-            ra,dec = field
-            
-            ras = [ra-d2, ra+d2, ra+d2, ra-d2, ra-d2]
-            das = [dec-d2, dec-d2, dec+d2, dec+d2, dec-d2]
-            ax.plot(ras, das ,'g')
-
-        ax.plot(x,y, 'k', linestyle='--',label='BJG 2005')
-        
-        #xticks = ax.get_xticks()
-        xticks = [ast.hms2dd((8,m,0)) for m in [16,15,14,13,12]]
-        xlabels = ['$8^h%2d^m$' % m for m in [16,15,14,13,12]]
-        plt.xticks(xticks, xlabels)
-        declist = [(-5,15),(-5,30),(-5,45),(-6,0),(-6,15)]
-        yticks = [ast.dms2dd(dl) for dl in declist]
-        ylabels = ['$%d^{\circ}%2d^m$' % dl for dl in declist]
-        plt.yticks(yticks, ylabels, rotation=-90)
-        ax.grid()
-        ax.set_ylim(cdec-0.4,cdec+0.4)
-        ax.set_xlim(cra+0.4,cra-0.4)
-        plt.xlabel('R.A. (J2000)')
-        plt.ylabel('Dec. (J2000)')
-        if show:
-            plt.show()  
-        else:
-            plt.savefig(config.resultpath+'m48_map.pdf', transparent=True)
-            plt.savefig(config.resultpath+'m48_map.eps', transparent=True)
      
     def __exit__(self):
         self.wifsip.close()
@@ -726,9 +526,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='M48 analysis')
     parser.add_argument('--clear', action='store_true', help='clear periods')
     parser.add_argument('-a', '--analysis', action='store_true', help='analysis')
-    parser.add_argument('-cmd', action='store_true', help='plot cmd')
-    parser.add_argument('-cpd', action='store_true', help='plot cpd')
-    parser.add_argument('-map', action='store_true', help='plot map')
     parser.add_argument('-cal2', action='store_true', help='calibrate lightcurves')
     parser.add_argument('-e', '--export', action='store_true', help='export to textfile')
     parser.add_argument('-l', '--load', action='store_true', help='import textfile')
@@ -756,9 +553,4 @@ if __name__ == '__main__':
     if args.tab: m48.set_tab_column()
     if args.load: m48.load_periods() 
     if args.tables: m48.tables()
-    if args.cmd: 
-        m48.make_cmd()
-        m48.make_cmd(mark_active=True)
-    if args.cpd: m48.make_cpd()
-    if args.map: m48.plot_map()
     if args.export: m48.export() 

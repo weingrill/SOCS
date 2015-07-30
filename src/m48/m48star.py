@@ -19,59 +19,7 @@ class LightCurve(object):
     """
     def __init__(self, starid):
         self.starid = starid
-        self.fromdb()
-
-    def fromdb(self):
-        """
-        extract a single lightcurve from the database
-        and return epoch (hjd), magnitude and error
-        """
-        import numpy as np
-        import os.path
-        from datasource import DataSource
-
-        self.wifsip = DataSource(database=config.dbname, user=config.dbuser, host=config.dbhost)
-        
-        filename = config.lightcurvespath+self.starid+'.dat'
-        if os.path.isfile(filename):
-            return self.fromfile(filename)
-        
-        objid, star = self.starid.split('#')
-        query = """SELECT id 
-         FROM matched
-         WHERE (matched.objid, matched.star) = ('%s','%s')
-        """ % (objid, star)
-        try:
-            mid = self.wifsip.query(query)[0][0]
-        except IndexError:
-            logger.warning('no match found for starid %s' % (self.starid))
-            return
-        
-        logger.info('fetching starid %s = %s' % (self.starid, mid))
-        
-        query = """SELECT frames.hjd, phot.mag_auto-corr, corr/2.0
-                FROM frames, matched, phot
-                WHERE matched.id LIKE '%s'
-                AND frames.object like 'M 48 rot%%'
-                AND filter LIKE 'V'
-                AND NOT corr IS NULL
-                AND frames.objid = matched.objid
-                AND (phot.objid,phot.star) = (matched.objid,matched.star)
-                AND frames.hjd<2456820.0
-                ORDER BY hjd;""" % (mid)
-                
-    
-        data = self.wifsip.query(query)
-        if len(data)<10:
-            logger.error('insufficient data (%d) found for star %s' % (len(data),mid))
-            return
-        self.hjd = np.array([d[0] for d in data])
-        self.mag = np.array([d[1] for d in data])
-        self.err = np.array([d[2] for d in data])
-                
-        logger.info('%d datapoints' % len(self.hjd))
-        self.tofile(filename)
-        return (self.hjd, self.mag, self.err)
+        self.fromfile()
 
     def fromfile(self, filename=None):
         """
