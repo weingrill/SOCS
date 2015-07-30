@@ -10,7 +10,9 @@ class definiton for paper plots on M48
 import config
 from m48star import M48Star            
 import numpy as np
-import pylab as plt
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 from matplotlib import rcParams
 
 class M48Plots(object):
