@@ -207,7 +207,7 @@ class DiffPhotometryNoPCA(DiffPhotometry):
         plt.xlabel('V mag')
         plt.ylabel('sigma')
         plt.grid()
-        plt.savefig('/work2/jwe/owncloud/M48/plots/cleanedmatrixR.pdf')
+        plt.savefig(self.filename+'_cleanedmatrixR.pdf')
         #plt.show()
         
         

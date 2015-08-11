@@ -41,7 +41,14 @@ class DiffPhotometry(object):
     class for performing differential photometry on a rot dataset
     '''
 
-    def __init__(self, field, datapath, lightcurvepath, plotpath):
+    def __init__(self, field, 
+                 datapath, 
+                 lightcurvepath, 
+                 plotpath, 
+                 filtercol = 'V',
+                 flaglimit = 4,
+                 starslimit = 10000,
+                 dettemp = -110.0):
         '''
         Constructor
         '''
@@ -52,23 +59,35 @@ class DiffPhotometry(object):
         self.coords = {}
         self.objids = []
         self.field = field
+        self.filtercol = filtercol
+        self.flaglimit = flaglimit
+        self.starslimit = starslimit
+        self.dettemp = dettemp
         self.filename = datapath+self.field
         self.lightcurvepath = lightcurvepath
         self.plotpath = plotpath
         print self.field
+        print 'filter:   %s' % self.filtercol
+        print 'maxstars: %d' % self.starslimit
+        print 'dettemp:  <%.1f' % self.dettemp
         
     
-    def load_objids(self, filtercol='R'):
+    def load_objids(self):
         """
         load the objids corresponding to the field
         """
+        
+        data = {'object': self.field,
+                'filtercol': self.filtercol,
+                'stars': self.starslimit,
+                'dettemp': self.dettemp}
         query = """SELECT objid, hjd, stars 
             FROM frames 
-            WHERE object LIKE '%s' 
-            AND filter='%s'
-            AND stars<6000
-            AND dettemp<-110
-            ORDER BY objid;""" % (self.field, filtercol)
+            WHERE object LIKE '%(object)s' 
+            AND filter='%(filtercol)s'
+            AND stars<%(stars)d
+            AND dettemp<%(dettemp)f
+            ORDER BY objid;""" % data
         #AND expt>60
         
         result = self.wifsip.query(query)
@@ -83,9 +102,9 @@ class DiffPhotometry(object):
         i = np.argmax(starcounts)
         self.refobjid = self.objids[i]
         print 'number of objids: %3d' % len(self.objids)
-        print 'maximum stars: %4d' % self.numstars
+        print 'maximum stars:    %4d' % self.numstars
     
-    def _loadcoords(self, objid, flaglimit=4):
+    def _loadcoords(self, objid):
         """
         load the star number and its coordinate
         """
@@ -93,28 +112,34 @@ class DiffPhotometry(object):
         FROM phot 
         WHERE objid = '%s'
         AND flags<%d
-        ORDER BY star""" % (objid, flaglimit)
+        ORDER BY star""" % (objid, self.flaglimit)
         result = self.wifsip.query(query)
         print 'number of coordinates: %4d' % len(result)
         stars = [r[0] for r in result]
         coords = [r[1] for r in result] 
         return stars, coords
     
-    def _loadmags(self, coords, filtercol='R', flaglimit=4):
+    def _loadmags(self, coords):
         """
         returns the frame's objid and the magnitude for the stars at coordinate
         'coords' throughout all the frames
         """
+        data = {'object': self.field,
+                'filter': self.filtercol,
+                'flaglimit': self.flaglimit,
+                'stars': self.starslimit,
+                'dettemp': self.dettemp,
+                'coords': coords}
         query = """SELECT frames.objid, mag_auto 
             FROM phot, frames
-            WHERE object like '%s'
+            WHERE object like '%(object)s'
             AND frames.objid = phot.objid
-            AND filter='%s'
-            AND phot.flags<%d
-            AND stars<6000
-            AND dettemp<-110
-            AND circle(phot.coord,0) <@ circle(point%s, 0.2/3600.0)""" % \
-            (self.field, filtercol, flaglimit, coords)
+            AND filter = '%(filter)s'
+            AND phot.flags < %(flaglimit)d
+            AND stars < %(stars)d
+            AND dettemp < %(dettemp)f
+            AND circle(phot.coord,0) <@ circle(point%(coords)s, 0.2/3600.0)""" % data
+            
         #AND expt>60
         result = self.wifsip.query(query)
         objids = [r[0] for r in result] 
@@ -148,6 +173,8 @@ class DiffPhotometry(object):
         """
         creates the photmatrix by loading all stars for each objid/epoch
         """
+        from tools import log
+        
         print 'reference objid: %s' % self.refobjid
         
         self.stars, refcoords = self._loadcoords(self.refobjid)
@@ -168,8 +195,8 @@ class DiffPhotometry(object):
             coord = refcoords[star]
             objids, mags = self._loadmags(coord)
             
-            print '%4d %s %4d' % (star, coord, len(objids))
-            
+            log(self.filename+'loadmags.txt',
+                logstring = '%4d %s %4d' % (star, coord, len(objids)) )
             for objid in objids:
                 epoch = self.objids.index(objid)
                 k = objids.index(objid)
