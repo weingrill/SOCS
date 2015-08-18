@@ -70,7 +70,7 @@ class M48Plots(object):
         plt.axhline(mean,linestyle='--', color='b')
         plt.xlim(min(t),max(t))
         plt.xticks(np.arange(0.0,70.0,10.0))
-        plt.yticks(np.arange(-0.1,0.1,0.01))
+        plt.yticks(np.arange(-0.2,0.2,0.01))
         plt.scatter(t, m, edgecolor='none', facecolor='k', s=5)
         plt.plot(t,m,'gray')
         ylim=[max(m)+0.01, min(m)-0.01]
@@ -149,6 +149,7 @@ class M48Plots(object):
         
         plt.xticks(np.arange(60))
         plt.xlim(0, period*2)
+        plt.yticks(np.arange(plt.ylim()[0],plt.ylim()[1],0.01))
         plt.ylim(plt.ylim()[1], plt.ylim()[0])
         
         if star['provisional']:
