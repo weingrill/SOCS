@@ -7,7 +7,7 @@ Created on Aug 18, 2015
 '''
 from matplotlib import pyplot as plt
 #from psd import psd, ppsd
-from clean import clean
+from clean import clean  # @UnresolvedImport
 import numpy as np
 from random import shuffle
 
