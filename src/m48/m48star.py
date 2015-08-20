@@ -89,12 +89,22 @@ class M48Star(dict):
     '''
     class that interfaces the m48stars table on wifsip database
     '''
-    def __init__(self, starid):
+    def __init__(self, starid, tab= None):
         from datasource import DataSource
-        self.starid = starid
         self.wifsip = DataSource(database='stella', user='stella', host='pera.aip.de')
+        if starid is None:
+            self.starid = self._staridfromtab(tab)
+        else:
+            self.starid = starid
+        
         if '%' in self.starid:
             self.starid = self['starid']
+    
+    def _staridfromtab(self, tab):       
+        result = self.wifsip.query("""SELECT starid 
+        FROM m48stars 
+        WHERE tab = %d;""" % tab)
+        return result[0][0]
 
     def keys(self):
         query = """SELECT column_name, data_type, character_maximum_length
