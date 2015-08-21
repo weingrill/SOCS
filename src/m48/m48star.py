@@ -80,6 +80,14 @@ class LightCurve(object):
         from functions import sigma_clip
         self.hjd, self.mag = sigma_clip(self.hjd, self.mag)
 
+    def detrend(self, degree = 1):
+        """
+        detrend the lightcurve with a polynomial of the order degree
+        """
+        from numpy import polyfit, polyval
+        par = polyfit(self.hjd, self.mag, degree)
+        self.mag -= polyval(par, self.hjd)
+
     @property
     def data(self):
         return self.hjd, self.mag
