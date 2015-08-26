@@ -87,6 +87,33 @@ class LightCurve(object):
         from numpy import polyfit, polyval
         par = polyfit(self.hjd, self.mag, degree)
         self.mag -= polyval(par, self.hjd)
+        
+    def pdm(self, minperiod = None, maxperiod=None, step = None):
+        """
+        returns the phase dispersion minimization
+        """
+        from pdm import pdm
+        import numpy as np
+        
+        if maxperiod is None:
+            maxperiod = (self.hjd[-1]-self.hjd[0])/2.0
+        
+        if minperiod is None:
+            minperiod = np.mean(abs(self.hjd-np.roll(self.hjd,1)))
+        if step is None:
+            step = 1/(2*(self.hjd[-1]-self.hjd[0]))
+        pdm_periods, pdm_thetas = pdm(self.hjd, self.mag, 0.1, maxperiod, 0.02)
+        return pdm_periods, pdm_thetas
+    
+    def phase(self, period):
+        """
+        returnes the lightcurve phased at the given period
+        """
+        from functions import phase
+        tp, yp = phase(self.hjd, self.mag, period)
+        return tp, yp
+
+
 
     @property
     def data(self):
