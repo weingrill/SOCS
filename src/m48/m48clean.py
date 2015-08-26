@@ -46,7 +46,7 @@ def plot_window(t, x, axis= None):
 def plot_lomb(t, x, p0 = 0.0, axis= None):
     #lomb scargle
     import scipy.signal as signal
-    nout = 1000
+    nout = 100
     flomb = np.linspace(1./60., 1./0.05, nout)
     pgram = signal.lombscargle(t, x, flomb)
     norm = np.sqrt(4*(pgram/nout))/(2.0*np.var(x))
@@ -104,6 +104,21 @@ def plot_phase(t, x, period):
     plt.minorticks_on()
     plt.ylabel('mmag')
     plt.ylim(plt.ylim()[::-1])
+
+def plot_pdm(t, x, p0 = 0.0, axis= None):
+    from pdm import pdm
+    pdm_periods, pdm_thetas = pdm(t, x, 0.1, 30.0, 0.02)
+    period = pdm_periods[np.argmin(pdm_thetas)]
+    plt.plot(pdm_periods, pdm_thetas, 'k')
+    
+    plt.axvline(1, color='r', alpha=0.5, label='1.0 day')
+    plt.axvline(p0, color='b', alpha=0.5, label='%.2f days' % p0)
+    plt.axvline(period, color='g', alpha=0.5, label='max. peak')
+    plt.xlim(0.0,max(t)/3)
+    plt.minorticks_on()
+    plt.ylabel('theta')
+    plt.text(0.95, 0.9, 'PDM', verticalalignment='top', horizontalalignment='right', transform=axis.transAxes)
+
     
 def do_shuffle(t, x):
     from random import shuffle
@@ -137,7 +152,8 @@ def plot_star(tab):
     plot_lightcurve(t, x, p0 = p_fin)
     
     axis = plt.subplot('512')
-    plot_dft(t, x, p0 = p_fin, axis= axis)
+    #plot_dft(t, x, p0 = p_fin, axis= axis)
+    plot_pdm(t, x, p0 = p_fin, axis= axis)
     
     axis = plt.subplot('513')
     plot_lomb(t, x, p0 = p_fin, axis= axis)
@@ -148,8 +164,9 @@ def plot_star(tab):
     plt.subplot('515')
     plot_phase(t, x, period)
     
-    print '/work2/jwe/SOCS/M48/plots/clean_star%d.pdf' % tab  
-    plt.savefig('/work2/jwe/SOCS/M48/plots/clean_star%d.pdf' % tab)
+    filename = '/work2/jwe/SOCS/M48/plots/clean_star%d.pdf' % tab 
+    print   filename
+    plt.savefig(filename)
     plt.close()
     
 
