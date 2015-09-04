@@ -32,9 +32,19 @@ class NGC6633cat(object):
         print self.stars.columns
         print "%d stars loaded" % len(self.stars)
          
+    def load_fromdb(self):
+        query = """SELECT starid, ra, dec from ngc6633 order by vmag;"""
+        result = self.wifsip.query(query)
+        self.stars = []
+        for starid, ra, dec in result:
+            record = {'starid': starid, 'ALPHAWIN_J2000': ra, 'DELTAWIN_J2000': dec}
+            self.stars.append(record)
+        print "%d stars loaded from database" % len(self.stars)
         
-    def build(self, filtercol = 'V'):
+    def build(self, filtercol = 'V', update=False):
         from psycopg2 import IntegrityError
+        
+        if update: print 'updating filter ', filtercol
         for star in self.stars: 
             #print star['NUMBER'],star['MAG_ISO'], 
             params = {'ra': star['ALPHAWIN_J2000'],
@@ -61,6 +71,7 @@ class NGC6633cat(object):
                 mags = np.array([r[1] for r in result])
                 corrs = np.array([r[2] for r in result])
                 errs = np.array([r[3] for r in result])
+                # take the first (random) identifier, just to have a starid
                 starid = result[0][0]
                 mags -= corrs
                 std0 = np.std(mags)
@@ -80,7 +91,6 @@ class NGC6633cat(object):
                     mag = np.mean(mags)
                 std = np.std(mags)
                 n = len(mags)
-            params['starid'] = starid
             params['mag'] = mag
             params['std'] = std
             params['n'] = n
@@ -88,26 +98,42 @@ class NGC6633cat(object):
             params['magfield'] = filterletter +'mag'
             params['errfield'] = filterletter +'mag_err'
             params['numfield'] = 'n' + filterletter
-                
-            print '%(starid)-25s, %(ra).6f, %(dec).6f, %(mag).4f, %(std).4f, %(n)3d' % params
-            query = """INSERT INTO ngc6633 
-            (starid,ra,dec,%(magfield)s,%(errfield)s,%(numfield)s)
-            VALUES ('%(starid)s', %(ra).11f, %(dec).11f, %(mag)f, %(std)f, %(n)d);
-            """ % params
-            query = query.replace('nan', 'NULL')
-            try:
+            
+            if not update:
+                params['starid'] = starid
+                query = """INSERT INTO ngc6633 
+                (starid,ra,dec,%(magfield)s,%(errfield)s,%(numfield)s)
+                VALUES ('%(starid)s', %(ra).11f, %(dec).11f, %(mag)f, %(std)f, %(n)d);""" % params
+                query = query.replace('nan', 'NULL')
+                try:
+                    self.wifsip.execute(query)
+                except IntegrityError: # star already exists
+                    continue
+            else:
+                params['starid'] = star['starid']
+                query = """UPDATE ngc6633 
+                SET (%(magfield)s,%(errfield)s,%(numfield)s) = (%(mag)f, %(std)f, %(n)d)
+                WHERE starid = '%(starid)s';""" % params
+                query = query.replace('nan', 'NULL')
                 self.wifsip.execute(query)
-            except IntegrityError:
-                continue
+            print '%(starid)-25s, %(ra).6f, %(dec).6f, %(mag).4f, %(std).4f, %(n)3d' % params
+        self.wifsip.commit()    
+            
+            
 if __name__ == '__main__':
     import argparse
 
     parser = argparse.ArgumentParser(description='NGC 6633 catalogue builder')
-    parser.add_argument('-filter', help='filter color', default='V', dest='filtercol')
-    parser.add_argument('inputfile', help='input file')
+    parser.add_argument('-l', '--load', help='loads the positions from file')
+    parser.add_argument('-u', '--update', action='store_true', 
+                        default=False, help='updates stars from database')
+    parser.add_argument('-filter', help='filter color', 
+                        default='V', dest='filtercol')
+    #parser.add_argument('inputfile', help='input file')
 
     args = parser.parse_args()
                 
     nc = NGC6633cat()
-    nc.load_positions(filename = args.inputfile)
-    nc.build(filtercol = args.filtercol)
+    if args.load: nc.load_positions(filename = args.load)
+    if args.update: nc.load_fromdb()
+    nc.build(filtercol = args.filtercol, update = args.update)
