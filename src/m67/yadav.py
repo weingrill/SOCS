@@ -5,6 +5,7 @@ Created on Feb 5, 2015
 
 @author: Joerg Weingrill <jweingrill@aip.de>
 '''
+import config
 
 class Yadav(object):
     '''
@@ -18,7 +19,7 @@ class Yadav(object):
         '''
         self.data = []
         from datasource import DataSource
-        self.wifsip = DataSource(database='wifsip', user='sro', host='pina.aip.de')
+        self.wifsip = DataSource(database=config.dbname, user=config.dbuser, host=config.dbhost)
         
     def fromfile(self, filename=None):
         import pyfits
@@ -37,7 +38,7 @@ class Yadav(object):
             record = {}
             for key in self.keys:
                 record[key] = d[key]
-		if np.isnan(record[key]):
+                if np.isnan(record[key]):
                     record[key] = 'NULL'
             query = """INSERT INTO m67 (seq, ra, dec, vmag, bmag, icmag, pmra, pmdec, pmb, hrv) 
 VALUES (%(Seq)d, %(RAJ2000)f, %(DEJ2000)f, %(Vmag)s, %(Bmag)s, %(Icmag)s, %(pmRA)f, %(pmDE)f, %(Pmb)f, %(HRV)s);""" % record
@@ -46,5 +47,5 @@ VALUES (%(Seq)d, %(RAJ2000)f, %(DEJ2000)f, %(Vmag)s, %(Bmag)s, %(Icmag)s, %(pmRA
         self.wifsip.commit()        
 
 y = Yadav()
-y.fromfile('/home/jwe/Dropbox/Public/Yadav.fit')
+y.fromfile(config.datapath+'/Yadav.fit')
 y.todatabase()        

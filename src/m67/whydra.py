@@ -5,7 +5,7 @@ Created on Aug 21, 2013
 
 @author: Joerg Weingrill <jweingrill@aip.de>
 '''
-import config  # @UnresolvedImport
+import config
 hydrasimpath = '/home/jwe/bin/hydra_simulator/'
 hydrapath = '/home/jwe/bin/hydra_simulator/whydra/'
 
@@ -35,7 +35,7 @@ class WHydra(object):
         
         self.field_name = field_name
 
-        self.wifsip = DataSource(database='wifsip', user='sro', host='pina.aip.de')
+        self.wifsip = DataSource(database=config.dbname, user=config.dbuser, host=config.dbhost)
         
         kpno = ephem.Observer()
         #31.958036,-111.600578
