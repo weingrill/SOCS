@@ -36,10 +36,29 @@ class DiffPhotometryNoPCA(DiffPhotometry):
     inherited class from DiffPhotometry with different processing in reduced 
     and clean procedures
     '''
+    def plotnanfraction(self, M):
         
-    def reduce(self):
+        epochs, numstars = M.shape
+        nanepochs = np.zeros(epochs)
+        for i in range(epochs):
+            objidvec = M[i,:]
+            nanepochs[i] = 1.0 * objidvec[np.isnan(objidvec)].size / len(objidvec)
+        nannumstars = np.zeros(numstars)
+        for j in range(numstars):
+            starvec = M[:,j]
+            nannumstars[j] =  1.0 * starvec[np.isnan(starvec)].size / len(starvec)
+            
+        plt.subplot(211)
+        plt.plot(np.sort(nanepochs))
+        plt.grid()
+        plt.subplot(212)
+        plt.plot(np.sort(nannumstars))
+        plt.grid()
+        plt.show()
+        
+            
+    def reduce(self, maxnanfraction = 0.5):
         M = self._loadmatrix('phot')
-        
         epochs, numstars = M.shape
         print 'reducing (%d,%d)' % M.shape
         print 'hjds: %d' % len(self.hjds)
@@ -47,6 +66,7 @@ class DiffPhotometryNoPCA(DiffPhotometry):
         print 'stars: %d' % len(self.stars)
         print 'starids: %d' % len(self.starids)
         
+        self.plotnanfraction(M)
         
         
         assert len(self.stars) == len(self.starids)
@@ -56,7 +76,7 @@ class DiffPhotometryNoPCA(DiffPhotometry):
         
         maxnan = 1
         print 'removing stars and epochs'
-        while maxnan>0.5:
+        while maxnan > maxnanfraction:
             maxnan0 = 0
             delvec0 = None
             for i in range(epochs):
@@ -98,7 +118,7 @@ class DiffPhotometryNoPCA(DiffPhotometry):
         
         self._saveimage(self.filename+'_reducedmatrix.png', M, sort='mean')
 
-    def clean(self, twosigma=False, sigmaclip=5.0):
+    def clean(self, twosigma=False, sigmaclip=5.0, stdlimit = 0.01):
         
         M = self._loadmatrix('reduced')
         
@@ -165,11 +185,13 @@ class DiffPhotometryNoPCA(DiffPhotometry):
         M = M1
         refstar = np.argmin(np.nanstd(M, axis=0))
         print 'reference star: %d, std = %.4f' % (refstar, np.nanstd(M[:, refstar]))
-        
+        if stdlimit< np.nanstd(M[:, refstar]):
+            stdlimit = 1.5*np.nanstd(M[:, refstar])
+            
         # calculate where the std for each lightcurve-vector is < 0.01 mag
         stdvec = np.nanstd(M, axis=0)
-        i = np.where(stdvec < 0.02)[0]
-        print 'stars with std<0.02: %d' % len(i)
+        i = np.where(stdvec < stdlimit)[0]
+        print 'stars with std<%.2f: %d' % (stdlimit, len(i))
         # calculate the mean for each epoch
         meanvec2 = np.nanmean(M[:, i], axis=1)
         
@@ -236,12 +258,19 @@ class DiffPhotometryNoPCA(DiffPhotometry):
         assert epochs == len(self.hjds)
         assert numstars == len(self.starids)
         
-        a = np.empty([epochs, 2])
+        a = np.empty([epochs, 3])
+        # determine std for all epochs
+        epochstd = np.nanstd(M, axis=1)
+        assert epochs == len(epochstd)
         
         for starid in self.starids:
             i = self.starids.index(starid)
             filename = self.lightcurvepath+'/%s.dat' % starid
             a[:, 0] = self.hjds
             a[:, 1] = M[:, i]
-            np.savetxt(filename, a, fmt='%.5f %.4f')
+            a[:, 2] = epochstd/np.sqrt(epochs)
+            # find finite elements
+            j = np.isfinite(M[:, i])
+            # keep only finite elements in table a
+            np.savetxt(filename, a[j, :], fmt='%.5f %.4f %.4f', header='hjd mag err')
         
