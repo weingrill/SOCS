@@ -4,7 +4,17 @@
 Created on Aug 11, 2015
 
 @author: Joerg Weingrill <jweingrill@aip.de>
+
+We stardardized our photometry on the Stetson system (Stetson 2000). We 
+discovered that the astrometry between our stars and Stetson's were off by 
+0.3 arcseconds in both directions. By comparison with UCAC4, we found that our 
+astrometric positions are within 0.2 arcsec of the ones given by UCAC4, wheras 
+the positions from Stetson showed a shift. Since Stetson provided the plate 
+coordinates in x and y, a recalcuation of the plate solution was possible.
+
 '''
+import config
+import numpy as np
 
 class Stetson(object):
     '''
@@ -40,24 +50,68 @@ VALUES ('%(ID_1)s', %(RA)f, %(DEC)f, %(dX)f, %(dY)f, %(X)f, %(Y)f, %(B)f,%(sigma
             
         self.wifsip.commit()   
     
+    def readpos(self, filename='NGC6633.pos'):
+        posfile = open(filename, 'rt')
+        data = np.genfromtxt(posfile, dtype=None, names=('RA','DEC','HH','MM', 'SS','DD','DM','DS','dX','dY', 'X', 'Y', 'ID'))
+        for d in data:
+            #print ">%(ID)s<" % d
+            query = """UPDATE ngc6633ref 
+            SET ra=%(RA).11f,dec=%(DEC).11f, coord=point(%(RA).11f,%(DEC).11f)  
+            WHERE starid='%(ID)s';""" % d
+            print query
+            self.wifsip.execute(query)
+        posfile.close()
+    
+    def setucac4(self, filename = 'Stetson_UCAC4.fit'):
+        import pyfits
+        
+        hdulist = pyfits.open(filename)
+        ucac = hdulist[1].data
+        hdulist.close()
+        print ucac.columns
+        print ucac['ucacid']
+        
+        #clear existing coordinates
+        self.wifsip.execute('UPDATE ngc6633ref SET coord=NULL;')
+        
+        ra = ucac['raj2000']
+        dec = ucac['dej2000']
+        x = ucac['X']
+        y = ucac['Y']
+        A = np.vstack([x, y, np.ones(len(x))]).T
+        wcsra = np.linalg.lstsq(A, ra)[0]
+        wcsdec = np.linalg.lstsq(A, dec)[0]
+        print wcsra
+        print wcsdec
+        dx1, dy1, cx = wcsra
+        dx2, dy2, cy = wcsdec
+        param= {'dx1': dx1,
+                'dy1': dy1,
+                'cx': cx,
+                'dx2': dx2,
+                'dy2': dy2,
+                'cy': cy}
+        query = """UPDATE ngc6633ref SET coord=point(X*%(dx1).11g+Y*%(dy1).11g+%(cx).11f, X*%(dx2).11g+Y*%(dy2).11g+%(cy).11f);""" % param
+        print query
+        self.wifsip.execute(query)
+
+       
     def calibrate(self):
-        import numpy as np
+        from tools import log
         ffield = {'V': 'vmag', 'B': 'bmag', 'I': 'imag'}
         for filtercol in ['V','B','I']:
             query = """SELECT objid 
             FROM frames 
             WHERE object LIKE 'NGC 6633 BVI %%' 
-            AND filter = '%s'
-            AND corr >=0;""" % filtercol
+            AND filter = '%s';""" % filtercol
             frames = self.wifsip.query(query)
             for frame in frames:
-                print frame[0]
                 params = {'objid': frame[0],
                           'filterfield': ffield[filtercol]}
                 query = """SELECT starid, mag_isocor, magerr_isocor, %(filterfield)s, mag_isocor - %(filterfield)s
                 FROM phot, ngc6633ref
                 WHERE objid = '%(objid)s'
-                AND circle(phot.coord,0) <@ circle(ngc6633ref.coord, 0.3/3600.0)
+                AND circle(phot.coord,0) <@ circle(ngc6633ref.coord, 1.0/3600.0)
                 AND NOT %(filterfield)s IS NULL
                 AND flags<4;""" % params
                 result = self.wifsip.query(query)
@@ -65,15 +119,31 @@ VALUES ('%(ID_1)s', %(RA)f, %(DEC)f, %(dX)f, %(dY)f, %(X)f, %(Y)f, %(B)f,%(sigma
                     ocs = np.array([r[4] for r in result])
                     errs = np.array([r[2] for r in result])
                     weights=1/errs
-                    for r in result:
-                        print r
-                    corr = np.average(ocs, weights=weights)
-                    print 'corr = %.4f' % corr
+                    std = np.std(ocs)
+                    i = np.where(abs(ocs-np.mean(ocs))<std)[0]
+                    #for r in result:
+                    #    log(config.logfile, '%-11s %.4f %.4f %.3f %6.3f' % r)
+                    corr = 0.0
+                    if len(i) > 4:
+                        corr = np.average(ocs[i], weights=weights[i])
+                        std = np.std(ocs[i])
+                    log(config.logfile, '%-19s %1s %-7.4f %.3f %3d %3d' % \
+                        (frame[0], filtercol, corr, std, len(i), len(ocs)))
                     params['corr'] = corr
-                    query = """UPDATE frames SET corr=%(corr)f WHERE objid ='%(objid)s';""" % params
-                    self.wifsip.execute(query)
+                    params['good'] = 'NULL'
+                    if std < 0.05:
+                        params['good'] = 'TRUE'
+                    else:
+                        params['good'] = 'FALSE'
+                    query = """UPDATE frames SET corr=%(corr)f, good=%(good)s WHERE objid ='%(objid)s';""" % params
+                else:
+                    query = """UPDATE frames SET corr=NULL, good=FALSE WHERE objid ='%(objid)s';""" % params
+                self.wifsip.execute(query)
+                    
 
 stet = Stetson()
+#stet.readpos(filename=config.datapath+'NGC6633.pos')
+#stet.setucac4(filename=config.datapath+'Stetson_UCAC4.fit')
 #stet.fromfile('/work2/jwe/SOCS/NGC6633/data/NGC6633.fit')
 #stet.todatabase()        
 stet.calibrate()
