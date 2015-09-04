@@ -126,7 +126,7 @@ class M48Star(dict):
     '''
     def __init__(self, starid, tab= None):
         from datasource import DataSource
-        self.wifsip = DataSource(database='stella', user='stella', host='pera.aip.de')
+        self.wifsip = DataSource(database=config.dbname, user=config.dbuser, host=config.dbhost)
         if starid is None:
             self.starid = self._staridfromtab(tab)
         else:

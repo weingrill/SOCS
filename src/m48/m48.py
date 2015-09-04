@@ -29,7 +29,7 @@ class M48Analysis(object):
         '''
         from datasource import DataSource
     
-        self.wifsip = DataSource(database='stella', user='stella', host='pera.aip.de')
+        self.wifsip = DataSource(database=config.dbname, user=config.dbuser, host=config.dbhost)
         self.stars = []
         self.path = path
         self.age = 10**8.557/1e6 # in Myr from Webda
