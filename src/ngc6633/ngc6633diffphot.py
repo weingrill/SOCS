@@ -25,7 +25,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     
-#    fields = ['M 67 rot NE','M 67 rot NW','M 67 rot SE','M 67 rot SW']
+#    fields = ['NGC 6633 rot NE','NGC 6633 rot NW','NGC 6633 rot SE','NGC 6633 rot SW']
 #    for field in fields[:1]:
     diffphot = DiffPhotometryNoPCA(args.field, 
                                    config.datapath, 
