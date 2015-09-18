@@ -7,6 +7,9 @@ CREATE TABLE ngc6633 (
     bmag real DEFAULT 0,
     bmag_err real,
     nb integer DEFAULT 0,
+    imag real DEFAULT 0,
+    imag_err real,
+    ni integer DEFAULT 0,
     period real,
     period_err real,
     theta real,
@@ -21,9 +24,13 @@ CREATE TABLE ngc6633 (
     clean_period real,
     clean_amp real,
     clean_sigma real,
-    notes character varying(32),
-    tab integer
+    notes character varying(64),
+    tab integer,
+    PRIMARY KEY (starid)
 );
+
+CREATE INDEX idx_ngc6633_coord ON ngc6633 USING GIST (circle(coord,0));
+
 
 CREATE TABLE ngc6633ref (
     starid character varying(10) NOT NULL,
@@ -52,3 +59,10 @@ INSERT INTO ngc6633ref (starid, ra, dec, dx, dy, x, y, coord)
 VALUES ('Reference', 276.81317437092,  +06.53027772692, 0.00, 0.00, 5170.5, 4386.5, point(276.81317437092,  +06.53027772692)):
 
 update ngc6633ref set bmag=NULL WHERE bmag>99;
+
+SELECT phot.objid || '#' || phot.star, mag_isocor+frames.corr, magerr_isocor
+FROM phot, frames
+WHERE frames.objid='20140716A-0058-0013'
+AND phot.objid = frames.objid
+AND filter = 'V'
+AND flags<4;
