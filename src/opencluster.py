@@ -73,16 +73,29 @@ class OpenCluster(object):
             self.mode['impact'] = 1.0
 
         if obsmode == 'BVR':
-            self.sequence['ExposureTime'] = 20.0 
-            self.sequence['ExposureRepeat'] = 6
-            self.sequence['ExposureIncrease'] = '1,2,4,10,15,30'
-            self.sequence['FilterSequence'] = 'R,V,B,R,V,B'
+            self.sequence['ExposureTime'] = 24.0 
+            self.sequence['ExposureRepeat'] = 9
+            self.sequence['ExposureIncrease'] = '1,1,1,5,5,5,25,25,25'
+            self.sequence['FilterSequence'] = 'R,V,B,R,V,B,R,V,B'
             self.mode['mode'] = 'Clusters'
             self.mode['pernight'] = 2 
             self.mode['period_day'] = 0.5/self.mode['pernight'] # was 0.25
             # zerofraction is the length of one exposure in days
             self.mode['zerofraction'] = 2.0/24.0
             self.mode['impact'] = 1.0
+
+        if obsmode == 'UBVRI':
+            self.sequence['ExposureTime'] = 24.0 
+            self.sequence['ExposureRepeat'] = 15
+            self.sequence['ExposureIncrease'] = '1,5,25,1,5,25,1,5,25,1,5,25,1,5,25'
+            self.sequence['FilterSequence'] = 'U,B,V,R,I'
+            self.mode['mode'] = 'Clusters'
+            self.mode['pernight'] = 2 
+            self.mode['period_day'] = 0.5/self.mode['pernight'] # was 0.25
+            # zerofraction is the length of one exposure in days
+            self.mode['zerofraction'] = 2.0/24.0
+            self.mode['impact'] = 1.0
+
 
         if obsmode == 'uvby':
             self.sequence['ExposureTime'] = 30.0 
