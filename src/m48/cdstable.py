@@ -20,7 +20,10 @@ class CDSTable(object):
         self.datastruct = []
 
         from datasource import DataSource
-        self.wifsip = DataSource(database=config.dbname, user=config.dbuser, host=config.dbhost)
+        self.wifsip = DataSource(database=config.dbname, 
+                                 user=config.dbuser, 
+                                 host=config.dbhost,
+                                 dictcursor=True)
         
     def savetable2(self):
         query = """SELECT tab, vmag, bv, p_fin, e_pfin, amp, amp_err, member, 
@@ -29,8 +32,6 @@ class CDSTable(object):
             WHERE good
             ORDER BY vmag ;"""
         self.data = self.wifsip.query(query)
-        d0 =  self.data[0]
-        print d0
         #Id   Vmag   B-V  P     P_er amp   amp_e M P Simbad
         #         1         2         3         4
         #1234567890123456789012345678901234567890123456789012
@@ -42,24 +43,23 @@ class CDSTable(object):
         
         
         for d in self.data:
-            #print d
             #i = data.index(d)+1
-            tab, vmag, bv, period, period_err, \
-            amp, amp_err,member, simbad, provisional = d
-
-            if type(simbad) is str and simbad.find('Cl* NGC 2548 ')==0:
-                simbad = simbad[13:]
-            if str(simbad) == 'None': simbad = ''
+            simbad = ''
+            if type(d['simbad']) is str and d['simbad'].find('Cl* NGC 2548 ')==0:
+                simbad = d['simbad'][13:]
+            if str('simbad') == 'None': simbad = ''
             memstr = '-'
-            if member: memstr='M'
-            elif member==False: memstr='N'
+            if d['member']: memstr='M'
+            elif d['member']==False: memstr='N'
             prostr = '-'
-            if provisional: prostr='p'
-            elif not provisional: prostr='c'
-             
-            s =  '%4d %6.3f %4.2f %5.2f %.2f %.3f %.3f %s %s %s\n' % \
-            (tab, vmag, bv, period, period_err, amp, amp_err, memstr, prostr, simbad)
-            print s
+            if d['provisional']: prostr='p'
+            elif not d['provisional']: prostr='c'
+            params = d.copy()
+            params['simbad'] = simbad
+            params['memstr'] = memstr
+            params['prostr'] = prostr 
+            s =  '%(tab)4d %(vmag)6.3f %(bv)4.2f %(p_fin)5.2f %(e_pfin).2f %(amp).3f %(amp_err).3f %(memstr)s %(prostr)s %(simbad)s\n' % params
+            print s,
             f.write(s)
         f.close()
 
@@ -67,41 +67,46 @@ class CDSTable(object):
         from numpy import sqrt
         from astropy import units as u
         from astropy.coordinates import SkyCoord
-        
-        query = """SELECT tab, vmag, vmag_err, bv, bmag_err, ra, dec, member, simbad
+        #TODO: omit simbad column
+        query = """SELECT tab, vmag, vmag_err, bv, bmag_err, coord[0] "ra", coord[1] "dec", member, simbad
             FROM m48stars 
             WHERE not bv IS NULL
             ORDER BY vmag;"""
         data = self.wifsip.query(query)
-        f = open(config.resultpath+'table_appendix.dat','wt')
+        f = open(config.resultpath+'table_a1.dat','wt')
+        
         for d in data:
-            #print d
-            #i = data.index(d)+70
-            tab, vmag, vmag_err, bv, bmag_err, ra, dec, member, simbad = d
-            
-            if type(simbad) is str and simbad.find('Cl* NGC 2548 ')==0:
-                simbad = simbad[13:]
-            if str(simbad) == 'None': simbad = ''
+            simbad = ''
+            if type(d['simbad']) is str and d['simbad'].find('Cl* NGC 2548 ')==0:
+                simbad = d['simbad'][13:]
+            simbad = simbad.rstrip()
             memstr='-'
-            if member: memstr='M'
-            elif member==False: memstr='N'
+            if d['member']: memstr='M'
+            elif d['member']==False: memstr='N'
             try:
-                bv_err = sqrt(vmag_err**2+bmag_err**2)
+                bv_err = sqrt(d['vmag_err']**2+d['bmag_err']**2)
             except TypeError:
                 bv_err = 0.0 
-            c = SkyCoord(ra=ra*u.deg, dec=dec*u.deg)  # @UndefinedVariable
-            ra_str =  c.ra.to_string(unit=u.hourangle,sep=' ', precision=1)  # @UndefinedVariable
-            dec_str =  c.dec.to_string(sep=' ', precision=0)
-            if vmag_err is None: vmag_err=0.0
-            if bmag_err is None: bmag_err=0.0
+            c = SkyCoord(ra=d['ra']*u.deg, dec=d['dec']*u.deg, frame='icrs')  # @UndefinedVariable
+            ra_str =  c.ra.to_string(unit=u.hourangle, sep=' ', pad= True, precision=2)  # @UndefinedVariable
+            dec_str =  c.dec.to_string(sep=' ', precision=2, pad= True)
+            posstr = c.to_string(precision=5)
+            #if bmag_err is None: bmag_err=0.0
+            params = d.copy()
+            params['memstr'] = memstr
+            params['bv_err'] = bv_err
+            params['ra_str'] = ra_str
+            params['dec_str'] = dec_str
+            params['posstr'] = posstr
+            if d['vmag_err'] is None: params['vmag_err'] = 0.0
+            if str(d['simbad']) == 'None': params['simbad'] = ''
             
             try:
-                s =  '%4d %6.3f %5.3f %6.3f %5.3f %s %s %s %s \n' % \
-                      (tab, vmag, vmag_err, bv, bv_err, ra_str, dec_str, memstr, simbad)
+                s =  '%(tab)4d %(posstr)s %(vmag)6.3f %(vmag_err)5.3f %(bv)6.3f %(bv_err)5.3f %(ra_str)s %(dec_str)s %(memstr)s %(simbad)-15s \n' % params
                 print s,
                 f.write(s)
             except TypeError:
-                print d
+                print d, len(s)
         f.close()
 
     def update_coords(self, filtercol = 'V'):
@@ -178,6 +183,6 @@ class CDSTable(object):
 
 if __name__ == '__main__':
     cdst = CDSTable() 
-    cdst.update_coords()
+    #cdst.update_coords()
     #cdst.savetable2()
-    #cdst.saveappendix()
+    cdst.saveappendix()
