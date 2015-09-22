@@ -68,7 +68,7 @@ class CDSTable(object):
         from astropy import units as u
         from astropy.coordinates import SkyCoord
         #TODO: omit simbad column
-        query = """SELECT tab, vmag, vmag_err, bv, bmag_err, coord[0] "ra", coord[1] "dec", member, simbad
+        query = """SELECT tab, vmag, vmag_err, bv, bmag_err, coord[0] "ra", coord[1] "dec", member
             FROM m48stars 
             WHERE not bv IS NULL
             ORDER BY vmag;"""
@@ -76,10 +76,6 @@ class CDSTable(object):
         f = open(config.resultpath+'table_a1.dat','wt')
         
         for d in data:
-            simbad = ''
-            if type(d['simbad']) is str and d['simbad'].find('Cl* NGC 2548 ')==0:
-                simbad = d['simbad'][13:]
-            simbad = simbad.rstrip()
             memstr='-'
             if d['member']: memstr='M'
             elif d['member']==False: memstr='N'
@@ -99,10 +95,9 @@ class CDSTable(object):
             params['dec_str'] = dec_str
             params['posstr'] = posstr
             if d['vmag_err'] is None: params['vmag_err'] = 0.0
-            if str(d['simbad']) == 'None': params['simbad'] = ''
             
             try:
-                s =  '%(tab)4d %(posstr)s %(vmag)6.3f %(vmag_err)5.3f %(bv)6.3f %(bv_err)5.3f %(ra_str)s %(dec_str)s %(memstr)s %(simbad)-15s \n' % params
+                s =  '%(tab)4d %(posstr)s %(vmag)6.3f %(vmag_err)5.3f %(bv)6.3f %(bv_err)5.3f %(ra_str)s %(dec_str)s %(memstr)s\n' % params
                 print s,
                 f.write(s)
             except TypeError:
