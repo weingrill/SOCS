@@ -5,7 +5,7 @@ Created on Aug 21, 2013
 
 @author: Joerg Weingrill <jweingrill@aip.de>
 '''
-import config  # @UnresolvedImport
+import config
 hydrasimpath = '/home/jwe/bin/hydra_simulator/'
 hydrapath = '/home/jwe/bin/hydra_simulator/whydra/'
 
@@ -34,8 +34,8 @@ class WHydra(object):
         from cluster import Cluster
         
         self.field_name = field_name
-        self.wifsip = DataSource(database='wifsip', user='sro', host='pina.aip.de') 
-        self.corot = DataSource(database='corot', user='sro', host='pina.aip.de') 
+        self.wifsip = DataSource(database=config.dbname, user=config.dbuser, host=config.dbhost) 
+        self.corot = DataSource(database='corot', user='sro', host='oldpina.aip.de') 
         
         kpno = ephem.Observer()
         #31.958036,-111.600578
@@ -45,7 +45,7 @@ class WHydra(object):
         tzi = pytz.timezone('MST')
         #fmt = '%Y-%m-%d %H:%M:%S %Z%z'
         
-        obsdate = datetime.datetime(2015,2,9,23,0,0, tzinfo=tzi)
+        obsdate = datetime.datetime(2016,2,9,23,0,0, tzinfo=tzi)
         kpno.date = obsdate + datetime.timedelta(7*ephem.hour)
         d = kpno.date.datetime()
         
@@ -66,8 +66,8 @@ class WHydra(object):
         self.center = self._get_center()
         
         c = Cluster('NGC 2236')
-        self.ebv = 0.28 #c['ebv']
-        self.dm = ast.distance_modulus(c['d'])
+        self.ebv = 0.55 #c['ebv'] # ?= 0.28
+        self.dm = 13.8 #ast.distance_modulus(c['d'])
 
         target = {}
         self.table = []
@@ -104,7 +104,7 @@ class WHydra(object):
             pyplot.scatter(bv, v, c=p, edgecolor='none', alpha=0.75)
             if not isobv is None:
                 pyplot.plot(isobv, isov, 'k')
-            pyplot.xlim(-0.2,1.6)
+            pyplot.xlim(-0.2,2.0)
             pyplot.ylim(16.5,7.5)
             pyplot.title('NGC 2236')
             pyplot.xlabel('B - V')
@@ -165,27 +165,27 @@ class WHydra(object):
         self.wifsip.commit()   
 
         self.wifsip.execute("""UPDATE ngc2236
-                          SET priority = priority * 0.8
+                          SET priority = priority * 0.5
                           WHERE period IS NULL;""")
         self.wifsip.commit()   
 
-        iso = IsoChrone('/work2/jwe/NGC2236/data/output885516794937.dat')
+        iso = IsoChrone(config.datapath+'output885516794937.dat')
         x = iso['V'] + self.dm
-        y = iso['B-V'] 
+        y = iso['B-V'] + self.ebv
         data = self.wifsip.query("""SELECT tab, vmag, bv 
                                FROM ngc2236 
                                WHERE not bv is null AND vmag<16.5
                                ORDER BY tab;""")
         tab = [d[0] for d in data]
         v= np.array([d[1] for d in data])
-        bv = np.array([d[2] for d in data])+ self.ebv
+        bv = np.array([d[2] for d in data])
         p = np.zeros(len(tab))
         print len(tab),'stars for isochrone priority'
         
         for i in range(len(tab)):
             p[i] = np.min(abs(x-v[i])+abs(y-bv[i]))
             
-        p[p > 0.4] = 0.4
+        #p[p > 0.4] = 0.4
         p = scaleto(p, [1.0, 0.1])
         makeplot(bv, v, p, filename=config.plotpath+'iso_priorities.pdf', isobv=y, isov=x)
         for t in tab:

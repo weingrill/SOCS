@@ -6,6 +6,8 @@ Created on Feb 5, 2015
 @author: Joerg Weingrill <jweingrill@aip.de>
 '''
 
+import config
+
 class StackedPhot(object):
     '''
     classdocs
@@ -18,7 +20,7 @@ class StackedPhot(object):
         '''
         self.data = []
         from datasource import DataSource
-        self.wifsip = DataSource(database='wifsip', user='sro', host='pina.aip.de')
+        self.wifsip = DataSource(database=config.dbname, user=config.dbuser, host=config.dbhost)
         
     def fromfile(self, filename=None):
         import pyfits
