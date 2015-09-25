@@ -36,10 +36,10 @@ if __name__ == '__main__':
     
     sun_alt = empty(24)
     moon_alt = empty(24)
-    hours = range(24)
+    minutes = range(24*60)
     ic4756_alt = empty(24)
-    for h in hours:
-        today = today.replace(hour=h,minute=0,second=0)
+    for m in minutes:
+        today = 
         stella.date = today 
         sun.compute(stella)
         moon.compute(stella)
