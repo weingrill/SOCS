@@ -41,7 +41,7 @@ class Photometry(object):
             
             
         
-        if filtercol in ('B','V','R', 'I'):
+        if filtercol in ('B','V','R', 'I','u','v','b','y','hbn','hbw'):
             self.filtercol = filtercol
         else:
             raise(ValueError, 'unknown filter color')
