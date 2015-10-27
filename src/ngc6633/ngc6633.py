@@ -62,7 +62,17 @@ class LightCurve(object):
 
     def sigma_clip(self):
         from functions import sigma_clip
-        self.hjd, self.mag, self.err = sigma_clip(self.hjd, self.mag, self.err)
+        self.hjd, self.mag, self.err = sigma_clip(self.hjd, self.mag, self.err, sigmas=2.0)
+    
+    def clip(self, limit = 0.05):
+        """
+        clip lightcurve at given limit
+        """
+        m = np.mean(self.mag)
+        valid = abs(self.mag-m)<limit
+        self.hjd = np.compress(valid, self.hjd)
+        self.mag = np.compress(valid, self.mag)
+        self.err = np.compress(valid, self.err)
         
     def __len__(self):
         return len(self.hjd)
@@ -131,6 +141,7 @@ class LightCurve(object):
         c1 = np.cos(2*np.pi*tp1/period)
         s2 = np.sin(4*np.pi*tp1/period)
         c2 = np.cos(4*np.pi*tp1/period)
+        return amp, amp_err
         
 
 class Analysis(object):
@@ -150,17 +161,21 @@ class Analysis(object):
         """
         build up a list of stars, where we do not have periods yet
         """
-        query = """SELECT starid 
+        query = """SELECT starid, vmag, bv 
         FROM ngc6633 
         WHERE vmag<17 
         AND vmag < 10 + bv*5.4 
-        AND vmag > 7.5 + bv*5.4 
+        AND vmag > 7.5 + bv*5.4
+        AND bv>0.4 
         AND (good IS NULL OR good)
         ORDER BY vmag;""" 
 
         result = self.wifsip.query(query)
         print '... %d stars found' % len(result)
         self.stars = [s[0] for s in result]
+        self.vmag = [s[1] for s in result]
+        self.bv = [s[2] for s in result]
+        
 
     def setperiod(self, starid, period):
         params = {'starid': starid, 'period': period}
@@ -169,6 +184,15 @@ class Analysis(object):
         else: 
             query = """UPDATE ngc6633 SET period = NULL WHERE starid='%(starid)s';""" % params
         self.wifsip.execute(query) 
+
+    def setamp(self, starid, amplitude):
+        params = {'starid': starid, 'amp': amplitude}
+        if np.isfinite(amplitude):
+            query = """UPDATE ngc6633 SET amp = %(amp)f WHERE starid='%(starid)s';""" % params
+        else: 
+            query = """UPDATE ngc6633 SET amp = NULL WHERE starid='%(starid)s';""" % params
+        self.wifsip.execute(query) 
+
 
     def setbad(self, starid):
         query = """UPDATE ngc6633 SET good = False WHERE starid='%s';""" % starid
@@ -191,6 +215,8 @@ class Analysis(object):
         i = np.argmax(amplitudes)
         period = periods[i]
         plt.axvline(x = period, color='red', alpha=0.5)
+        plt.axhline(np.mean(amplitudes), color='b', ls='--')
+        plt.axhline(5.*np.mean(amplitudes), color='g', ls='--')
         plt.xlim(min(periods),max(periods))
         plt.minorticks_on()
     
@@ -221,11 +247,7 @@ class Analysis(object):
         c2 = np.cos(4*np.pi*tp/period)
         
         A = np.column_stack((np.ones(tp.size), s1, c1, s2, c2))
-        c, resid,_,_ = np.linalg.lstsq(A,yp)
-        amp_err = resid[0]
-
-        amp = max(c[1]*s1+c[2]*c1+c[3]*s2+c[4]*c2)-\
-              min(c[1]*s1+c[2]*c1+c[3]*s2+c[4]*c2)
+        c, _,_,_ = np.linalg.lstsq(A,yp)
 
         tp1 = np.linspace(0.0, 2*period, 100)
         s1 = np.sin(2*np.pi*tp1/period)
@@ -269,7 +291,7 @@ class Analysis(object):
         minperiod = 1.3
         maxperiod = 15
         
-        for starid in self.stars:
+        for starid,vmag,bv in zip(self.stars,self.vmag,self.bv):
             print '%-24s '% starid,
             try:
                 lc = LightCurve(starid)
@@ -286,6 +308,7 @@ class Analysis(object):
                 continue                    
             # perform a 3sigma clipping
             lc.normalize()
+            lc.clip()
             lc.detrend()
             lc.sigma_clip()
             lc.normalize()
@@ -315,45 +338,35 @@ class Analysis(object):
             i = np.argmax(sum_amp)
             period = pdm_periods[i] 
             #stheta = pdm_thetas[i]
-
-            sigma = np.std(clean_amplitudes)
+            
+            sigma_limit = 5.3
+            
             mamp = np.mean(clean_amplitudes)
-            if max(clean_amplitudes)> 4*mamp:
+            if max(clean_amplitudes)> sigma_limit*mamp:
                 print "%.2f %.1f" % (period,   max(clean_amplitudes)/mamp)
                 self.setperiod(starid, period)
             else:
-                print '< 4 sigmas'
+                print '< %.1f sigmas' % sigma_limit
                 self.setperiod(starid, np.nan)
                 continue           
+            
+            amp, _ = lc.phased(period)
+            self.setamp(starid, amp)
                 
-            star = {'tab':0, 'bv':0.0}
+            star = {'tab':0, 'bv':bv}
 
             plt.subplot(411) ##################################################
-            plt.title('%s (%d) B-V=%.2f' % (starid, star['tab'], star['bv']))
+            plt.title('%s (%d) V = %.2f B-V=%.2f' % (starid, star['tab'], vmag, bv))
             self.plot_lightcurve()
             
             plt.subplot(412) ##################################################
             self.plot_clean(clean_periods, clean_amplitudes)
             
-#            plt.axvline(x = psd_period, color='green', alpha=0.5)
-#            plt.axvline(x = period, color='red', alpha=0.5)
-#            plt.plot(1./f,px*1000, 'k')
-#            plt.xlim(minperiod, maxperiod)
-#            plt.grid()
 
             plt.subplot(413) ##################################################
             plt.plot(pdm_periods, sum_amp,'g')
             plt.axvline(period, color='b')
             self.plot_pdm(pdm_periods, pdm_thetas)
-            
-            #from functions import normalize
-            #plt.plot(pdm_periods, normalize(sum_amp), 'b')
-            
-            #plt.ylim(theta, 1.0)
-#            plt.axvline(x = psd_period, color='green')
-#            plt.axvline(x = period, color='red')
-#            plt.grid()
-            
             
             plt.subplot(414) ##################################################
             self.plot_phase(period)
@@ -399,7 +412,7 @@ if __name__ == '__main__':
     if args.analysis: 
         analysis = Analysis()
         analysis.getstars()
-        analysis.analysis()
+        analysis.analysis(show = False)
     if args.calibrate: calibrate('NGC 6633 BVI', args.filter)
     if args.calibrate2:
         from calibrate2 import Calibrate2
