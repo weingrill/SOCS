@@ -55,7 +55,7 @@ class ImportRef(object):
         
     def todatabase(self):
         import StringIO
-        from astropy.coordinates import SkyCoord  # High-level coordinates
+        from astropy.coordinates import SkyCoord  # High-level coordinates @UnresolvedImport
         import astropy.units as u
         vallines = []
         for d in self.data:
