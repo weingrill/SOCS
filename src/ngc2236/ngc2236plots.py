@@ -5,7 +5,7 @@ Created on Sep 30, 2015
 
 @author: Joerg Weingrill <jweingrill@aip.de>
 '''
-import config
+import config  # @UnresolvedImport
 import numpy as np
 from matplotlib import pyplot as plt
 
