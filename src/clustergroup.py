@@ -134,7 +134,7 @@ class ClusterGroup():
         # - Select
 
         # calculate the JD for beginning and end of observation
-        from astropy.time import Time
+        from astropy.time import Time  # @UnresolvedImport
         t = Time(now.isoformat(), format='isot', scale='utc')
         
         
@@ -196,12 +196,13 @@ class ClusterGroup():
         tree = ET.ElementTree(target)
         doctype = '<!DOCTYPE Target SYSTEM "/stella/home/stella/stella/xml/target.dtd">'
         s =  ET.tostring(tree, encoding="UTF-8", doctype=doctype, pretty_print=True)
-        
+        # remember the path for later use of transfer method
+        self.filepath = path
         f = open(path + self.filename, 'wt')
         f.write(s)
         f.close()
         
-    def transfer(self, path):
+    def transfer(self, path=None):
         """
         al plain copy from Opencluster.transfer method
         """
@@ -209,6 +210,9 @@ class ClusterGroup():
         import time
         import os
         
+        # if path has not been set use the one, where the file has been created. 
+        if path is None:
+            path = self.filepath
         source = path+self.filename
         #xml goes dirctly to submit
         target='sro@stella:/stella/home/www/uploads/weingrill/submit/'
