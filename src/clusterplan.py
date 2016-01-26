@@ -27,7 +27,7 @@ class ClusterPlan(object):
             'mindiam': 10,
             'maxdiam': 80}
         
-        self.wifsip = DataSource(database='wifsip', user='sro', host='pina.aip.de')
+        self.wifsip = DataSource(database='stella', user='stella', host='pera.aip.de')
         query = """SELECT name,ra,dec,diam,d,ebv,logage from clusters 
             WHERE ((diam<=%(maxdiam)d and diam>=%(mindiam)d) or diam IS NULL) 
             AND logage>=%(minage)f and logage<=%(maxage)f
@@ -189,7 +189,7 @@ class ClusterPlan(object):
         
     def time(self, cluster, date = None, verbose = False):
         import ephem
-        from astropy.coordinates import SkyCoord
+        from astropy.coordinates import SkyCoord  # @UnresolvedImport
         from astropy import units as u
         
         
