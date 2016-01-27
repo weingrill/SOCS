@@ -4,6 +4,10 @@
 Created on Apr 2, 2015
 
 @author: Joerg Weingrill <jweingrill@aip.de>
+
+Error: URI=file:/stella/home/stella/stella/master1/testing/targets/ngc_2422_rot_group.xml Line=33: The content of element type "Constraint" must match "(Variable,(Min|Max|(From,To)|(Below,Above)))".
+Global properties of parsed target: {imagetype=object, night=NightRemain, accelerate=1.0, rateretry=10, ratewait=60000, obsbad=false, obsgood=false}
+
 '''
 class ClusterGroup():
     """
@@ -215,7 +219,7 @@ class ClusterGroup():
             path = self.filepath
         source = path+self.filename
         #xml goes dirctly to submit
-        target='sro@stella:/stella/home/www/uploads/weingrill/submit/'
+        target='sro@stella:/stella/home/www/uploads/weingrill/save/'
         time.sleep(1) # otherwise submit.jnlp gets confused
         print 'scp %s %s' % (source, target)
         call(['/usr/bin/scp', source, target])
