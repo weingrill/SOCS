@@ -34,12 +34,12 @@ class Photometry(object):
         '''
         create table for the photometry
         '''
-        if not raw_input('press Y to erase m48stars')=='Y':
+        if not raw_input('press Y to erase m67stars')=='Y':
             return
         
         query = """
-        DROP TABLE IF EXISTS m48stars;
-        CREATE TABLE m48stars(
+        DROP TABLE IF EXISTS m67stars;
+        CREATE TABLE m67stars(
          starid varchar(25),
          bv real,
          vmag real default 0,
@@ -52,6 +52,8 @@ class Photometry(object):
          y real default 0,
          hbn real default 0,
          hbw real default 0,
+         han real default 0,
+         haw real default 0,
          period real,
          period_err real,
          theta real,
@@ -63,27 +65,27 @@ class Photometry(object):
          dec double precision,
          coord point,
          PRIMARY KEY (starid));
-        GRANT SELECT ON m48stars TO public;
-        CREATE INDEX idx_m48stars_coords ON m48stars USING GIST (circle(coord,1.0/3600.));
+        GRANT SELECT ON m67stars TO public;
+        CREATE INDEX idx_m67stars_coords ON m67stars USING GIST (circle(coord,1.0/3600.));
         """
         self.wifsip.execute(query)
-        print "table 'm48stars' created"
+        print "table 'm67stars' created"
 
     def cleartable(self):
-        if not raw_input('press Y to clear m48stars')=='Y':
+        if not raw_input('press Y to clear m67stars')=='Y':
             return
         query = """
-        UPDATE m48stars
+        UPDATE m67stars
         SET vmag = 0, vmag_err = NULL, bmag = 0, bmag_err =NULL, nv = 0, nb = 0, bv = NULL;
         """
         self.wifsip.execute(query)
-        print "table 'm48stars' cleared"
+        print "table 'm67stars' cleared"
         
     def getframes(self):
         for field in ['C','NW','NE','SW','SE']:
             query = """SELECT object, objid, abs(corr)
              FROM frames
-             WHERE object LIKE 'M 48 BVI %s'
+             WHERE object LIKE 'M 67 Hby %s'
              AND filter LIKE '%s'
              AND NOT corr IS NULL
              ORDER BY abs(corr)
@@ -109,7 +111,7 @@ class Photometry(object):
             WHERE frames.objid='%s'
             AND phot.objid=frames.objid AND flags<8;""" % (objid)
         result = self.wifsip.query(query)
-        #... and inject them into the m48stars 
+        #... and inject them into the m67stars 
         stars = len(result)
         if stars>400:
             print '%5d stars: ' % stars,
@@ -132,7 +134,7 @@ class Photometry(object):
     def addstar(self, starid, mag, ra, dec):
         # identify by coordinates, if the star is already in table
         query = """SELECT starid
-        FROM m48stars
+        FROM m67stars
         WHERE circle(point(%f,%f),0)<@circle(coord,1.0/3600.)
         ORDER BY point(%f,%f)<->coord
         LIMIT 1;""" % (ra, dec, ra, dec)
@@ -142,10 +144,10 @@ class Photometry(object):
         if len(result)==0:
             oldstar = 0
             if self.filtercol=='B':
-                query="""INSERT INTO m48stars (starid, bmag, nb, ra, dec, coord)
+                query="""INSERT INTO m67stars (starid, bmag, nb, ra, dec, coord)
                 VALUES ('%s', %f, 1, %f, %f, point(%f,%f))""" % (starid, mag, ra, dec, ra, dec)
             elif self.filtercol=='V':
-                query="""INSERT INTO m48stars (starid, vmag, nv, ra, dec, coord)
+                query="""INSERT INTO m67stars (starid, vmag, nv, ra, dec, coord)
                 VALUES ('%s', %f, 1, %f, %f, point(%f,%f))""" % (starid, mag, ra, dec, ra, dec)
             
         # if star exists: add up magnitudes, increase counter
@@ -153,12 +155,12 @@ class Photometry(object):
             oldstar = 1
             oldid = result[0][0]
             if self.filtercol=='B':
-                query = """UPDATE m48stars
+                query = """UPDATE m67stars
                 SET bmag = bmag + %f, nb = nb + 1
                 WHERE starid = '%s';
                 """ % (mag, oldid)
             elif self.filtercol=='V':
-                query = """UPDATE m48stars
+                query = """UPDATE m67stars
                 SET vmag = vmag + %f, nv = nv + 1
                 WHERE starid = '%s';
                 """ % (mag, oldid)
@@ -167,18 +169,18 @@ class Photometry(object):
     
     def update_magnitudes(self):
         if self.filtercol=='B':
-            query = """UPDATE m48stars
+            query = """UPDATE m67stars
             SET bmag=bmag/nb
             WHERE nb>1;
-            UPDATE m48stars
+            UPDATE m67stars
             SET bmag=NULL
             WHERE nb=0;"""
         elif self.filtercol=='V':
             query = """    
-            UPDATE m48stars
+            UPDATE m67stars
             SET vmag=vmag/nv
             WHERE nv>1;
-            UPDATE m48stars
+            UPDATE m67stars
             SET vmag=NULL
             WHERE nv=0;""" 
         self.wifsip.execute(query)   
@@ -189,7 +191,7 @@ class Photometry(object):
         if self.filtercol=='V': field= 'vmag'
         elif self.filtercol=='B': field= 'bmag'
         query = """SELECT starid, coord 
-            FROM m48stars 
+            FROM m67stars 
             WHERE (NOT bv IS NULL) AND (%s_err IS NULL);""" % (field)
         starlist = self.wifsip.query(query)
         for star in starlist:
@@ -211,13 +213,13 @@ class Photometry(object):
                 print mags,
                 print '%.3f %.4f' % (np.mean(mags),err) 
                 if np.isfinite(err):
-                    query = "UPDATE m48stars SET %s_err=%f WHERE starid='%s';" % (field, err, star[0]) 
+                    query = "UPDATE m67stars SET %s_err=%f WHERE starid='%s';" % (field, err, star[0]) 
                     self.wifsip.execute(query)
             except TypeError:
                 print 'no data'
     
     def update_bv(self):
-        query = "UPDATE m48stars SET bv = bmag-vmag;"
+        query = "UPDATE m67stars SET bv = bmag-vmag;"
         self.wifsip.execute(query)
         
 def make_cmd():
@@ -226,10 +228,10 @@ def make_cmd():
     from datasource import DataSource
 
     wifsip = DataSource(database='wifsip', user='sro', host='pina.aip.de')
-    query = "UPDATE m48stars SET bv = (bmag-vmag)+(0.761837-0.060177);"
+    query = "UPDATE m67stars SET bv = (bmag-vmag)+(0.761837-0.060177);"
     
     wifsip.execute(query)
-    query = "SELECT vmag+0.060177, bv FROM m48stars WHERE NOT bv is NULL and nv>1 and nb>1;"
+    query = "SELECT vmag+0.060177, bv FROM m67stars WHERE NOT bv is NULL and nv>1 and nb>1;"
     
     data = wifsip.query(query)
     wifsip.close()
@@ -241,22 +243,22 @@ def make_cmd():
     plt.xlim(-0.2, 2.0)
     plt.xlabel('B - V')
     plt.ylabel('V [mag]')
-    plt.title('M 48')
+    plt.title('M 67')
     plt.grid()
-    plt.savefig('/work2/jwe/m48/m48cmd.pdf')
+    plt.savefig('/work2/jwe/m67/m67cmd.pdf')
     #plt.show()
     plt.close()
 
 
 if __name__ == '__main__':
     import argparse
-    parser = argparse.ArgumentParser(description='M48 photometry')
+    parser = argparse.ArgumentParser(description='M67 photometry')
     parser.add_argument('--create', action='store_true', help='create table')
     parser.add_argument('--clear', action='store_true', help='clear table')
     parser.add_argument('--getframes', action='store_true', help='get frames')
     parser.add_argument('--sigmas', action='store_true', help='plot cmd')
     parser.add_argument('--bv', action='store_true', help='update B-V')
-    parser.add_argument('filter', metavar='V', type=str, help='filter color to process')
+    parser.add_argument('filter', metavar='y', type=str, help='filter color to process')
     
     args = parser.parse_args()
     
