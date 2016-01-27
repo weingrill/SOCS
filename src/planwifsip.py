@@ -25,7 +25,7 @@ class PlanWiFSIP(object):
             try:
                 import config
             except ImportError:
-                path = '/work2/jwe/'+objectname.replace(' ','')+'/'
+                path = '/work2/jwe/SOCS/'+objectname.replace(' ','')+'/'
             else:
                 path = config.projectpath
         self.projectpath = path

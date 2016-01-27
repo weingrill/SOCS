@@ -17,3 +17,7 @@ syntax: regexp
 ^src/ngc6633/config\.py$
 syntax: regexp
 ^src/ngc6940/config\.py$
+syntax: regexp
+^src/ngc2422/config\.py$
+syntax: regexp
+^src/m50/config\.py$

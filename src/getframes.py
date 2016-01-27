@@ -20,7 +20,7 @@ def getframes(obj, targetdir='/work2/jwe/stella/wifsip/', filtercol='V',
               AND frames.objid = science.objid
               AND fwhm_image < %f
               AND backgrnd < %f
-              order by frames.objid""" % (filtercol, obj, fwhm, background)
+              ORDER by frames.objid""" % (filtercol, obj, fwhm, background)
     tab = wifsip.query(query)
     print len(tab),'files'
     for path, filename in tab:
