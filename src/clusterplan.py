@@ -14,7 +14,10 @@ class ClusterPlan(object):
 
     def __init__(self):
         '''
-        Constructor
+        Constructor:
+        
+        defines the criteria for the cluster selection and queries the database
+        the result of the query is stored in the data property, which needs to be improved
         '''
         from datasource import DataSource
         from math import log10
@@ -56,6 +59,9 @@ class ClusterPlan(object):
         return datetime.datetime.strptime( str(ephemdate), "%Y/%m/%d %H:%M:%S" )
 
     def plot(self):
+        '''
+        plots the milkyway density map and the selected clusters on the map.
+        '''
         import matplotlib.pyplot as plt
         from milkyway import MilkyWay
         plt.figure(figsize=(10.69, 7.27))
@@ -82,6 +88,9 @@ class ClusterPlan(object):
         #plt.show()
         
     def list(self):
+        '''
+        lists the clusters that fulfill the criteria
+        '''
         for d in self.data:
             print '%-15s %4dpc %4dMyr E(B-V)=%.2f %2d' % (d['name'],d['d'],d['age'],d['ebv'],d['diam'])
             #print self.time(d)
@@ -103,7 +112,7 @@ class ClusterPlan(object):
         minbv, maxbv = 0.2,1.45
         
         bv = np.arange(minbv, maxbv, 0.01)
-        mv = np.arange(min(iso_mv), max(iso_mv), 0.1)
+        #mv = np.arange(min(iso_mv), max(iso_mv), 0.1)
         mass = np.arange(min(iso_mass), max(iso_mass), 0.01)
         
         i = np.where((iso_bv>minbv) & (iso_bv<maxbv) & (iso_mv>2.0))
@@ -134,9 +143,6 @@ class ClusterPlan(object):
         plt.grid()
         plt.minorticks_on()
         plt.show()
-        
-    
-            
     
     def obstime(self):
         import ephem
