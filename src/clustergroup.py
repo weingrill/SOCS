@@ -142,7 +142,7 @@ class ClusterGroup():
         t = Time(now.isoformat(), format='isot', scale='utc')
         
         
-        addconstraint(select, 'Jd', {'From': round(t.jd) -0.5, 'To': round(t.jd + 356) -0.5})
+        addconstraint(select, 'Jd', {'To': round(t.jd + 356) -0.5, 'From': round(t.jd) -0.5})
         if not self.moondistance is None:
             addconstraint(select, 'MoonDistance', {'Min': self.moondistance})
         if not self.alttarget is None:
