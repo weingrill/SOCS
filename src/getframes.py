@@ -8,23 +8,36 @@ Created on May 3, 2013
 get files from M 48 BVI
 '''
 def getframes(obj, targetdir='/work2/jwe/stella/wifsip/', filtercol='V',
-              fwhm=3.0, background=500, imcopy=False):
+              conditions={}, imcopy=False, listonly=False):
     from datasource import DataSource
     from subprocess import call
-
+    
+    params = {'object': obj,
+              'filtercol': filtercol}
+    
     wifsip = DataSource(host = 'pera', database = 'stella', user = 'stella')
-    query = """SELECT path, filename
+    query = """SELECT path, filename, fwhm, backgrnd, airmass
              FROM frames, science
-             WHERE (filter LIKE '%s')
-              AND object LIKE '%s'
-              AND frames.objid = science.objid
-              AND fwhm_image < %f
-              AND backgrnd < %f
-              ORDER by frames.objid""" % (filtercol, obj, fwhm, background)
+             WHERE (filter LIKE '%(filtercol)s')
+              AND object LIKE '%(object)s'
+              AND frames.objid = science.objid""" % params
+    if 'fwhm' in conditions:
+        params['fwhm'] = conditions['fwhm']
+        query += '\nAND fwhm_image < %(fwhm)f ' % params
+    if 'background' in conditions:
+        params['background'] = conditions['background']
+        query += '\nAND backgrnd < %(background)f ' % params
+    if 'airmass' in conditions:
+        params['airmass'] = conditions['airmass']
+        query += '\nAND airmass < %(airmass)f ' % params
+              
+    query = query + '\nORDER by frames.objid;'
     tab = wifsip.query(query)
     print len(tab),'files'
-    for path, filename in tab:
-        print path+'/'+filename
+    for path, filename, fwhm, backgrnd, airmass in tab:
+        print "%s/%s %.1f %.1f %.2f" % (path, filename, fwhm, backgrnd, airmass)
+        # if listonly is set, we break the loop here
+        if listonly: continue
         call(['scp', 'sro@pina.aip.de:'+path+'/'+filename+'.fitz ',targetdir])
         source = '%s/%s.fitz[1]' % (targetdir,filename)
         target = '%s/%s.fits' % (targetdir,filename)
@@ -33,21 +46,28 @@ def getframes(obj, targetdir='/work2/jwe/stella/wifsip/', filtercol='V',
 
 if __name__ == '__main__':
     import argparse
-    parser = argparse.ArgumentParser(description='get frames from pina')
+    parser = argparse.ArgumentParser(description='get WiFSIP frames from pera')
     parser.add_argument('-o', '--object', dest='obj', 
                         help='name of object to fetch' )
     parser.add_argument('-f', '--filter', dest='filtercol', default='V',
                         help='filter color usually V')
-    parser.add_argument('--fwhm', type=float, default=3.0,
-                        help='filter limit')
-    parser.add_argument('--background', type=float, default=500.0,
-                        help='background limit')
+    parser.add_argument('-w', '--fwhm', type=float, help='fwhm limit')
+    parser.add_argument('-b', '--background', type=float, help='background limit')
+    parser.add_argument('-a', '--airmass', type=float, help='airmass limit')
+    
+    parser.add_argument('-l', '--list', action='store_true',
+                        help='list only, no frames will be downloaded')
     parser.add_argument('--imcopy', action='store_true',
                         help='convert fitzfile to fits file using imcopy')
     parser.add_argument('targetdir', 
                         help='target directory for images')
     args = parser.parse_args()
     
+    conditions = {}
+    if args.fwhm:       conditions['fwhm']       = args.fwhm
+    if args.background: conditions['background'] = args.background
+    if args.airmass:    conditions['airmass']    = args.airmass
+    
     #print args
     getframes(args.obj, targetdir=args.targetdir, filtercol=args.filtercol,
-              fwhm=args.fwhm, background=args.background, imcopy=args.imcopy)
+              conditions = conditions, imcopy=args.imcopy, listonly=args.list)
