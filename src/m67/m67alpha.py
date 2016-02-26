@@ -75,7 +75,7 @@ class M67Alpha(object):
         memalpha = (self.members['hanmag'] - self.members['hawmag'])*2 + 1.9
         
         plt.figure(figsize=[6,6])
-        plt.scatter(self.bymag, self.alpha, color='k', alpha=0.5, edgecolor='none',label='field')
+        plt.scatter(self.bymag, self.alpha, color='0.5', edgecolor='none',label='field')
         plt.scatter(memby, memalpha, color='b', label='members')
         plt.scatter(goodby, goodalpha, color='r', label='rotators')
         
@@ -101,4 +101,4 @@ class M67Alpha(object):
     
 if __name__ == '__main__':
     m = M67Alpha()
-    m.plot(config.resultpath+'M67_alpha.pdf')
+    m.plot(config.resultpath+'M67_alpha.eps')
