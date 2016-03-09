@@ -53,13 +53,28 @@ class Frame(object):
         '''
         return self._data[name]
     
-    def download(self, targetdirectory):
-        pass
+    def download(self, targetdirectory = '.'):
+        """downloads the file from pina"""
+        from subprocess import call
+        sourcepath = '/stella/home/stella/wifsip/reduced/' + self.objid[:8] + '/'
+        filename = 'science'+self.objid[:14]+'EXP'+self.objid[-4:]+'.fitz'
+        print filename, sourcepath
+        source = ''.join(['sro@pina.aip.de:', sourcepath, filename, '.fitz '])
+        #/stella/home/stella/wifsip/reduced/20130716/science20130716A-0006EXP0011
+        call(['scp', source, targetdirectory])
+        self.fitzfile = targetdirectory+filename
+        
+    def convertfile(self):
+        """convert the compressed fitzfile to a fitsfile"""
+        from subprocess import call
+        
+        self.fitsfile = self.fitzfile[:-1]+'s'
+        call(['/home/jwe/bin/imcopy', self.fitzfile, self.fitsfile])
     
     def __str__(self, *args, **kwargs):
         lines = []
-        for column, data in zip(self.columns, self._data):
-            lines.append('%s\t%s' % (column, data))
+        for column in self._data.keys():
+            lines.append('%-14s %s' % (column, self.__getattr__(column)))
         return '\n'.join(lines)
     
         
@@ -68,5 +83,6 @@ if __name__ == '__main__':
     print frame1.expt, frame1.objid
     print frame1.stars['alphawin_j2000']
     print frame1.stars[0]
-    print frame1
+    #print frame1
+    frame1.download('/work2/jwe/stella')
     
