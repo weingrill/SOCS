@@ -9,6 +9,7 @@ Created on Mar 7, 2016
 from frame import Frame
 import numpy as np
 from matplotlib import pyplot as plt
+#from astropy.units import cbyte
 
 def refstars():
     from datasource import DataSource
@@ -18,9 +19,7 @@ def refstars():
     data = table.query(query)
     
     columns = data[0].keys()
-    print data[0].values()
     dtypes = [type(d) for d in data[0].values()]
-    print dtypes
     arraydata = []
     for star in data:
         arraydata.append(tuple(star))
@@ -69,50 +68,110 @@ class CalStromgren(object):
         self.loadref()
     
     def loadframe(self):
+        '''
+        20151126A-0008-0007 | M 67 uvby C |  480 | v
+        20151126A-0008-0008 | M 67 uvby C |  600 | u
+       
+        '''
+        
         self.bframe = Frame('20151126A-0008-0006')    
-        self.yframe = Frame('20151126A-0008-0005')    
+        self.yframe = Frame('20151126A-0008-0005') 
+        self.vframe = Frame('20151126A-0008-0007')
+        self.uframe = Frame('20151126A-0008-0008')
+        
+        self.hbnframe = Frame('20151127A-0011-0004')
+        self.hbwframe = Frame('20151127A-0011-0003')
+           
         
     def loadref(self):
+        from astropy.coordinates import SkyCoord   # @UnresolvedImport
+        from astropy import units as u
+
         self.reference = ReferenceStars()
-        pass
+
+        self.nstars = len(self.reference.stars['ra'])
+        ref_ra = self.reference.stars['ra']
+        ref_dec = self.reference.stars['dec']
+        self.refcoord = SkyCoord(ra=ref_ra*u.degree, dec=ref_dec*u.degree)
     
-    def match(self):
+    def refmatch(self, sourceframe):
         from astropy.coordinates import SkyCoord,search_around_sky   # @UnresolvedImport
         from astropy import units as u
+
+        ra1 = sourceframe.stars['alphawin_j2000']
+        dec1 = sourceframe.stars['deltawin_j2000']
+        coords = SkyCoord(ra=ra1*u.degree, dec=dec1*u.degree)  
+        fluxes = sourceframe.stars['flux_auto']/sourceframe.expt
+        
+        bidx, refidx, _, _ = search_around_sky(coords, self.refcoord, 0.6*u.arcsec)
+        # create an empty arry and set with nans
+        compfluxes = np.ones(self.nstars) * np.nan
+        
+        compfluxes[refidx] = fluxes[bidx]
+        
+        return compfluxes
+    
+    def match(self):
         
         # fill in the coordinates and b-y
-        nstars = len(self.reference.stars['ra'])
-        rra2 = self.reference.stars['ra']
-        rdec2 = self.reference.stars['dec']
-        refcoord = SkyCoord(ra=rra2*u.degree, dec=rdec2*u.degree)
         cby = self.reference.stars['b-y']
-        b = np.ones(nstars) * np.nan
-        y = np.ones(nstars) * np.nan
+        cvb = self.reference.stars['m1'] + cby
+        cuv = self.reference.stars['c1'] + cvb
+        cbeta = self.reference.stars['beta']
         
-        bra1 = self.bframe.stars['alphawin_j2000']
-        bdec1 = self.bframe.stars['deltawin_j2000']
-        bcoords = SkyCoord(ra=bra1*u.degree, dec=bdec1*u.degree)  
-        bfluxes = self.bframe.stars['flux_auto']/self.bframe.expt
+        u = self.refmatch(self.uframe)
+        v = self.refmatch(self.vframe)
+        b = self.refmatch(self.bframe)
+        y = self.refmatch(self.yframe)
+        hbn = self.refmatch(self.hbnframe)
+        hbw = self.refmatch(self.hbwframe)
         
-        bidx, refidx, _, _ = search_around_sky(bcoords, refcoord, 0.6*u.arcsec)
-        b[refidx] = bfluxes[bidx]
-        
-        yra1 = self.yframe.stars['alphawin_j2000']
-        ydec1 = self.yframe.stars['deltawin_j2000']
-        yfluxes = self.yframe.stars['flux_auto']/self.yframe.expt
-        ycoords = SkyCoord(ra=yra1*u.degree, dec=ydec1*u.degree)
-        
-        yidx, refidx, _, _ = search_around_sky(ycoords, refcoord, 0.6*u.arcsec)
-        y[refidx] = yfluxes[yidx]
-        
-
         oby = -2.5*np.log10(b / y)
+        ouv = -2.5*np.log10(u / v)
+        ovb = -2.5*np.log10(v / b)
+        obeta = -2.5*np.log10(hbn / hbw)
           
-        offset = np.nanmean(oby-cby)
-        print offset
-        plt.axhline(offset, linestyle='--', color='g')
-        plt.scatter(cby, oby-cby, edgecolor='none', alpha=0.5)
+        byoffset = np.nanmean(oby-cby)
+        uvoffset = np.nanmean(ouv-cuv)
+        vboffset = np.nanmean(ovb-cvb)
+        betaoffset = np.nanmean(obeta-cbeta)
+        
+        print 'b - y: %.4f %.4f' % (byoffset,np.nanstd(oby-cby))
+        print 'u - v: %.4f %.4f' % (uvoffset,np.nanstd(ouv-cuv))
+        print 'v - b: %.4f %.4f' % (vboffset,np.nanstd(ovb-cvb))
+        print 'beta : %.4f %.4f' % (betaoffset,np.nanstd(obeta-cbeta))
+        
+        fig = plt.figure()
+
+        ax1 = fig.add_subplot(411)
+
+        plt.axhline(byoffset, linestyle='--', color='g')
+        ax1.scatter(cby, oby-cby, edgecolor='none', alpha=0.5)
+        ax1.set_xlabel('b - y')
+        ax1.set_ylabel('o - c')
         plt.grid()
+        
+        ax2 = fig.add_subplot(412)
+        plt.axhline(uvoffset, linestyle='--', color='g')
+        ax2.scatter(cuv, ouv-cuv, edgecolor='none', alpha=0.5)
+        ax2.set_xlabel('u - v')
+        ax2.set_ylabel('o - c')
+        plt.grid()
+
+        ax3 = fig.add_subplot(413)
+        plt.axhline(vboffset, linestyle='--', color='g')
+        ax3.scatter(cvb, ovb-cvb, edgecolor='none', alpha=0.5)
+        ax3.set_xlabel('v - b')
+        ax3.set_ylabel('o - c')
+        plt.grid()
+
+        ax4 = fig.add_subplot(414)
+        plt.axhline(betaoffset, linestyle='--', color='g')
+        ax4.scatter(cbeta, obeta-cbeta, edgecolor='none', alpha=0.5)
+        ax4.set_xlabel('beta')
+        ax4.set_ylabel('o - c')
+        plt.grid()
+        
         plt.show()
 
         plt.close()
