@@ -371,7 +371,7 @@ class M48Analysis(object):
         produce the tables for the publication
         '''
         from astropy import units as u
-        from astropy.coordinates import SkyCoord
+        from astropy.coordinates import SkyCoord  # @UnresolvedImport
         
         query = """SELECT tab, vmag, bv, p_fin, e_pfin, amp, member, 
             simbad, notes, provisional
