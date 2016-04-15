@@ -7,7 +7,7 @@ global configurationfile for NGC 6709
 '''
 import os
 
-projectpath = '/work2/jwe/NGC6709/'
+projectpath = '/work2/jwe/SOCS/NGC6709/'
 
 resultpath = projectpath+'results/'
 plotpath = projectpath+'plots/'
