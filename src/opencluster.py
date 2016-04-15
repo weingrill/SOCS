@@ -55,91 +55,80 @@ class OpenCluster(object):
         self.filename = ''
         self.fields = 1
         self.obsmode = obsmode
-        
-        if not (obsmode in ['BVI','BVR','uvby','Hby','rot']):
-            raise TypeError('%s not a valid observation mode' % obsmode)
-
-        if obsmode == 'BVI':
-            self.sequence['ExposureTime'] = 20.0 
-            self.sequence['ExposureRepeat'] = 6
-            self.sequence['ExposureIncrease'] = '1,2,4,10,15,30'
-            self.sequence['FilterSequence'] = 'I,V,B,I,V,B'
-            self.mode['mode'] = 'Clusters'
-            self.mode['pickdelay'] = 0
-            self.mode['pernight'] = 2 
-            self.mode['period_day'] = 0.5/self.mode['pernight'] # was 0.25
-            # zerofraction is the length of one exposure in days
-            self.mode['zerofraction'] = 2.0/24.0
-            self.mode['impact'] = 1.0
-
-        if obsmode == 'BVR':
-            self.sequence['ExposureTime'] = 24.0 
-            self.sequence['ExposureRepeat'] = 9
-            self.sequence['ExposureIncrease'] = '1,1,1,5,5,5,25,25,25'
-            self.sequence['FilterSequence'] = 'R,V,B,R,V,B,R,V,B'
-            self.mode['mode'] = 'Clusters'
-            self.mode['pernight'] = 2 
-            self.mode['period_day'] = 0.5/self.mode['pernight'] # was 0.25
-            # zerofraction is the length of one exposure in days
-            self.mode['zerofraction'] = 2.0/24.0
-            self.mode['impact'] = 1.0
-
-        if obsmode == 'UBVRI':
-            self.sequence['ExposureTime'] = 24.0 
-            self.sequence['ExposureRepeat'] = 15
-            self.sequence['ExposureIncrease'] = '1,5,25,1,5,25,1,5,25,1,5,25,1,5,25'
-            self.sequence['FilterSequence'] = 'U,B,V,R,I'
-            self.mode['mode'] = 'Clusters'
-            self.mode['pernight'] = 2 
-            self.mode['period_day'] = 0.5/self.mode['pernight'] # was 0.25
-            # zerofraction is the length of one exposure in days
-            self.mode['zerofraction'] = 2.0/24.0
-            self.mode['impact'] = 1.0
-
-
-        if obsmode == 'uvby':
-            self.sequence['ExposureTime'] = 30.0 
-            self.sequence['ExposureRepeat'] = 8
-            self.sequence['ExposureIncrease'] = '2,3,4,5,8,12,16,20'
-            self.sequence['FilterSequence'] = 'y,b,v,u,y,b,v,u'
-            self.mode['mode'] = 'Clusters'
-            self.mode['pernight'] = 2 
-            self.mode['period_day'] = 0.5/self.mode['pernight'] # was 0.25
-            #self.mode['timeout'] = self.timeout
-            # zerofraction is the length of one exposure in days
-            self.mode['zerofraction'] = 2.0/24.0
-            self.mode['impact'] = 1.0
-            self.constraints['MoonDistance.Min'] = 15
-
-        if obsmode == 'Hby':
-            self.sequence['ExposureTime'] = 60.0 
-            self.sequence['ExposureRepeat'] = 6
-            self.sequence['ExposureIncrease'] = '1,1.5,1,3,2,6'
-            self.sequence['FilterSequence'] = 'y,b,hbw,hbn,haw,han'
-            self.mode['mode'] = 'Clusters'
-            self.mode['pernight'] = 2 
-            self.mode['period_day'] = 0.5/self.mode['pernight'] # was 0.25
-            #self.mode['timeout'] = self.timeout
-            # zerofraction is the length of one exposure in days
-            self.mode['zerofraction'] = 2.0/24.0
-            self.mode['impact'] = 1.0
-            self.constraints['MoonDistance.Min'] = 15
-
-        if obsmode == 'rot':
-            self.sequence['ExposureTime'] = 30.0
-            self.sequence['ExposureRepeat'] = 3
-            self.sequence['ExposureIncrease'] = '2,10,20'
-            self.sequence['FilterSequence'] = 'V,V,R'
-            self.mode['mode'] = 'Clusters'
-            #self.mode['timeout'] = self.timeout # duration*fields*1000
-            self.mode['pernight'] = 4 # can be refined
-            self.mode['period_day'] = 0.5/self.mode['pernight'] # was 0.25
-            # zerofraction is the length of one exposure in days
-            self.mode['zerofraction'] = 1.0/24.0
-            self.mode['impact'] = 1.0
+        self._setobsmode(obsmode)
         
         if self.object['RA'] is None or self.object['Dec'] is None:
             self.get_coordiantes()
+    
+    def _setobsmode(self, obsmode):
+        """
+        sets sequence and mode parameters according to obsmode
+        """
+        
+        obsmodes = {'BVI': {'ExposureTime':     24.0,
+                            'ExposureRepeat':   9,
+                            'ExposureIncrease': '1,5,25,1,5,25,1,3,9',
+                            'FilterSequence':   'B,B,B,V,V,V,I,I,I'
+                            },
+                    'BVR': {'ExposureTime':     24.0,
+                            'ExposureRepeat':   9,
+                            'ExposureIncrease': '1,5,25,1,5,25,1,5,25',
+                            'FilterSequence':   'B,B,B,V,V,V,R,R,R'
+                            },
+                    
+                    'UBVRI': {'ExposureTime':    24.0,
+                            'ExposureRepeat':   15,
+                            'ExposureIncrease': '1,5,25,1,5,25,1,5,25,1,5,25,1,5,25',
+                            'FilterSequence':   'U,U,U,B,B,B,V,V,V,R,R,R,I,I,I'
+                            },
+                    
+                    'uvby': {'ExposureTime':    30.0,
+                            'ExposureRepeat':   8,
+                            'ExposureIncrease': '2,3,4,5,8,12,16,20',
+                            'FilterSequence':   'y,b,v,u,y,b,v,u',
+                            'MoonDistance.Min': 15
+                            },
+                    
+                    'Hby': {'ExposureTime':     24.0,
+                            'ExposureRepeat':   12,
+                            'ExposureIncrease': '5,25,5,25,5,25,5,25,5,25,5,25',
+                            'FilterSequence':   'b,b,y,y,hbw,hbw,hbn,hbn,haw,haw,han,han',
+                            'MoonDistance.Min': 15
+                            },
+                    
+                    'rot': {'ExposureTime':     24.0,
+                            'ExposureRepeat':   3,
+                            'ExposureIncrease': '1,5,25',
+                            'FilterSequence':   'V,V,R',
+                            'pernight':         6 
+                            }
+                            
+                    }
+
+        if not (obsmode in obsmodes):
+            raise TypeError('%s not a valid observation mode' % obsmode)
+        
+        # set defaults:
+        # zerofraction is the length of one exposure in days
+        self.mode['zerofraction'] = 1.0/24.0                                    
+        self.mode['impact']       = 1.0
+        self.mode['mode']         = 'Clusters'
+        self.mode['pernight']     = 2 
+        
+        obsparams = obsmodes[obsmode]
+        for key in ['ExposureTime', 'ExposureRepeat', 'ExposureIncrease', 'FilterSequence']:
+            self.sequence[key]     = obsparams[key]
+        
+        if 'pernight' in obsparams:
+            self.mode['pernight'] = obsparams['pernight']
+        
+        filtersequencelen = len(self.sequence['FilterSequence'].split(','))
+        exposureincreaselen = len(self.sequence['ExposureIncrease'].split(','))
+        self.sequence['ExposureRepeat'] = filtersequencelen
+        assert(filtersequencelen == exposureincreaselen)
+        self.mode['period_day'] = 0.5/self.mode['pernight'] # was 0.25
+        if 'MoonDistance.Min' in obsparams:
+            self.constraints['MoonDistance.Min'] = obsparams['MoonDistance.Min']
     
     def plot_ephem(self, obsdate=None):
         import matplotlib.pyplot as plt

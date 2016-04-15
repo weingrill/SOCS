@@ -11,10 +11,10 @@ from astropy.time import Time  # @UnresolvedImport
 from astropy.coordinates import SkyCoord, EarthLocation, AltAz  # @UnresolvedImport
 
 from astropy.utils import iers
-iers.IERS.iers_table = iers.IERS_A.open(iers.IERS_A_URL)
+iers.IERS.iers_table = iers.IERS_A.open(iers.IERS_A_URL, cache=True)
 
-clustername = 'NGC 7243'
-t = '2016-07-01 00:00:00'
+clustername = 'NGC 6709'
+t = '2016-11-01 00:00:00'
 ocluster = SkyCoord.from_name(clustername)  
 izana = EarthLocation(lat=28.301195*u.deg, lon=-16.509209*u.deg, height=2096*u.m)
 utcoffset = -1*u.hour  # Eastern Daylight Time
