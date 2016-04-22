@@ -10,7 +10,7 @@ from ngc6633 import LightCurve
 import config
 import logging
 import numpy as np
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 
 logging.basicConfig(filename=config.projectpath+'rmsanalysis.log', 
                     format='%(asctime)s %(levelname)s %(message)s',
@@ -36,13 +36,8 @@ class RMSAnalysis(object):
         """
         query = """SELECT starid, vmag, bv 
         FROM ngc6633 
-        WHERE vmag<17 
-        AND vmag < 10 + bv*5.4 
-        AND vmag > 7.5 + bv*5.4
-        AND bv>0.4 
-        AND rms is NULL 
-        ORDER BY vmag
-        LIMIT 100;""" 
+        WHERE (good IS NULL OR good)
+        ORDER BY vmag;""" 
 
         result = self.wifsip.query(query)
         print '... %d stars found' % len(result)
@@ -95,7 +90,7 @@ class RMSAnalysis(object):
             except IOError:
                 logger.error("Can't load lightcurve %s" % starid)
                 print 'no lightcurve'
-                self.setbad(starid)
+                #self.setbad(starid)
                 continue
             
             if len(lc)<50:
@@ -104,9 +99,7 @@ class RMSAnalysis(object):
                 continue                    
             # perform a 3sigma clipping
             lc.normalize()
-            lc.clip()
             lc.detrend()
-            lc.sigma_clip()
             lc.normalize()
             
             self.hjd = lc.hjd
