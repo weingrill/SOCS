@@ -53,12 +53,18 @@ class LightCurve(object):
         return (self.hjd, self.mag, self.err)
     
     def normalize(self):
-        self.hjd -= min(self.hjd)
-        self.mag -= np.mean(self.mag)
+        try:
+            self.hjd -= np.min(self.hjd)
+            self.mag -= np.mean(self.mag)
+        except ValueError:
+            return
     
     def detrend(self):
-        par = np.polyfit(self.hjd, self.mag, 1)
-        self.mag -= np.polyval(par, self.hjd)
+        try:
+            par = np.polyfit(self.hjd, self.mag, 1)
+            self.mag -= np.polyval(par, self.hjd)
+        except TypeError:
+            return
 
     def sigma_clip(self):
         from functions import sigma_clip
@@ -144,6 +150,7 @@ class LightCurve(object):
         return amp, amp_err
         
 
+
 class Analysis(object):
     def __init__(self):
         '''
@@ -153,6 +160,19 @@ class Analysis(object):
     
         self.wifsip = DataSource(database=config.dbname, user=config.dbuser, host=config.dbhost)
         self.stars = []
+        query = "SELECT starid, bv ,vmag ,vmag_err from ngc6633;"
+        self._stars = self.wifsip.query(query)
+        
+        columns = self.wifsip.columns('ngc6633')
+        data_types = self.wifsip.data_types('ngc6633')
+        
+        for c,d in zip(columns, data_types):
+            print c,d
+        arraydata = []
+        for star in self._stars:
+            arraydata.append(tuple(star))
+        
+        self.stars = np.array(arraydata, dtype = zip(columns, data_types))
 #        self.age = 10**8.557/1e6 # in Myr from Webda
 #        self.ebv = 0.031 # from Webda
 #        self.dm = 9.53 # from Webda
