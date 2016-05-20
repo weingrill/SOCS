@@ -3,6 +3,20 @@ Created on Oct 3, 2013
 
 @author: jwe <jweingrill@aip.de>
 '''
+
+def airmass(altitude):
+    """converts altitude to airmass"""
+    from numpy import cos, radians
+
+    return 1./cos(radians(90.-altitude))
+    
+def altitude(airmass):
+    """converts airmass to altitude"""
+    from numpy import arccos, degrees
+    
+    return 90.-degrees(arccos(1./airmass))
+    
+
 class OpenCluster(object):
     '''
     classdocs
@@ -66,38 +80,32 @@ class OpenCluster(object):
         """
         
         obsmodes = {'BVI': {'ExposureTime':     24.0,
-                            'ExposureRepeat':   9,
                             'ExposureIncrease': '1,5,25,1,5,25,1,3,9',
                             'FilterSequence':   'B,B,B,V,V,V,I,I,I'
                             },
                     'BVR': {'ExposureTime':     24.0,
-                            'ExposureRepeat':   9,
                             'ExposureIncrease': '1,5,25,1,5,25,1,5,25',
                             'FilterSequence':   'B,B,B,V,V,V,R,R,R'
                             },
                     
                     'UBVRI': {'ExposureTime':    24.0,
-                            'ExposureRepeat':   15,
                             'ExposureIncrease': '1,5,25,1,5,25,1,5,25,1,5,25,1,5,25',
                             'FilterSequence':   'U,U,U,B,B,B,V,V,V,R,R,R,I,I,I'
                             },
                     
-                    'uvby': {'ExposureTime':    30.0,
-                            'ExposureRepeat':   8,
-                            'ExposureIncrease': '2,3,4,5,8,12,16,20',
-                            'FilterSequence':   'y,b,v,u,y,b,v,u',
+                    'uvby': {'ExposureTime':    24.0,
+                            'ExposureIncrease': '1,1,1,1,5,5,5,5,25,25,25,25',
+                            'FilterSequence':   'u,v,b,y,u,v,b,y,u,v,b,y',
                             'MoonDistance.Min': 15
                             },
                     
                     'Hby': {'ExposureTime':     24.0,
-                            'ExposureRepeat':   12,
                             'ExposureIncrease': '5,25,5,25,5,25,5,25,5,25,5,25',
                             'FilterSequence':   'b,b,y,y,hbw,hbw,hbn,hbn,haw,haw,han,han',
                             'MoonDistance.Min': 15
                             },
                     
                     'rot': {'ExposureTime':     24.0,
-                            'ExposureRepeat':   3,
                             'ExposureIncrease': '1,5,25',
                             'FilterSequence':   'V,V,R',
                             'pernight':         6 
@@ -115,20 +123,37 @@ class OpenCluster(object):
         self.mode['mode']         = 'Clusters'
         self.mode['pernight']     = 2 
         
+        # get the observation parameters depending on the observation mode
         obsparams = obsmodes[obsmode]
-        for key in ['ExposureTime', 'ExposureRepeat', 'ExposureIncrease', 'FilterSequence']:
+        
+        # set the mandatory keys
+        for key in ['ExposureTime', 'ExposureIncrease', 'FilterSequence']:
             self.sequence[key]     = obsparams[key]
         
+        # set the mandatory pernight value
         if 'pernight' in obsparams:
             self.mode['pernight'] = obsparams['pernight']
         
         filtersequencelen = len(self.sequence['FilterSequence'].split(','))
         exposureincreaselen = len(self.sequence['ExposureIncrease'].split(','))
-        self.sequence['ExposureRepeat'] = filtersequencelen
+        # filter sequence and exposures must be equal
         assert(filtersequencelen == exposureincreaselen)
+        # set ExposureRepeat
+        self.sequence['ExposureRepeat'] = filtersequencelen
+        # period_day is related to pernight
         self.mode['period_day'] = 0.5/self.mode['pernight'] # was 0.25
+        # set the Minimum Moon distance
         if 'MoonDistance.Min' in obsparams:
             self.constraints['MoonDistance.Min'] = obsparams['MoonDistance.Min']
+            
+        if 'AirmassTarget.Max' in obsparams:
+            self.constraints['AirmassTarget.Max'] = obsparams['AirmassTarget.Max']
+            self.constraints['AltTarget.Min'] = altitude(self.constraints['AirmassTarget.Max'])
+        
+        if 'AltTarget.Min' in obsparams:
+            self.constraints['AltTarget.Min'] = obsparams['AltTarget.Min']
+            self.constraints['AirmassTarget.Max'] = airmass(self.constraints['AltTarget.Min'])
+        
     
     def plot_ephem(self, obsdate=None):
         import matplotlib.pyplot as plt
