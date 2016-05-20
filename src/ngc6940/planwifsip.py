@@ -1,54 +1,39 @@
 '''
 Created on Apr 12, 2013
+Updated May 20, 2016
 
 @author: jwe <jweingrill@aip.de>
+
+start 2016-03-30 jd = 2457477.5
+end   2016-12-15 jd = 2457752.5
 '''
+import config
+from opencluster import OpenCluster
+from clustergroup import ClusterGroup
 
 def do_rot(transfer=False):
-    from opencluster import OpenCluster
+    import datetime
 
-    ngc6940 = OpenCluster(objectname='NGC 6940', uname='NGC 6940 rot', obsmode='rot')
-    ngc6940.title = 'SOCS'
-    ngc6940.abstract = 'Photometric monitoring of open stellar clusters'
-    ngc6940_subframes = ngc6940.plan_wifsip(nfields=4)
+    ngc6940rot = OpenCluster(objectname='NGC 6940', uname='NGC 6940 rot', obsmode='rot')
+    ngc6940rot.priority = 0.35
 
+    ngc6940rot.title = 'SOCS'
+    ngc6940rot.abstract = 'Photometric monitoring of open stellar clusters'
+    ngc6940rot_subframes = ngc6940rot.plan_wifsip(nfields=4)
+    ngc6940rot_group = ClusterGroup(ngc6940rot)
+    ngc6940rot_group.startdate =  datetime.datetime(2016, 3, 8) 
+    ngc6940rot_group.enddate =  datetime.datetime(2016, 12, 29)
     
-    for sf in ngc6940_subframes:
+    for sf in ngc6940rot_subframes:
         print sf.uname, sf.duration
-        sf.tofile('/work2/jwe/NGC6940')
-        if transfer:
+        sf.tofile(config.projectpath)
+        ngc6940rot_group.add_daughter(sf.uname)
+        if transfer: 
             sf.transfer()
+    ngc6940rot_group.tofile(config.projectpath)
+    if transfer: 
+        ngc6940rot_group.transfer()
 
-def do_bvi(transfer=False):
-    from opencluster import OpenCluster
-
-    ngc6940 = OpenCluster(objectname='NGC6940', uname='NGC6940 BVI', obsmode='BVI')
-    ngc6940.title = 'SOCS'
-    ngc6940.abstract = 'Photometric monitoring of open stellar clusters'
-    ngc6940_subframes = ngc6940.plan_wifsip(nfields=5)
-    for sf in ngc6940_subframes:
-        print sf.uname, sf.duration
-        sf.tofile('/work2/jwe/NGC6940')
-        if transfer:
-            sf.transfer()
-
-def do_bvr(transfer=False):
-    from opencluster import OpenCluster
-
-    ngc6940 = OpenCluster(objectname='NGC6940', uname='NGC6940 BVR', obsmode='BVR')
-    ngc6940.title = 'SOCS'
-    ngc6940.abstract = 'Photometric monitoring of open stellar clusters'
-    ngc6940_subframes = ngc6940.plan_wifsip(nfields=5)
-    for sf in ngc6940_subframes:
-        print sf.uname, sf.duration
-        
-        sf.tofile('/work2/jwe/NGC6940')
-        if transfer:
-            sf.transfer()
         
 if __name__ == '__main__':
-    import matplotlib
-    matplotlib.use('WXAgg')
     do_rot(transfer=True)
-    #do_bvi()
-    do_bvr(transfer=True)
