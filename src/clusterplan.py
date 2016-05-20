@@ -31,15 +31,19 @@ class ClusterPlan(object):
             'maxdiam': 80}
         
         self.wifsip = DataSource(database='stella', user='stella', host='pera.aip.de')
-        query = """SELECT name,ra,dec,diam,d,ebv,logage from clusters 
-            WHERE ((diam<=%(maxdiam)d and diam>=%(mindiam)d) or diam IS NULL) 
-            AND logage>=%(minage)f and logage<=%(maxage)f
-            AND dec>=%(mindec)f
-            AND (name LIKE 'NGC%%' OR name LIKE 'IC%%')
-            AND (ebv <= %(maxebv)f OR ebv IS NULL)
-            AND (d <= %(maxd)d or d IS NULL)
-            AND not observed
-            order by ra""" % criteria
+        #query = """SELECT name,ra,dec,diam,d,ebv,logage from clusters 
+        #    WHERE ((diam<=%(maxdiam)d and diam>=%(mindiam)d) or diam IS NULL) 
+        #    AND logage>=%(minage)f and logage<=%(maxage)f
+        #    AND dec>=%(mindec)f
+        #    AND (name LIKE 'NGC%%' OR name LIKE 'IC%%')
+        #    AND (ebv <= %(maxebv)f OR ebv IS NULL)
+        #    AND (d <= %(maxd)d or d IS NULL)
+        #    AND not observed
+        #    order by ra""" % criteria
+            
+        query = """SELECT name,ra,dec,diam,d,ebv,logage 
+            FROM clusters
+            WHERE name in ('NGC 1528', 'NGC 2281', 'NGC 6709', 'NGC 6940')"""
         result = self.wifsip.query(query)
         self.data = []
         for r in result:
@@ -148,29 +152,34 @@ class ClusterPlan(object):
         import ephem
         import numpy as np
         import matplotlib.pyplot as plt
-        
+        from tools import log
+        fig = plt.figure(figsize=(29.6/2.54, 21./2.54))
         darkhours = np.zeros(365)
         for c in self.data:
             print c['name']
-            date0 = ephem.Date('2015/1/1 00:00:00')
+            date0 = ephem.Date('2016/1/1 00:00:00')
             hours = np.zeros(365)
             dates = []
             for day in range(365):
                 ephemdate = ephem.Date(date0 + day)
                 t = self.time(c, date = ephemdate)
-                print ephemdate, t
                 dates.append(self._eph2dt(ephemdate))
                 hours[day] = t
                 if darkhours[day] == 0.0:
                     darkhours[day] = self.darktime(ephemdate) 
+                log('/work2/jwe/Projects/SOCS/data/obstime %(name)s.txt'% c, '%-20.20s %5.2f %5.2f %4.2f' % (ephemdate, t, darkhours[day], t/darkhours[day]))
                 
             
             plt.plot(dates,hours, label=c['name'])
         plt.plot(dates, darkhours, 'k--')
         plt.grid()
         plt.minorticks_on()
+        plt.ylabel('hours visible')
+        plt.xlabel('date')
+        
         plt.legend(loc=9, fontsize='small')
-        plt.show()
+        plt.savefig('/work2/jwe/Projects/SOCS/plots/clusterplan obstime.pdf')
+        #plt.show()
     
     def darktime(self, date):
         import ephem
