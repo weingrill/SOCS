@@ -51,6 +51,10 @@ class ClusterGroup():
         self._periodday = opencluster.mode['period_day']
         self.zerofraction = opencluster.mode['zerofraction']
         self.duration = opencluster.duration
+        
+        self.startdate = None
+        self.enddate = None
+        
         self.daughters = []
         
 
@@ -87,9 +91,9 @@ class ClusterGroup():
             constraint = ET.SubElement(parent, 'Constraint')
             variable = ET.SubElement(constraint, 'Variable')
             variable.text = name
-            for key in values:
+            for key,value in sorted(values.items()):
                 node = ET.SubElement(constraint, key)
-                node.text = str(values[key])
+                node.text = str(value)
 
         def addconstant(parent, javaclass, name, value):
             constant = ET.SubElement(parent, 'Constant', {'class':javaclass})
@@ -139,10 +143,10 @@ class ClusterGroup():
 
         # calculate the JD for beginning and end of observation
         from astropy.time import Time  # @UnresolvedImport
-        t = Time(now.isoformat(), format='isot', scale='utc')
+        startjd = Time(self.startdate).jd 
+        endjd = Time(self.enddate).jd 
         
-        
-        addconstraint(select, 'Jd', {'To': round(t.jd + 356) -0.5, 'From': round(t.jd) -0.5})
+        addconstraint(select, 'Jd', {'From': startjd, 'To': endjd})
         if not self.moondistance is None:
             addconstraint(select, 'MoonDistance', {'Min': self.moondistance})
         if not self.alttarget is None:
