@@ -49,7 +49,7 @@ class Clusters(object):
         
     def fromfile(self, filename='/work2/jwe/SOCS/clusters.txt'):
         from astropy import units as u
-        from astropy.coordinates import SkyCoord
+        from astropy.coordinates import SkyCoord  # @UnresolvedImport
         import StringIO
 
         f = open(filename,'rt')

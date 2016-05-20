@@ -56,7 +56,7 @@ class Cluster(dict):
         we don't need a high precision for the cluster coordinates
         """
         from astropy import units as u
-        from astropy.coordinates import SkyCoord
+        from astropy.coordinates import SkyCoord  # @UnresolvedImport
         
         ra = self['ra']
         dec = self['dec']
