@@ -61,10 +61,12 @@ class OpenCluster(object):
         self.object = {'ObjectName':objectname,
                        'RA':ra,
                        'Dec':dec}
-        self.constraints = {'MoonDistance.Min':30,
-                            'SolHeight.Max':-16.0,
-                            'AirmassTarget.Max':2.0,
-                            'AltTarget.Min':30.0}
+        self.constraints = {'MoonDistance.Min': 30,
+                            'SolHeight.Max':   -16.0,
+                            'AirmassTarget.Max': 2.0,
+                            'AltTarget.Min':    30.0,
+                            'MoonHeight.Max':   90.0,
+                            'MoonPhase.Max':     1.0}
         self.file = ''
         self.filename = ''
         self.fields = 1
