@@ -5,7 +5,6 @@ Created on Apr 2, 2015
 
 @author: Joerg Weingrill <jweingrill@aip.de>
 
-Error: URI=file:/stella/home/stella/stella/master1/testing/targets/ngc_2422_rot_group.xml Line=33: The content of element type "Constraint" must match "(Variable,(Min|Max|(From,To)|(Below,Above)))".
 Global properties of parsed target: {imagetype=object, night=NightRemain, accelerate=1.0, rateretry=10, ratewait=60000, obsbad=false, obsgood=false}
 
 '''
@@ -18,19 +17,19 @@ class ClusterGroup():
     filename = 'group.xml'
     user = 'Weingrill'
     address = 'jweingrill@aip.de'
-    moondistance = 30.0
-    alttarget = 30.0
-    solheight = -16.0
-    pernight = 25
-    timeout = 0
-    periodday = 0.015
+    #moondistance = 30.0
+    #alttarget = 30.0
+    #solheight = -16.0
+    #pernight = 25
+    #timeout = 0 # should be zero according to tgranzer
+    #periodday = 0.015
     stretch = 1.0
-    zerofraction = 0.011111
-    duration = 1185.00
-    ra = -1.0 
-    dec = 0.0
-    targetname = ''
-    objectname = ''
+    #zerofraction = 0.011111 # should be low according to tgranzer
+    #duration = 1185.00
+    #ra = -1.0 
+    #dec = 0.0
+    #targetname = ''
+    #objectname = ''
     daughters = []
     
     
@@ -79,6 +78,7 @@ class ClusterGroup():
         
         from lxml import etree as ET
         from datetime import datetime as dt
+        import os
         
         def addtext(parent, tag, value):
             """
@@ -206,13 +206,13 @@ class ClusterGroup():
         s =  ET.tostring(tree, encoding="UTF-8", doctype=doctype, pretty_print=True)
         # remember the path for later use of transfer method
         self.filepath = path
-        f = open(path + self.filename, 'wt')
+        f = open(os.path.join(path,self.filename), 'wt')
         f.write(s)
         f.close()
         
     def transfer(self, path=None):
         """
-        al plain copy from Opencluster.transfer method
+        a plain copy from Opencluster.transfer method
         """
         from subprocess import call
         import time
@@ -221,7 +221,7 @@ class ClusterGroup():
         # if path has not been set use the one, where the file has been created. 
         if path is None:
             path = self.filepath
-        source = path+self.filename
+        source = os.path.join(path, self.filename)
         #xml goes dirctly to submit
         target='sro@stella:/stella/home/www/uploads/weingrill/save/'
         time.sleep(1) # otherwise submit.jnlp gets confused
