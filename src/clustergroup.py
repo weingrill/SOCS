@@ -17,23 +17,19 @@ class ClusterGroup():
     filename = 'group.xml'
     user = 'Weingrill'
     address = 'jweingrill@aip.de'
-    #moondistance = 30.0
-    #alttarget = 30.0
-    #solheight = -16.0
-    #pernight = 25
     #timeout = 0 # should be zero according to tgranzer
-    #periodday = 0.015
     stretch = 1.0
+    prioritycap = 3.0
+    retrymax = 5
     #zerofraction = 0.011111 # should be low according to tgranzer
-    #duration = 1185.00
-    #ra = -1.0 
-    #dec = 0.0
-    #targetname = ''
-    #objectname = ''
+    
     daughters = []
     
     
     def __init__(self, opencluster):
+        """
+        Set basic constraints derived from the OpenCluster class
+        """
         from opencluster import OpenCluster
         if not type(opencluster) is OpenCluster:
             raise TypeError('expecting OpenCluster Object')
@@ -58,14 +54,23 @@ class ClusterGroup():
         
 
     def add_daughter(self, daughtername):
+        """
+        add daughter fields
+        """
         self.daughters.append(daughtername)
 
     @property
     def pernight(self):
+        """
+        calculate pernight as global cluster per night times daughterfields
+        """
         return self._pernight*len(self.daughters)
     
     @property
     def periodday(self):
+        """
+        calculate periodday
+        """
         if len(self.daughters)>0:
             return self._periodday/len(self.daughters)
         else:
@@ -88,6 +93,9 @@ class ClusterGroup():
             element.text = str(value)
         
         def addconstraint(parent, name, values):
+            """
+            adds a constraint element to the xml file
+            """
             constraint = ET.SubElement(parent, 'Constraint')
             variable = ET.SubElement(constraint, 'Variable')
             variable.text = name
@@ -96,6 +104,9 @@ class ClusterGroup():
                 node.text = str(value)
 
         def addconstant(parent, javaclass, name, value):
+            """
+            adds a constant element to the xml file
+            """
             constant = ET.SubElement(parent, 'Constant', {'class':javaclass})
             constantname = ET.SubElement(constant, 'Constantname')
             constantname.text = name
@@ -129,7 +140,7 @@ class ClusterGroup():
         
         ET.SubElement(target, 'History')
         exception1 = ET.SubElement(target, 'Exception', {'for': 'daughter'})
-        addtext(exception1, 'Retrymax',5)
+        addtext(exception1, 'Retrymax', self.retrymax)
         addtext(exception1, 'Retry', 'NO_STAR_ON_ACQUIRE')
         addtext(exception1, 'Retry', 'DROP_TARGET')
         
@@ -145,7 +156,8 @@ class ClusterGroup():
         from astropy.time import Time  # @UnresolvedImport
         startjd = Time(self.startdate).jd 
         endjd = Time(self.enddate).jd 
-        
+        if startjd > endjd:
+            raise ValueError('From JD must be earlier than end JD')
         addconstraint(select, 'Jd', {'From': startjd, 'To': endjd})
         if not self.moondistance is None:
             addconstraint(select, 'MoonDistance', {'Min': self.moondistance})
@@ -167,10 +179,13 @@ class ClusterGroup():
         
         if not self.periodday>0.0:
             raise ValueError('period_day must be greater than zero')
+        
         addconstant(gain, 'java.lang.Double', 'period_day', self.periodday)
         addconstant(gain, 'java.lang.Double', 'stretch', self.stretch)
+        
         if not self.zerofraction>0.0:
             raise ValueError('zerofraction must be greater than zero')
+        
         addconstant(gain, 'java.lang.Double', 'zerofraction', self.zerofraction)
         # </Merit>
         # </Select>
@@ -180,7 +195,7 @@ class ClusterGroup():
             addtext(target, 'Daughter', daughter )
         setup = ET.SubElement(target, 'Setup', id='priority')
         addtext(setup, 'Instrument', 'SCS')
-        addconstant(setup, 'java.lang.Double', 'PriorityCap', 3.0)
+        addconstant(setup, 'java.lang.Double', 'PriorityCap', self.prioritycap)
         # </Setup>
         objectnode = ET.SubElement(target, 'Object', id='main')
         addtext(objectnode, 'ObjectName', self.objectname)

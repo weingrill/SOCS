@@ -92,19 +92,22 @@ class OpenCluster(object):
                     
                     'UBVRI': {'ExposureTime':    24.0,
                             'ExposureIncrease': '1,5,25,1,5,25,1,5,25,1,5,25,1,5,25',
-                            'FilterSequence':   'U,U,U,B,B,B,V,V,V,R,R,R,I,I,I'
+                            'FilterSequence':   'U,U,U,B,B,B,V,V,V,R,R,R,I,I,I',
+                            'pernight':         1
                             },
                     
                     'uvby': {'ExposureTime':    24.0,
                             'ExposureIncrease': '1,1,1,1,5,5,5,5,25,25,25,25',
                             'FilterSequence':   'u,v,b,y,u,v,b,y,u,v,b,y',
-                            'MoonDistance.Min': 15
+                            'MoonDistance.Min': 15,
+                            'pernight':         1
                             },
                     
                     'Hby': {'ExposureTime':     24.0,
                             'ExposureIncrease': '5,25,5,25,5,25,5,25,5,25,5,25',
                             'FilterSequence':   'b,b,y,y,hbw,hbw,hbn,hbn,haw,haw,han,han',
-                            'MoonDistance.Min': 15
+                            'MoonDistance.Min': 15,
+                            'pernight':         1
                             },
                     
                     'rot': {'ExposureTime':     24.0,
