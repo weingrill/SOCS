@@ -29,7 +29,7 @@ class NGC6633gab(object):
         i = np.where(self.table['Imag'] > 25.0)
         self.table['Imag'][i] = np.nan
         
-        maxsigma = 0.05
+        maxsigma = 1.0
         i = np.where(self.table['s_Bmag'] < maxsigma)
         self.table = self.table[i]
         i = np.where(self.table['s_Vmag'] < maxsigma)
@@ -39,7 +39,71 @@ class NGC6633gab(object):
         i = np.where(np.isfinite(self.table['RA_J2000']) & np.isfinite(self.table['DEC_J2000']))
         self.table = self.table[i]
         print self.table.shape
+
+    def create_table(self):
+        '''
+        makes the database table
+        '''
+        from datasource import DataSource
+        stellads = DataSource(database=config.dbname, user=config.dbuser, host=config.dbhost)
+        query = """CREATE TABLE ngc6633gab (
+        id integer,
+        ra_j2000 double precision,
+        dec_j2000 double precision,
+        bmag real,
+        s_bmag real,
+        vmag real,
+        s_vmag real,
+        imag real,
+        s_imag real,
+        coord point,
+        PRIMARY KEY (id)
+        );
+        CREATE INDEX idx_ngc6633gab_coord ON ngc6633 USING GIST (circle(coord,0));"""
+        stellads.execute(query)
+        stellads.close()
+    
+    def todatabase(self):
+        """
+        puts Gabriels data on the stella database
+        """
+        import StringIO
         
+        filename= '/work2/jwe/Projects/NGC6633/data/tallrefavgcal_fields.dat'
+        with open(filename, 'rt') as infile:
+            lines = infile.readlines()
+        
+        valarray = []
+        field = 0
+        lastid = 0
+        for l in lines[1:]:
+            splitted = l.rstrip('\n').replace('NaN','000').split()
+            curid = int(splitted[0])
+            if curid<lastid:
+                field += 1
+            lastid = curid
+            splitted[0] = str(field*100000+curid)
+            print splitted[0]
+            assert(len(splitted)==9)
+            #print '(%s,%s)' % (splitted[1], splitted[2])
+            splitted.append('(%s,%s)' % (splitted[1], splitted[2]))
+            valline = '\t'.join(splitted)                        
+            valarray.append(valline)
+            
+        values = '\n'.join(valarray)     
+        
+        
+        f = StringIO.StringIO(values)
+        
+        from datasource import DataSource
+        
+        columns = ['id', 'ra_j2000', 'dec_j2000', 'imag', 's_imag', 'vmag', 's_vmag', 'bmag', 's_bmag', 'coord']
+        
+        stellads = DataSource(database=config.dbname, user=config.dbuser, host=config.dbhost)
+        stellads.cursor.copy_from(f,'ngc6633gab',columns=columns, null='nan')
+        stellads.commit()
+        stellads.close()
+
     def plot(self):
         import matplotlib.pyplot as plt
         
@@ -110,7 +174,9 @@ class NGC6633gab(object):
 if __name__ == '__main__':
     n = NGC6633gab()
     n.loadfromfile()
+    #n.create_table()
+    n.todatabase()
     #n.plot()
-    n.plot_colorcolor()
-    n.savetofile()
+    #n.plot_colorcolor()
+    #n.savetofile()
     
