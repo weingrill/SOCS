@@ -36,7 +36,7 @@ class RMSAnalysis(object):
         """
         query = """SELECT starid, vmag, bv 
         FROM ngc6633 
-        WHERE (good IS NULL OR good)
+        WHERE rms IS NULL
         ORDER BY vmag;""" 
 
         result = self.wifsip.query(query)
@@ -44,6 +44,23 @@ class RMSAnalysis(object):
         self.stars = [s[0] for s in result]
         self.vmag = [s[1] for s in result]
         self.bv = [s[2] for s in result]
+    
+    def getlightcurves(self):
+        """
+        pick up the stars from the directory
+        """
+        from glob import glob
+        import os
+        
+        filelist = glob(os.path.join(config.lightcurvespath,'*.dat'))
+        filelist.sort()
+        #filelist = filelist[:10]
+        #/work2/jwe/SOCS/NGC6633/lightcurves/20140611A-0009-0014#2778.dat
+        #0123456789012345678901234567890123456789012345678901234567890123
+        self.stars = [os.path.splitext(os.path.split(f)[1])[0] for f in filelist]
+        n = len(self.stars)
+        self.bv = [0.0]*n
+        self.vmag = [0.0]*n
     
     def setrms(self, starid, rms):
         """
@@ -56,6 +73,39 @@ class RMSAnalysis(object):
             query = """UPDATE ngc6633 SET rms = NULL WHERE starid='%(starid)s';""" % params
         self.wifsip.execute(query) 
 
+    def getphotcoords(self, starid):
+        objid,star = starid.split('#')
+        params = {'objid': objid, 'star': int(star)}
+        query = "select alphawin_j2000, deltawin_j2000" \
+                " from phot" \
+                " where objid='%(objid)s' and star=%(star)d;" % params
+        
+        result = self.wifsip.query(query)
+        return result[0]
+    
+    def matchstarbycoord(self, coord):
+        params = {'coord': str(coord)}
+        query = "SELECT starid" \
+                " FROM ngc6633" \
+                " WHERE circle(coord,6./3600) @> point%(coord)s" \
+                " ORDER BY coord<->point%(coord)s" \
+                " LIMIT 1"% params
+        result = self.wifsip.query(query)
+        
+        if len(result)>1: 
+            raise(ValueError)
+        elif len(result)==1:
+            return result[0][0]
+        else:
+            return ''
+    
+    def renamefile(self, oldstarid, newstarid):
+        import os
+        if newstarid == '':
+            os.rename(os.path.join(config.lightcurvespath,oldstarid+'.dat'), os.path.join(config.lightcurvespath,oldstarid+'.da_'))
+        else:
+            os.rename(os.path.join(config.lightcurvespath,oldstarid+'.dat'), os.path.join(config.lightcurvespath,newstarid+'.dat'))
+        
     def analysis(self, show=False):
         """perform a PDM analysis on each lightcurve"""
         from matplotlib import rcParams
@@ -106,12 +156,20 @@ class RMSAnalysis(object):
             self.mag = lc.mag
             self.err = lc.err
             rms = np.std(self.mag)
-            self.setrms(starid, rms)
+            coord = self.getphotcoords(starid)
+            print coord,
+            newstarid = self.matchstarbycoord(coord)
+            print '%-24s '% newstarid,
             print '%.4f %.3f %.4f' % (vmag,bv,rms)
+            
+            self.setrms(newstarid, rms)
+            if newstarid<>starid:
+                self.renamefile(starid, newstarid)
 
 
 if __name__ == '__main__':
     rmsa = RMSAnalysis()
-    rmsa.getstars()
+    #rmsa.getstars()
+    rmsa.getlightcurves()
     rmsa.analysis()
     

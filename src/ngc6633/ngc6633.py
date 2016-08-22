@@ -107,22 +107,36 @@ class LightCurve(object):
     def pdm(self, minperiod, maxperiod):
         from pdm import pdm
         # look at 20 days or at most at the length of dataset
-        periods, thetas = pdm(self.hjd, self.mag, minperiod, maxperiod, 0.5/24)
-        #period = periods[np.argmin(thetas)]
+        import os
+        filename = os.path.join(config.lightcurvespath,'pdm',self.starid+'.pdm')
+        try:
+            
+            periods, thetas = np.genfromtxt(filename, unpack=True)
+        except IOError:
+            periods, thetas = pdm(self.hjd, self.mag, minperiod, maxperiod, 0.5/24)
+            a = np.column_stack((periods, thetas))
+            np.savetxt(filename, a)
         return periods, thetas
         
     def clean(self, minperiod, maxperiod):
         from clean import clean  # @UnresolvedImport
-        t = self.hjd
-        x = self.mag
-        f, cleaned, _ = clean(t, x, threshold=1e-3)
-        n2 = len(f) /2
-        cf = cleaned[n2+1:]/(2.0*np.var(x))
-        p = 1./f[n2+1:]
-        cf = cf[(p>=minperiod) & (p<maxperiod)]
-        p = p[(p>=minperiod) & (p<maxperiod)]
-        #i = np.argmax(cf)
-        #period = p[i]
+        import os
+        filename = os.path.join(config.lightcurvespath,'clean',self.starid+'.clean')
+        try:
+            p, cf = np.genfromtxt(filename, unpack=True)
+        except IOError:
+            t = self.hjd
+            x = self.mag
+            f, cleaned, _ = clean(t, x, threshold=1e-3)
+            n2 = len(f) /2
+            cf = cleaned[n2+1:]/(2.0*np.var(x))
+            p = 1./f[n2+1:]
+            cf = cf[(p>=minperiod) & (p<maxperiod)]
+            p = p[(p>=minperiod) & (p<maxperiod)]
+            #i = np.argmax(cf)
+            #period = p[i]
+            a = np.column_stack((p, cf))
+            np.savetxt(filename, a)
         return p, cf
             
     def phased(self, period):
@@ -171,7 +185,8 @@ class Analysis(object):
         arraydata = []
         for star in self._stars:
             arraydata.append(tuple(star))
-        
+        columns = ['starid', 'bv', 'vmag', 'vmag_err']
+        data_types = ['S25', np.float16, np.float16, np.float16]
         self.stars = np.array(arraydata, dtype = zip(columns, data_types))
 #        self.age = 10**8.557/1e6 # in Myr from Webda
 #        self.ebv = 0.031 # from Webda
@@ -181,14 +196,14 @@ class Analysis(object):
         """
         build up a list of stars, where we do not have periods yet
         """
-        query = """SELECT starid, vmag, bv 
-        FROM ngc6633 
-        WHERE vmag<17 
-        AND vmag < 10 + bv*5.4 
-        AND vmag > 7.5 + bv*5.4
-        AND bv>0.4 
-        AND (good IS NULL OR good)
-        ORDER BY vmag;""" 
+        query = "SELECT starid, vmag, bv" \
+        " FROM ngc6633 " \
+        " WHERE vmag<18 " \
+        " AND vmag < 10 + bv*5.4 " \
+        " AND vmag > 7.5 + bv*5.4" \
+       # " AND bv>0.4 " \
+        " AND NOT good IS NULL" \
+        " ORDER BY vmag LIMIT 100;" 
 
         result = self.wifsip.query(query)
         print '... %d stars found' % len(result)
@@ -197,15 +212,17 @@ class Analysis(object):
         self.bv = [s[2] for s in result]
         
 
-    def setperiod(self, starid, period):
-        params = {'starid': starid, 'period': period}
+    def setperiod(self, starid, period, theta=1.0):
+        self.starid = starid
+        params = {'starid': starid, 'period': period, 'theta': theta}
         if np.isfinite(period):
-            query = """UPDATE ngc6633 SET period = %(period)f WHERE starid='%(starid)s';""" % params
+            query = """UPDATE ngc6633 SET period = %(period)f, theta = %(theta)f WHERE starid='%(starid)s';""" % params
         else: 
-            query = """UPDATE ngc6633 SET period = NULL WHERE starid='%(starid)s';""" % params
+            query = """UPDATE ngc6633 SET period = NULL, theta=NULL WHERE starid='%(starid)s';""" % params
         self.wifsip.execute(query) 
 
     def setamp(self, starid, amplitude):
+        self.starid = starid
         params = {'starid': starid, 'amp': amplitude}
         if np.isfinite(amplitude):
             query = """UPDATE ngc6633 SET amp = %(amp)f WHERE starid='%(starid)s';""" % params
@@ -215,8 +232,21 @@ class Analysis(object):
 
 
     def setbad(self, starid):
+        self.starid = starid
         query = """UPDATE ngc6633 SET good = False WHERE starid='%s';""" % starid
         self.wifsip.execute(query) 
+        
+    #def __setattr__(self, name, value):
+    #    params = {'starid': self.starid, 'name': name, 'value': str(value)}
+    #    
+    #    query = """UPDATE ngc6633 SET %(name)s = %(value)s WHERE starid='%(starid)s';""" % params
+    #    self.wifsip.execute(query)
+    
+    #def __getattribute__(self, name):
+    #    params = {'starid': self.starid, 'name': name}
+    #    query = "SELECT %(name)s from ngc6633 WHERE starid='%(starid)s';" % params
+    #    result = self.wifsip.query(query)
+    #    return result[0]
 
     def plot_lightcurve(self):
         """
@@ -252,6 +282,8 @@ class Analysis(object):
         i = np.argmin(smoothed)
         period = periods[i]
         plt.axvline(x = period, color='red', alpha=0.5)
+        plt.axhline(0.8, color='b', ls='--')
+        
         plt.xlim(min(periods),max(periods))
         plt.ylim(0.0,1.0)
         plt.minorticks_on()
@@ -327,6 +359,9 @@ class Analysis(object):
                 print 'not enough datapoints'
                 continue                    
             # perform a 3sigma clipping
+            i = np.where(lc.hjd > 2456762)[0]
+            lc.mag = lc.mag[i]
+            lc.hjd = lc.hjd[i]
             lc.normalize()
             lc.clip()
             lc.detrend()
@@ -357,16 +392,50 @@ class Analysis(object):
             sum_amp /= max(sum_amp) 
             i = np.argmax(sum_amp)
             period = pdm_periods[i] 
-            #stheta = pdm_thetas[i]
+            theta = pdm_thetas[i]
+            
+            import functions as fx
+            
+            
+            ci = np.argmax(c_amps)
+            try:
+                pgf_amp, pgf_mean, pgf_sigma = fx.gauss_fit(pdm_periods, 1.-pdm_thetas,  pdm_thetas[i], period, 1.0)
+            except:
+                pgf_sigma = 0.0
+            try:
+                cgf_amp, cgf_mean, cgf_sigma = fx.gauss_fit(c_periods, c_amps,  c_amps[ci], c_periods[ci], 1.0)
+            except:
+                cfg_sigma= 0.0
             
             sigma_limit = 5.3
-            
+            theta_limit = 0.8
+            try:
+                ci = np.argmax(c_amps)
+                
+                
+                params = {'period': period,
+                          'period_err': pgf_sigma,
+                          'clean_period': c_periods[ci],
+                          'clean_amp': c_amps[ci],
+                          'clean_sigma': cgf_sigma,
+                          'theta': theta,
+                          'freq': period,
+                          }
+                
+                keys = ', '.join(params.keys())
+                values = ', '.join([str(v) for v in params.values()])
+                
+                query = """UPDATE ngc6633 SET (%s) = (%s) WHERE starid='%s';""" % (keys, values, starid)
+                self.wifsip.execute(query)
+            except:
+                print 'Cannot store params for starid %s' % starid
+                
             mamp = np.mean(clean_amplitudes)
-            if max(clean_amplitudes)> sigma_limit*mamp:
+            if max(clean_amplitudes)> sigma_limit*mamp and pdm_thetas[i] < theta_limit:
                 print "%.2f %.1f" % (period,   max(clean_amplitudes)/mamp)
                 self.setperiod(starid, period)
             else:
-                print '< %.1f sigmas' % sigma_limit
+                print '< %.1f sigmas or  theta %.2f > %.2f' % (sigma_limit, pdm_thetas[i], theta_limit)
                 self.setperiod(starid, np.nan)
                 continue           
             
