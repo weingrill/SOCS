@@ -58,6 +58,7 @@ class ObservedClusters(object):
         fig = plt.figure(figsize=(25/2.54,18/2.54))
         #plt.plot_date(x=self.dates, y=self.count)
         #plt.title('%s (total: %d frames)' % (self.target, sum(self.count)))
+        plt.title('Observed open clusters produced by SOCS/observed.py')
         plt.grid(which='both')
         #plt.ylabel('number of frames')
         #plt.minorticks_on()
@@ -83,7 +84,7 @@ class ObservedClusters(object):
         datenames = [date.strftime('%b %Y') for date in dates]
         xticks = [jd(date) for date in dates]
         i0 = datenames.index('Sep 2013')
-        i1 = datenames.index('Jun 2016')
+        i1 = datenames.index('Sep 2016')
         plt.xticks(xticks[i0:i1], datenames[i0:i1], rotation=45) 
         plt.xlim(xticks[i0], xticks[i1])   
         if show:
