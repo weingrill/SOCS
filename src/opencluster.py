@@ -167,7 +167,7 @@ class OpenCluster(object):
         import datetime
         from numpy import pi,empty
         
-        from astronomy import airmass
+        #from astronomy import airmass
         
         stella = ephem.Observer()
         #stella.lon, stella.lat = '13.104659', '52.404963' # Potsdam

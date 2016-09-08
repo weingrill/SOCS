@@ -23,6 +23,7 @@ def do_rot(transfer=False):
 
     ngc6940rot = OpenCluster(objectname='NGC 6940', uname='NGC 6940 rot', obsmode='rot')
     ngc6940rot.priority = 0.3
+    ngc6940rot.mode['pernight'] = 3
 
     ngc6940rot.title = 'SOCS'
     ngc6940rot.abstract = 'Photometric monitoring of open stellar clusters'
