@@ -10,7 +10,7 @@ discovered that the astrometry between our stars and Stetson's were off by
 0.3 arcseconds in both directions. By comparison with UCAC4, we found that our 
 astrometric positions are within 0.2 arcsec of the ones given by UCAC4, wheras 
 the positions from Stetson showed a shift. Since Stetson provided the plate 
-coordinates in x and y, a recalcuation of the plate solution was possible.
+coordinates in x and y, a recalculation of the plate solution was possible.
 
 '''
 import config
@@ -139,11 +139,33 @@ VALUES ('%(ID_1)s', %(RA)f, %(DEC)f, %(dX)f, %(dY)f, %(X)f, %(Y)f, %(B)f,%(sigma
                 else:
                     query = """UPDATE frames SET corr=NULL, good=FALSE WHERE objid ='%(objid)s';""" % params
                 self.wifsip.execute(query)
-                    
+
+    def calibratebv(self):
+        '''create view ngc6633match as 
+            SELECT ngc6633ref.starid, ngc6633.vmag, ngc6633.bmag, ngc6633ref.vmag "vmag_ref", ngc6633ref.bmag "bmag_ref" 
+            FROM ngc6633, ngc6633ref 
+            WHERE circle(ngc6633.coord,0) <@ circle(ngc6633ref.coord, 1.0/3600.0);'''
+        
+        from dbtable import DBTable
+        match = DBTable(self.wifsip, 'ngc6633match', condition = 'NOT vmag_ref IS NULL AND NOT bmag_ref IS NULL')
+        vmag = match['vmag']
+        bmag = match['bmag']
+        vmagref = match['vmag_ref']
+        bmagref = match['bmag_ref']
+        bvref = bmagref - vmagref
+        A = np.vstack([vmag, bvref, np.ones(len(vmag))]).T
+        vcorr = np.linalg.lstsq(A, vmagref)[0]
+        B = np.vstack([bmag, bvref, np.ones(len(bmag))]).T
+        bcorr = np.linalg.lstsq(B, bmagref)[0]
+        
+        print vcorr
+        print bcorr
+        
 
 stet = Stetson()
 #stet.readpos(filename=config.datapath+'NGC6633.pos')
 #stet.setucac4(filename=config.datapath+'Stetson_UCAC4.fit')
 #stet.fromfile('/work2/jwe/SOCS/NGC6633/data/NGC6633.fit')
 #stet.todatabase()        
-stet.calibrate()
+#stet.calibrate()
+stet.calibratebv()

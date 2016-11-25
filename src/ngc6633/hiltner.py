@@ -5,7 +5,6 @@ Created on Nov 24, 2016
 
 @author: Joerg Weingrill <jweingrill@aip.de>
 '''
-from astropy.units import cy
 
 with open('/work2/jwe/SOCS/NGC6633/data/hiltner.txt') as f:
     lines = f.readlines()
@@ -89,10 +88,6 @@ for n, cstr in [(28, '18 26 47 +06 30.3'),
     refarray.append((n,c.ra.deg, c.dec.deg))  
 
 ref = np.array(refarray, dtype = [('number', int), ('R.A.', float), ('Dec', float)])
-import matplotlib.pyplot as plt
-#plt.plot(hilt[:,1], hilt[:,2],'o')
-#plt.plot(hilt['x'], hilt['y'],'o')
-#plt.show()
 
 ns = ref['number']
 xs = hilt['x'][ns-1]
