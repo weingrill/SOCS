@@ -11,7 +11,7 @@ def avg(jid, rvs, errs):
     rvs = np.array(rvs)
     errs = np.array(errs)
     wghts = 1./errs
-    print 'J%d %.1f %.1f' % (jid, np.average(rvs, weights=wghts), np.linalg.norm(errs) )
+    #print 'J%d %.1f %.1f' % (jid, np.average(rvs, weights=wghts), np.linalg.norm(errs) )
     
     return np.average(rvs, weights=wghts), np.linalg.norm(errs) 
 
@@ -32,16 +32,29 @@ avg(103, [-23.7, -30.0], [2.2, 2.0])
 with open('/work2/jwe/SOCS/NGC6633/data/jeffries2002.txt') as f:
     lines = f.readlines()
 
+from astropy import units as u
+from astropy.coordinates import SkyCoord  # @UnresolvedImport
+
+
 jeffriesdb = {}
 for l in lines[1:]:
     ls = l.split()
     #Ident rh rm rs dd dm ds V B-V V-I RV RVerr
     jid = int(ls[0].lstrip('J'))
     rh,rm,rs,dd,dm,ds,v,bv,vi = ls[1:10]
+    
+    
+    starcoordinates =  SkyCoord('%s %s %s %s %s %s' %(rh,rm,rs,dd,dm,ds), unit=(u.hourangle, u.deg))    
+    
     rv = float(ls[10])
     rverr = float(ls[11])
     if not jid in jeffriesdb:
-        jeffriesdb[jid] = {'rv':[rv], 'rverr': [rverr]}
+        jeffriesdb[jid] = {'ra': starcoordinates.ra.deg,
+                           'dec': starcoordinates.dec.deg,
+                           'V': float(v),
+                           'B-V': float(bv),
+                           'V-I': float(vi),
+                           'rv':[rv], 'rverr': [rverr]}
     else:
         jeffriesdb[jid]['rv'].append(rv)
         jeffriesdb[jid]['rverr'].append(rverr)
@@ -49,4 +62,4 @@ for l in lines[1:]:
 for j in jeffriesdb:
     rv, rverr = avg(j, jeffriesdb[j]['rv'], jeffriesdb[j]['rverr'])
     #print j, rv, rverr
-#print jeffriesdb
+print jeffriesdb
