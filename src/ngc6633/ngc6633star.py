@@ -1,0 +1,193 @@
+'''
+Created on Jul 18, 2014
+
+@author: Joerg Weingrill <jweingrill@aip.de>
+'''
+
+import config
+import logging
+logging.basicConfig(filename=config.projectpath+'m48star.log', 
+                    format='%(asctime)s %(levelname)s %(message)s',
+                    level=logging.INFO)
+logger = logging.getLogger('NGC6633 analysis')
+
+class LightCurve(object):
+    """
+    Lightcurve object for NGC6633
+    fetch lightcurve either from db or from file.
+    ability to store lightcurve to file
+    """
+    def __init__(self, starid):
+        self.starid = starid
+        self.fromfile()
+
+    def fromfile(self, filename=None):
+        """
+        loads the lightcurve from a file.
+        if the filename is not given it is assembled from the starid
+        """
+        import numpy as np
+        
+        if filename is None:
+            filename = config.lightcurvespath+self.starid+'.dat'
+        logger.info('load file %s' % filename)
+        self.hjd, self.mag, self.err = np.loadtxt(filename, unpack = True)
+        
+        logger.info('%d datapoints' % len(self.hjd))
+        
+        return (self.hjd, self.mag, self.err)
+
+    def tofile(self, filename=None):
+        """
+        stores the lightcurve to a file
+        """
+        import numpy as np
+        if filename is None:
+            filename = config.lightcurvespath+self.starid+'.dat'
+            
+        a = np.column_stack((self.hjd,self.mag,self.err))
+        np.savetxt(filename, a, fmt='%.6f %.3f %.4f')        
+
+    def rebin(self, interval = 512./86400., medianbins=False):
+        """
+        rebin to new interval using the mean of each bin
+        interval determines the length of each bin
+        medianbins calculates the median in each bin otherwise the mean is taken
+        """
+        from numpy import seterr, zeros, isnan, compress, arange, mean
+        data = self.hjd
+        # ...+interval so that the last bin includes the last epoch
+        bins = arange(self.hjd[0], self.hjd[-1]+interval, interval)
+        nbins = len(bins)-1
+        t = zeros(nbins)
+        f = zeros(nbins)
+        # adopted from Ian's Astro-Python Code v0.3
+        # http://www.mpia-hd.mpg.de/homes/ianc/python/_modules/tools.html
+        # def errxy()
+        idx = [[data.searchsorted(bins[i]), \
+                data.searchsorted(bins[i+1])] for i in range(nbins)]
+        seterr(invalid='ignore')
+        for i in range(nbins):
+            f[i] = mean(self.mag[idx[i][0]:idx[i][1]])
+            t[i] = mean(self.hjd[idx[i][0]:idx[i][1]])
+                
+        seterr(invalid='warn')
+        valid = ~isnan(t)
+        self.mag = compress(valid,f)
+        self.hjd = compress(valid,t)
+        
+    def sigma_clip(self):
+        from functions import sigma_clip
+        self.hjd, self.mag = sigma_clip(self.hjd, self.mag)
+
+    def detrend(self, degree = 1):
+        """
+        detrend the lightcurve with a polynomial of the order degree
+        """
+        from numpy import polyfit, polyval
+        par = polyfit(self.hjd, self.mag, degree)
+        self.mag -= polyval(par, self.hjd)
+        
+    def pdm(self, minperiod = None, maxperiod=None, step = None):
+        """
+        returns the phase dispersion minimization
+        """
+        from pdm import pdm
+        import numpy as np
+        
+        if maxperiod is None:
+            maxperiod = (self.hjd[-1]-self.hjd[0])/2.0
+        
+        if minperiod is None:
+            minperiod = np.mean(abs(self.hjd-np.roll(self.hjd,1)))
+        if step is None:
+            step = 1/(2*(self.hjd[-1]-self.hjd[0]))
+        pdm_periods, pdm_thetas = pdm(self.hjd, self.mag, 0.1, maxperiod, 0.02)
+        return pdm_periods, pdm_thetas
+    
+    def phase(self, period):
+        """
+        returnes the lightcurve phased at the given period
+        """
+        from functions import phase
+        tp, yp = phase(self.hjd, self.mag, period)
+        return tp, yp
+
+
+
+    @property
+    def data(self):
+        return self.hjd, self.mag
+    
+
+class NGC6633Star(dict):
+    '''
+    class that interfaces the ngc6633stars table on wifsip database
+    '''
+    def __init__(self, starid, tab= None):
+        from datasource import DataSource
+        self.wifsip = DataSource(database=config.dbname, user=config.dbuser, host=config.dbhost)
+        if starid is None:
+            self.starid = self._staridfromtab(tab)
+        else:
+            self.starid = starid
+        
+        if '%' in self.starid:
+            self.starid = self['starid']
+    
+    def _staridfromtab(self, tab):       
+        result = self.wifsip.query("""SELECT starid 
+        FROM ngc6633 
+        WHERE tab = %d;""" % tab)
+        return result[0][0]
+
+    def keys(self):
+        query = """SELECT column_name, data_type, character_maximum_length
+        FROM INFORMATION_SCHEMA.COLUMNS WHERE table_name = 'ngc6633';"""
+        result = self.wifsip.query(query)
+        keys = [r[0] for r in result]
+        return keys
+    
+    def values(self):
+        if '%' in self.starid:
+            query = """SELECT * from ngc6633 where starid like '%s'""" % self.starid
+        else:
+            query = """SELECT * from ngc6633 where starid = '%s'""" % self.starid
+        result = self.wifsip.query(query)
+        values = [r for r in result[0]]
+        if '%' in self.starid:
+            self.starid=values[0]
+        return values
+
+    def __setitem__(self, key, value):
+        if value is None:
+            query = """UPDATE ngc6633 
+            SET %s=NULL 
+            WHERE starid='%s';""" % (key, self.starid)
+        else:
+            if type(value) is str:
+                value = "'%s'" % value            
+            query = """UPDATE ngc6633 
+            SET %s=%s 
+            WHERE starid='%s';""" % (key, str(value), self.starid)
+        self.wifsip.execute(query)
+        
+    def __getitem__(self, key):
+        result = self.wifsip.query("""SELECT %s 
+        FROM ngc6633 
+        WHERE starid like '%s';""" % (key, self.starid))
+        return result[0][0]    
+
+    def lightcurve(self):
+        return LightCurve(self.starid)
+    
+    def cleanspectrum(self):
+        #20140305A-0003-0017#359 <-- starid
+        #       6A-0097-0013#1648.ncfile <-- filename
+        #01234567
+        from numpy import loadtxt
+        filename = config.datapath+'clean/%s.ncfile' % self.starid[7:]
+        a = loadtxt(filename)
+        freq = a[:1600,0]
+        amp = a[:1600,1]
+        return freq, amp
