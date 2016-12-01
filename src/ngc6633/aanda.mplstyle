@@ -9,12 +9,14 @@ ytick.labelsize : 	8
 figure.figsize : 	3.54, 3.54
 savefig.dpi : 		300
 savefig.format : 	pdf    														# png, ps, pdf, svg
-font.family: 		'sans-serif'
+font.family: 		sans-serif
 axes.linewidth : 	0.2
 xtick.major.size : 	-2
 ytick.major.size : 	-2
 
 legend.fontsize : 	6
+legend.numpoints :	1
+legend.scatterpoints : 1
 
 #grid False by default, but this affects the grid if turned on
 grid.color : 		k		   													# grid color
