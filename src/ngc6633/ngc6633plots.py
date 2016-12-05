@@ -31,7 +31,7 @@ class NGC6633Plots(object):
         self.getstars()
         self.rows = 7
         self.columns = 3
-        self.age = 10**8.629/1e6 # in Myr from Webda
+        self.age = 600 # from Jeffries 2002
         self.ebv = 0.165 # from Jeffries 2002
         self.dm = 7.77 # from Jeffries 2002
 
@@ -355,46 +355,49 @@ class NGC6633Plots(object):
             plt.savefig(config.plotpath+'ngc6633_map.pdf', transparent=True)
             plt.savefig(config.plotpath+'ngc6633_map.eps', transparent=True)
 
-    def plot_cmd(self, show=False, mark_active=False):
+    def plot_cmd(self, show=False, mark_active=False, isochrone=True):
         from dbtable import DBTable
-        
+        vc = [ 0.98976977,  0.01785897,  0.07519376]
+        bc = [ 0.99106353,  0.01346018,  0.07998822]
+
         alls = DBTable(self.wifsip, 'ngc6633', condition='NOT bv is NULL AND vmag<20')
         good = DBTable(self.wifsip, 'ngc6633', condition='good')
         members = DBTable(self.wifsip, 'ngc6633', condition='member')
         #prov = DBTable(self.wifsip, 'ngc6633', condition='provisional')
         
-        alls['vmag']
+        vmag = vc[0]*alls['vmag'] + vc[1]*alls['bv'] + vc[2]
+        bmag = bc[0]*alls['bmag'] + bc[1]*alls['bv'] + bc[2]
+        bv = bmag - vmag
         
         plt.style.use('aanda.mplstyle')
-        
-        iso_v, iso_bv = self.load_isochrone() 
-        plt.plot(iso_bv-self.ebv, iso_v, 'g', alpha=0.3, lw=5.0,label='500 Myr iso')
+        suffix = ''
+        if isochrone:
+            print 'Av = %f' % (3.1*self.ebv)
+            iso_v, iso_bv = self.load_isochrone() 
+            plt.plot(iso_bv+self.ebv, iso_v+self.dm+(3.1*self.ebv), 'b', alpha=0.3, lw=5.0,label='600 Myr iso') #
+            suffix = suffix + '_iso'
 
-        plt.scatter(alls['bv'], alls['vmag'], edgecolor='none', alpha=0.75, s=2, c='k')
+        plt.scatter(bv, vmag, edgecolor='none', alpha=0.75, s=2, c='k')
         
         if mark_active:
             plt.scatter(good['bv'], good['vmag'], marker='o',edgecolor='r', facecolor='r', s=20, label='rotators')
+            suffix = suffix + '_active'
         
         plt.scatter(members['bv'], members['vmag'], marker='o', edgecolor='g', facecolor='none', s=20, label='members')
             
-        plt.legend()
+        plt.legend(loc='lower left')
         plt.title('NGC6633 Color Magnitude Diagram')
         plt.ylim(20.0, 7.0)
         plt.xlim(0.0, 1.7)
-        plt.xlabel('(B - V)')
+        plt.xlabel('B - V')
         plt.ylabel('V [mag]')
         plt.minorticks_on()
         plt.grid()
         if show:
             plt.show()
         else:
-            if mark_active:
-                plt.savefig(config.plotpath+'ngc6633cmd_active.eps')
-                plt.savefig(config.plotpath+'ngc6633cmd_active.pdf')
-                plt.savefig(config.plotpath+'ngc6633cmd_active.png', dpi=300)
-            else:
-                plt.savefig(config.plotpath+'ngc6633cmd.eps')
-                plt.savefig(config.plotpath+'ngc6633cmd.pdf')
+            plt.savefig(config.plotpath+'ngc6633cmd%s.eps' % suffix)
+            plt.savefig(config.plotpath+'ngc6633cmd%s.pdf' % suffix)
         plt.close()
 
     def plot_cpd(self, show=False, gyrochrone=False):
@@ -442,11 +445,9 @@ class NGC6633Plots(object):
 
     def load_isochrone(self):
         from numpy import loadtxt
-        isofile = config.datapath+'0p500Gyr_FeH0p0_Y0p277_AMLTsol.iso'
-        a = loadtxt(isofile)
-        iso_mv = a[:,5]
-        iso_bv = a[:,6]
-        return iso_mv+self.dm, iso_bv
+        isofile = config.datapath+'yapsi_w_X0p70322_Z0p01877_600Myr.dat'
+        mass, logT, logL, logg, Mv, ub, bv, vr, vi = loadtxt(isofile, unpack=True)
+        return Mv, bv
     
 
 if __name__ == '__main__':

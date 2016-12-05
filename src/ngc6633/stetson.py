@@ -141,21 +141,23 @@ VALUES ('%(ID_1)s', %(RA)f, %(DEC)f, %(dX)f, %(dY)f, %(X)f, %(Y)f, %(B)f,%(sigma
                 self.wifsip.execute(query)
 
     def calibratebv(self):
-        '''create view ngc6633match as 
+        '''drop view ngc6633match;
+        create view ngc6633match as 
             SELECT ngc6633ref.starid, ngc6633.vmag, ngc6633.bmag, ngc6633ref.vmag "vmag_ref", ngc6633ref.bmag "bmag_ref" 
             FROM ngc6633, ngc6633ref 
             WHERE circle(ngc6633.coord,0) <@ circle(ngc6633ref.coord, 1.0/3600.0);'''
         
         from dbtable import DBTable
-        match = DBTable(self.wifsip, 'ngc6633match', condition = 'NOT vmag_ref IS NULL AND NOT bmag_ref IS NULL')
+        match = DBTable(self.wifsip, 'ngc6633match', condition = 'NOT vmag_ref IS NULL AND NOT bmag_ref IS NULL AND vmag>12')
         vmag = match['vmag']
         bmag = match['bmag']
+        bv= bmag - vmag
         vmagref = match['vmag_ref']
         bmagref = match['bmag_ref']
         bvref = bmagref - vmagref
-        A = np.vstack([vmag, bvref, np.ones(len(vmag))]).T
+        A = np.vstack([vmag, bv, np.ones(len(vmag))]).T
         vcorr = np.linalg.lstsq(A, vmagref)[0]
-        B = np.vstack([bmag, bvref, np.ones(len(bmag))]).T
+        B = np.vstack([bmag, bv, np.ones(len(bmag))]).T
         bcorr = np.linalg.lstsq(B, bmagref)[0]
         
         print vcorr
