@@ -83,11 +83,13 @@ class OpenCluster(object):
         
         obsmodes = {'BVI': {'ExposureTime':     24.0,
                             'ExposureIncrease': '1,5,25,1,5,25,1,3,9',
-                            'FilterSequence':   'B,B,B,V,V,V,I,I,I'
+                            'FilterSequence':   'B,B,B,V,V,V,I,I,I',
+                            'pernight':         1
                             },
                     'BVR': {'ExposureTime':     24.0,
                             'ExposureIncrease': '1,5,25,1,5,25,1,5,25',
-                            'FilterSequence':   'B,B,B,V,V,V,R,R,R'
+                            'FilterSequence':   'B,B,B,V,V,V,R,R,R',
+                            'pernight':         1
                             },
                     
                     'UBVRI': {'ExposureTime':    24.0,
@@ -100,6 +102,7 @@ class OpenCluster(object):
                             'ExposureIncrease': '1,1,1,1,5,5,5,5,25,25,25,25',
                             'FilterSequence':   'u,v,b,y,u,v,b,y,u,v,b,y',
                             'MoonDistance.Min': 15,
+                            'AirmassTarget.Max':3.0,
                             'pernight':         1
                             },
                     
@@ -107,6 +110,7 @@ class OpenCluster(object):
                             'ExposureIncrease': '5,25,5,25,5,25,5,25,5,25,5,25',
                             'FilterSequence':   'b,b,y,y,hbw,hbw,hbn,hbn,haw,haw,han,han',
                             'MoonDistance.Min': 15,
+                            'AirmassTarget.Max':3.0,
                             'pernight':         1
                             },
                     
@@ -126,7 +130,7 @@ class OpenCluster(object):
         self.mode['zerofraction'] = 1.0/24.0                                    
         self.mode['impact']       = 1.0
         self.mode['mode']         = 'Clusters'
-        self.mode['pernight']     = 2 
+        self.mode['pernight']     = 1 
         
         # get the observation parameters depending on the observation mode
         obsparams = obsmodes[obsmode]
