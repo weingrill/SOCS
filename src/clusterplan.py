@@ -20,8 +20,9 @@ class ClusterPlan(object):
         the result of the query is stored in the data property, which needs to be improved
         '''
         from datasource import DataSource
-        from math import log10
         
+        '''
+        from math import log10
         criteria = {'minage': log10(125e6),
             'maxage': log10(2600e6),
             'maxebv': 0.31,
@@ -30,16 +31,17 @@ class ClusterPlan(object):
             'mindiam': 10,
             'maxdiam': 80}
         
+        query = """SELECT name,ra,dec,diam,d,ebv,logage from clusters 
+            WHERE ((diam<=%(maxdiam)d and diam>=%(mindiam)d) or diam IS NULL) 
+            AND logage>=%(minage)f and logage<=%(maxage)f
+            AND dec>=%(mindec)f
+            AND (name LIKE 'NGC%%' OR name LIKE 'IC%%')
+            AND (ebv <= %(maxebv)f OR ebv IS NULL)
+            AND (d <= %(maxd)d or d IS NULL)
+            AND not observed
+            order by ra""" % criteria
+        '''
         self.wifsip = DataSource(database='stella', user='stella', host='pera.aip.de')
-        #query = """SELECT name,ra,dec,diam,d,ebv,logage from clusters 
-        #    WHERE ((diam<=%(maxdiam)d and diam>=%(mindiam)d) or diam IS NULL) 
-        #    AND logage>=%(minage)f and logage<=%(maxage)f
-        #    AND dec>=%(mindec)f
-        #    AND (name LIKE 'NGC%%' OR name LIKE 'IC%%')
-        #    AND (ebv <= %(maxebv)f OR ebv IS NULL)
-        #    AND (d <= %(maxd)d or d IS NULL)
-        #    AND not observed
-        #    order by ra""" % criteria
             
         query = """SELECT name,ra,dec,diam,d,ebv,logage 
             FROM clusters
@@ -153,7 +155,7 @@ class ClusterPlan(object):
         import numpy as np
         import matplotlib.pyplot as plt
         from tools import log
-        fig = plt.figure(figsize=(29.6/2.54, 21./2.54))
+        _ = plt.figure(figsize=(29.6/2.54, 21./2.54))
         darkhours = np.zeros(365)
         for c in self.data:
             print c['name']
@@ -167,7 +169,7 @@ class ClusterPlan(object):
                 hours[day] = t
                 if darkhours[day] == 0.0:
                     darkhours[day] = self.darktime(ephemdate) 
-                log('/work2/jwe/Projects/SOCS/data/obstime %(name)s.txt'% c, '%-20.20s %5.2f %5.2f %4.2f' % (ephemdate, t, darkhours[day], t/darkhours[day]))
+                log('/work2/jwe/SOCS/data/obstime %(name)s.txt'% c, '%-20.20s %5.2f %5.2f %4.2f' % (ephemdate, t, darkhours[day], t/darkhours[day]))
                 
             
             plt.plot(dates,hours, label=c['name'])
@@ -178,7 +180,7 @@ class ClusterPlan(object):
         plt.xlabel('date')
         
         plt.legend(loc=9, fontsize='small')
-        plt.savefig('/work2/jwe/Projects/SOCS/plots/clusterplan obstime.pdf')
+        plt.savefig('/work2/jwe/SOCS/plots/clusterplan obstime.pdf')
         #plt.show()
     
     def darktime(self, date):
