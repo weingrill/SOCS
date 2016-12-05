@@ -19,8 +19,8 @@ def do_rot(transfer=False):
     ngc1528rot.abstract = 'Photometric monitoring of open stellar clusters'
     ngc1528rot_subframes = ngc1528rot.plan_wifsip(nfields=4)
     ngc1528rot_group = ClusterGroup(ngc1528rot)
-    ngc1528rot_group.startdate =  datetime.datetime(2016, 7, 16) 
-    ngc1528rot_group.enddate =  datetime.datetime(2017, 4, 14)
+    ngc1528rot_group.startdate =  datetime.datetime(2017, 7, 16) 
+    ngc1528rot_group.enddate =  datetime.datetime(2018, 4, 14)
     
     for sf in ngc1528rot_subframes:
         print sf.uname, sf.duration
