@@ -396,7 +396,6 @@ class NGC6633Plots(object):
         if show:
             plt.show()
         else:
-            plt.savefig(config.plotpath+'ngc6633cmd%s.eps' % suffix)
             plt.savefig(config.plotpath+'ngc6633cmd%s.pdf' % suffix)
         plt.close()
 
@@ -436,17 +435,15 @@ class NGC6633Plots(object):
             plt.show()
         else:
             if gyrochrone:
-                plt.savefig(config.plotpath+'ngc6633cpd_gyro.eps')
                 plt.savefig(config.plotpath+'ngc6633cpd_gyro.pdf')
             else:
-                plt.savefig(config.plotpath+'ngc6633cpd.eps')
                 plt.savefig(config.plotpath+'ngc6633cpd.pdf')
         plt.close()
 
     def load_isochrone(self):
-        from numpy import loadtxt
-        isofile = config.datapath+'yapsi_w_X0p70322_Z0p01877_600Myr.dat'
-        mass, logT, logL, logg, Mv, ub, bv, vr, vi = loadtxt(isofile, unpack=True)
+        from numpy import genfromtxt
+        isofile = config.datapath+'yapsi_l_X0p703812_Z0p016188_600Myr.dat'
+        Mv, bv = genfromtxt(isofile, usecols=[5,7], unpack=True)
         return Mv, bv
     
 
@@ -476,6 +473,7 @@ if __name__ == '__main__':
     if args.map: ngc6633plots.plot_map(show=args.show)
     if args.cmd: 
         ngc6633plots.plot_cmd(show=args.show)
+        ngc6633plots.plot_cmd(show=args.show, isochrone=False)
         ngc6633plots.plot_cmd(show=args.show, mark_active=True)
     if args.cpd: 
         ngc6633plots.plot_cpd(show=args.show)
