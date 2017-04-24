@@ -22,15 +22,15 @@ def do_rot(transfer=False):
     import datetime
 
     ngc6940rot = OpenCluster(objectname='NGC 6940', uname='NGC 6940 rot', obsmode='rot')
-    ngc6940rot.priority = 0.3
-    ngc6940rot.mode['pernight'] = 3
+    ngc6940rot.priority = 0.5
+    ngc6940rot.mode['pernight'] = 6
 
     ngc6940rot.title = 'SOCS'
     ngc6940rot.abstract = 'Photometric monitoring of open stellar clusters'
     ngc6940rot_subframes = ngc6940rot.plan_wifsip(nfields=4)
     ngc6940rot_group = ClusterGroup(ngc6940rot)
-    ngc6940rot_group.startdate =  datetime.datetime(2016, 7, 15) 
-    ngc6940rot_group.enddate =  datetime.datetime(2016, 12, 29)
+    ngc6940rot_group.startdate =  datetime.datetime(2017, 4, 15) 
+    ngc6940rot_group.enddate =  datetime.datetime(2017, 12, 29)
     
     for sf in ngc6940rot_subframes:
         print sf.uname, sf.duration
