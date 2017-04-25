@@ -45,7 +45,7 @@ class ClusterPlan(object):
             
         query = """SELECT name,ra,dec,diam,d,ebv,logage 
             FROM clusters
-            WHERE name in ('NGC 1528', 'NGC 2281', 'NGC 6709', 'NGC 6940')"""
+            WHERE name in ('NGC 1528', 'NGC 2281', 'NGC 6940')"""
         result = self.wifsip.query(query)
         self.data = []
         for r in result:
@@ -155,11 +155,12 @@ class ClusterPlan(object):
         import numpy as np
         import matplotlib.pyplot as plt
         from tools import log
+        import datetime
         _ = plt.figure(figsize=(29.6/2.54, 21./2.54))
         darkhours = np.zeros(365)
         for c in self.data:
             print c['name']
-            date0 = ephem.Date('2016/1/1 00:00:00')
+            date0 = ephem.Date('2017/1/1 00:00:00')
             hours = np.zeros(365)
             dates = []
             for day in range(365):
@@ -175,10 +176,14 @@ class ClusterPlan(object):
             plt.plot(dates,hours, label=c['name'])
         plt.plot(dates, darkhours, 'k--')
         plt.grid()
-        plt.minorticks_on()
+        plt.yticks(np.arange(12))
         plt.ylabel('hours visible')
         plt.xlabel('date')
-        
+        xticks = [datetime.date(y, m, 1) for y in np.arange(2016, 2019) for m in range(1,13)]
+        xlabels = [month.strftime('%b') for month in xticks]
+        plt.xticks(xticks, xlabels)
+        plt.xlim(dates[0], dates[-1])
+        plt.title('clusterplan obstime')
         plt.legend(loc=9, fontsize='small')
         plt.savefig('/work2/jwe/SOCS/plots/clusterplan obstime.pdf')
         #plt.show()

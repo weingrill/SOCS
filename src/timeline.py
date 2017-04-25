@@ -25,13 +25,8 @@ class TimeLine(object):
         wifsip = DataSource(database='stella', 
                            user='stella', 
                            host='pera.aip.de')
-        #SELECT date_trunc('day', datesend- interval '12 hour') "datum", count(objid)
-        if target == 'M 67':
-            datelimit = "datesend < '2015-07-01'"
-        elif target == 'NGC 2281':
-            datelimit = "datesend > '2016-06-01'"
-        elif target == 'M 48':
-            datelimit = "datesend < '2014-06-01'"
+        if target == 'M 48':
+            datelimit = 'TRUE'#"datesend < '2014-06-01'"
         else:
             datelimit = 'TRUE'
         
@@ -48,25 +43,40 @@ class TimeLine(object):
         self.dates = [r[0] for r in result]
         self.count = [r[1] for r in result]
         
-        """base = self.dates[0]
-        datedelta = self.dates[-1] - self.dates[0]
-        numdays = datedelta.days+1
-        date_list = [base + datetime.timedelta(days=x) for x in range(0, numdays)]
-        counts = [0]*numdays
-        for i,d in enumerate(self.dates):
-            j = date_list.index(d)
-            c = self.count[i]
-            counts[j] = c
-            print i, d, j, c
+        todates = self.dates[1:] 
+        fromdates = self.dates[0:-1]
+        datedeltas = [todate - fromdate for todate, fromdate in zip(todates,fromdates)]
         
-        self.dates = date_list
-        self.count = counts
+        # find gaps larger than 10 days
+        offsets = [0]
+        for i,datedelta in enumerate(datedeltas):
+            if datedelta> datetime.timedelta(days=10):
+                offsets.append(i)
+                offsets.append(i+1)
+                
+        if i not in offsets:
+            offsets.append(i)        
         
-        for d, c in zip(self.dates, self.count):
-            print d, c
-        """
+        print offsets
         
-        self.count = np.cumsum(self.count)    
+        if len(offsets) == 2:
+            self.length = self.dates[-1] - self.dates[0]
+            start = 0
+            end = len(self.dates)
+        else:
+            self.length = self.dates[1] - self.dates[0]
+            for o1, o2 in zip(offsets[1:], offsets[:-1]):
+                length = self.dates[o1] - self.dates[o2] 
+                print length.days, self.dates[o1], self.dates[o2], np.sum(self.count[o2:o1]) 
+                if length.days > self.length.days and np.sum(self.count[o2:o1])>10:
+                    self.length = length
+                    start = o2
+                    end = o1
+        print start,end            
+        self.dates = self.dates[start:end]
+        self.count = self.count[start:end]    
+        self.cumsum = np.cumsum(self.count)
+        
         
     def plot(self, show=False):
         import matplotlib
@@ -76,9 +86,9 @@ class TimeLine(object):
         import datetime
         
         fig = plt.figure(figsize=(10,6))
-        plt.plot(self.dates, self.count, drawstyle='steps-mid')
+        plt.plot(self.dates, self.cumsum, drawstyle='steps-mid')
         fig.autofmt_xdate()
-        plt.title('%s (total: %d frames)' % (self.target, self.count[-1]))
+        plt.title('%s (usable: %d frames, %d days)' % (self.target, self.cumsum[-1], self.length.days))
         plt.grid(which='both')
         plt.ylabel('cumulative frames per night')
         xticks = [datetime.date(y, m, 1) for y in np.arange(2012, 2020) for m in range(1,13)]
