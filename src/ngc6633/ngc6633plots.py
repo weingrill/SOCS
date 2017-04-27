@@ -440,6 +440,83 @@ class NGC6633Plots(object):
                 plt.savefig(config.plotpath+'ngc6633cpd.pdf')
         plt.close()
 
+#*******************************************************************************
+    def plot_cmpd(self, show=False, gyrochrone=False):
+        """
+        make a 3d plot of the cmd and the cpd
+        """
+        from dbtable import DBTable
+        from mpl_toolkits.mplot3d import Axes3D
+        import numpy as np
+        import matplotlib.pyplot as plt
+        
+        members = DBTable(self.wifsip, 'ngc6633', condition='member and period>0')
+        good = DBTable(self.wifsip, 'ngc6633', condition='good and period>0')
+        nonmembers = DBTable(self.wifsip, 'ngc6633', condition='NOT member and period>0')
+        
+        
+        import gyroage
+        from functions import logspace
+        
+        bvgyro = logspace(0.5, 1.5, num=100)
+        age = 550
+        P = gyroage.gyroperiod(bvgyro, age, version=2010)
+        
+        #plt.style.use('aanda.mplstyle')
+        
+#        if gyrochrone:
+#            plt.plot(bvgyro, P, color='b', label='%d Myr'% age)
+        
+#        plt.scatter(good['bv']-self.ebv, good['period'], marker='o',edgecolor='r', facecolor='r', s=20, label='rotators')
+#        plt.scatter(members['bv']-self.ebv, members['period'], marker='o',edgecolor='k', facecolor='r', s=20, label='members')
+#        plt.scatter(nonmembers['bv']-self.ebv, nonmembers['period'], marker='x',edgecolor='k', facecolor='k', s=20, label='nonmembers')
+
+
+        
+        fig = plt.figure()
+        ax = fig.gca(projection='3d')
+        
+        # Plot a sin curve using the x and y axes.
+        #x = np.linspace(0, 1, 100)
+        #y = np.sin(x * 2 * np.pi) / 2 + 0.5
+        #ax.plot(x, y, zs=0, zdir='z', label='curve in (x,y)')
+        iso_v, iso_bv = self.load_isochrone() 
+        
+        ax.plot(iso_bv+self.ebv, iso_v+self.dm+(3.1*self.ebv), zs=0, zdir='z', color='b', alpha=0.3, lw=5.0,label='600 Myr iso')     
+        ax.plot(bvgyro-self.ebv, np.ones(100)*7, P, color='b', label='%d Myr'% age)   
+        ax.scatter(good['bv']-self.ebv, good['vmag'], good['period'], marker='o',edgecolor='r', facecolor='r', s=20, label='rotators')
+        ax.scatter(members['bv']-self.ebv, members['vmag'], members['period'], marker='o',edgecolor='k', facecolor='r', s=20, label='members')
+        ax.scatter(nonmembers['bv']-self.ebv, nonmembers['vmag'],nonmembers['period'], marker='x',edgecolor='k', facecolor='k', s=20, label='nonmembers')
+        
+        for x,y,z in zip(good['bv']-self.ebv, good['vmag'], good['period']):
+            ax.plot([x,x,],[y,y],[0,z],'0.5')
+        
+        # Make legend, set axes limits and labels
+        #ax.legend()
+        ax.set_xlim(0.2, 1.6)
+        ax.set_ylim(20.0, 7.0)
+        ax.set_zlim(0.0, 13.0)
+        ax.set_xlabel('(B - V)$_0$')
+        ax.set_ylabel('V [mag]')
+        ax.set_zlabel('period [days]')
+        
+        # Customize the view angle so it's easier to see that the scatter points lie
+        # on the plane y=0
+        #ax.view_init(elev=20., azim=-35)
+        
+        #ax.set_title('NGC 6633 Color Period Diagram')
+        
+        if show:
+            plt.show()
+        else:
+            if gyrochrone:
+                plt.savefig(config.plotpath+'ngc6633cmpd_gyro.pdf')
+            else:
+                plt.savefig(config.plotpath+'ngc6633cmpd.pdf')
+        #plt.close()
+
+
+
     def load_isochrone(self):
         from numpy import genfromtxt
         isofile = config.datapath+'yapsi_l_X0p703812_Z0p016188_600Myr.dat'
@@ -461,6 +538,7 @@ if __name__ == '__main__':
                         help='plot the map')
     parser.add_argument('-cmd', action='store_true', help='plot cmd')
     parser.add_argument('-cpd', action='store_true', help='plot cpd')
+    parser.add_argument('-cmpd', action='store_true', help='plot 3D cmpd')
     parser.add_argument('--show', action='store_true', 
                         help='show plots instead of saving to file')
 
@@ -478,4 +556,7 @@ if __name__ == '__main__':
     if args.cpd: 
         ngc6633plots.plot_cpd(show=args.show)
         ngc6633plots.plot_cpd(show=args.show, gyrochrone=True)
+        
+    if args.cmpd:
+        ngc6633plots.plot_cmpd(show=args.show, gyrochrone=True)
     
