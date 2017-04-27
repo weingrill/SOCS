@@ -7,9 +7,9 @@ Updated May 20, 2016
 import config
 from opencluster import OpenCluster
 from clustergroup import ClusterGroup
+import datetime
 
 def do_rot(transfer=False):
-    import datetime
 
     ngc2281rot = OpenCluster(objectname='NGC 2281', uname='NGC 2281 rot', obsmode='rot')
     
@@ -30,5 +30,23 @@ def do_rot(transfer=False):
     if transfer: 
         ngc2281rot_group.transfer()
 
+def do_phot(transfer=False):
+
+    ngc2281phot = OpenCluster(objectname = 'NGC 2281', obsmode='UBVRI')
+    ngc2281phot.title = 'SOCS'
+    ngc2281phot.startdate = datetime.datetime(2017, 4, 26) 
+    ngc2281phot.enddate = datetime.datetime(2017, 5, 13) 
+    
+    ngc2281phot.abstract = 'Photometric monitoring of open stellar clusters'
+    ngc2281phot_subframes = ngc2281phot.plan_wifsip(nfields=5)
+    for sf in ngc2281phot_subframes:
+        print sf.uname, sf.duration
+        sf.tofile(config.projectpath)
+        if transfer: 
+            sf.transfer()
+    
+
+
 if __name__ == '__main__':
-    do_rot(transfer=True)
+    #do_rot(transfer=True)
+    do_phot(transfer=False)
