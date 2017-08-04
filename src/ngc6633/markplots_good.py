@@ -27,7 +27,7 @@ if __name__ == '__main__':
     from datasource import DataSource
     
     wifsip = DataSource(database=config.dbname, user=config.dbuser, host=config.dbhost)
-    goodpdfs = glob(config.plotpath+'good2/*.pdf')
+    goodpdfs = glob(config.plotpath+'good/*.pdf')
     for p in goodpdfs:
         #print p
         objid = filename2starid(p)

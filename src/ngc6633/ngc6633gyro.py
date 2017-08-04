@@ -11,11 +11,13 @@ if __name__ == '__main__':
     from gyroage import gyroperiod
     from numpy import linspace
     #bv = linspace(0.0, 1.6, num=50)
-    bv = linspace(0.473, 1.6, num=100)
+    bv = linspace(0.35, 1.6, num=100)
     
-    P11 = gyroperiod(bv, 400)
-    P34 = gyroperiod(bv, 400, P0=3.4)
-    P01 = gyroperiod(bv, 400, P0=0.1)
+    age = 600
+    
+    P11 = gyroperiod(bv, age)
+    P34 = gyroperiod(bv, age, P0=3.4)
+    P01 = gyroperiod(bv, age, P0=0.1)
     
     
     
