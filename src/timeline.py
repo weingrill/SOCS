@@ -26,7 +26,9 @@ class TimeLine(object):
                            user='stella', 
                            host='pera.aip.de')
         if target == 'M 48':
-            datelimit = 'TRUE'#"datesend < '2014-06-01'"
+            datelimit = 'TRUE'
+        elif target == 'NGC 6940':
+            datelimit = "datesend > '2017-01-01'"
         else:
             datelimit = 'TRUE'
         
