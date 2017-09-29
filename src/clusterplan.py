@@ -12,15 +12,49 @@ class ClusterPlan(object):
     '''
 
 
-    def __init__(self):
+    def __init__(self, clusterlist = None):
         '''
         Constructor:
         
-        defines the criteria for the cluster selection and queries the database
-        the result of the query is stored in the data property, which needs to be improved
+        builds list of clusters either by criteria or by list given in clusterlist
         '''
         from datasource import DataSource
         
+        self.wifsip = DataSource(database='stella', user='stella', host='pera.aip.de')
+        
+        if clusterlist is None:
+            query = self.selectclusters()
+        else:
+            if type(clusterlist)==str:
+                clusterstring = "'%s'" % clusterlist
+            else:    
+                clusterstring = ', '.join(["'%s'" % cluster for cluster in clusterlist])
+            query = """SELECT name,ra,dec,diam,d,ebv,logage 
+                FROM clusters
+                WHERE name in (%s)""" % clusterstring
+        print clusterlist, query
+        
+        result = self.wifsip.query(query)
+        print '%d clusters found' % len(result)
+        if len(result)==0:
+            raise ValueError('no clusters meet the criteria')
+        
+        self.data = []
+        for r in result:
+            rec = {}
+            rec['name'] = r[0]
+            rec['ra'] = float(r[1])
+            rec['dec'] = float(r[2])
+            rec['diam'] = int(r[3])
+            rec['d'] = int(r[4])
+            rec['ebv'] = float(r[5])
+            rec['age'] = round(10**float(r[6])/1e6,-1) # convert to Myrs
+            self.data.append(rec)
+    
+    def selectclusters(self):
+        '''
+        defines the criteria for the cluster selection and queries the database
+        the result of the query is stored in the data property, which needs to be improved
         '''
         from math import log10
         criteria = {'minage': log10(125e6),
@@ -40,24 +74,8 @@ class ClusterPlan(object):
             AND (d <= %(maxd)d or d IS NULL)
             AND not observed
             order by ra""" % criteria
-        '''
-        self.wifsip = DataSource(database='stella', user='stella', host='pera.aip.de')
-            
-        query = """SELECT name,ra,dec,diam,d,ebv,logage 
-            FROM clusters
-            WHERE name in ('NGC 752', 'NGC 2682')"""
-        result = self.wifsip.query(query)
-        self.data = []
-        for r in result:
-            rec = {}
-            rec['name'] = r[0]
-            rec['ra'] = float(r[1])
-            rec['dec'] = float(r[2])
-            rec['diam'] = int(r[3])
-            rec['d'] = int(r[4])
-            rec['ebv'] = float(r[5])
-            rec['age'] = round(10**float(r[6])/1e6,-1)
-            self.data.append(rec)
+        
+        return query
     
     def _eph2dt(self, ephemdate):
         """converts ephem.Date to datetime"""
@@ -194,7 +212,7 @@ class ClusterPlan(object):
         izana = ephem.Observer()
         if date is None:
             date = ephem.Date('2015/8/2 00:00:00')
-        izana.date = date #'2015/03/19 00:00:00'
+        izana.date = date 
         izana.lat = '28.301195'
         izana.lon = '-16.509209'
         izana.horizon = '-0:34'
@@ -289,10 +307,11 @@ if __name__ == '__main__':
     parser.add_argument('-obstime', action='store_true', help='plot observation schedule')
     parser.add_argument('-list', action='store_true', help='list clusters')
     parser.add_argument('-calc', action='store_true', help='calculate exposure time')
+    parser.add_argument('clusters', help='clusters to calculate')
     
     args = parser.parse_args()
     
-    cp = ClusterPlan()
+    cp = ClusterPlan(clusterlist = args.clusters)
     if args.plot: cp.plot()
     if args.obstime: cp.obstime()
     if args.list: cp.list()
