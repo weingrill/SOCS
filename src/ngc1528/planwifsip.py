@@ -9,10 +9,10 @@ Updated May 20, 2016
 import config
 from opencluster import OpenCluster
 from clustergroup import ClusterGroup
+import datetime
+
 
 def do_rot(transfer=False):
-    import datetime
-
     ngc1528rot = OpenCluster(objectname='NGC 1528', uname='NGC 1528 rot', obsmode='rot')
     
     ngc1528rot.title = 'SOCS'
@@ -33,9 +33,11 @@ def do_rot(transfer=False):
         ngc1528rot_group.transfer()
 
 def do_cmd(transfer=False):
-    ngc1528cmd = OpenCluster(objectname='NGC 1528', uname='NGC 1528', obsmode='BVR')
+    ngc1528cmd = OpenCluster(objectname='NGC 1528', obsmode='BVR')
     ngc1528cmd.title = 'SOCS'
     ngc1528cmd.abstract = 'Photometric monitoring of open stellar clusters'
+    ngc1528cmd.startdate =  datetime.datetime(2017, 9, 30) 
+    ngc1528cmd.enddate =  datetime.datetime(2017, 10, 20)
 
     ngc1528cmd_subframes = ngc1528cmd.plan_wifsip(nfields=5)
     ngc1528cmd_group = ClusterGroup(ngc1528cmd)
