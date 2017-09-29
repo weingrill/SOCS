@@ -238,7 +238,7 @@ class ClusterGroup():
             path = self.filepath
         source = os.path.join(path, self.filename)
         #xml goes dirctly to submit
-        target='sro@stella:/stella/home/www/uploads/weingrill/save/'
+        target='sro@habanero:/stella/home/www/uploads/weingrill/save/'
         time.sleep(1) # otherwise submit.jnlp gets confused
         print 'scp %s %s' % (source, target)
         call(['/usr/bin/scp', source, target])
