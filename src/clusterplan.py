@@ -45,7 +45,7 @@ class ClusterPlan(object):
             
         query = """SELECT name,ra,dec,diam,d,ebv,logage 
             FROM clusters
-            WHERE name in ('NGC 1528', 'NGC 2281', 'NGC 6940')"""
+            WHERE name in ('NGC 752', 'NGC 2682')"""
         result = self.wifsip.query(query)
         self.data = []
         for r in result:
@@ -224,7 +224,7 @@ class ClusterPlan(object):
         izana.horizon = '-0:34'
         #izana.elevation = 2096
         sun = ephem.Sun(izana)  # @UndefinedVariable
-        c = SkyCoord(cluster['ra'], cluster['dec'], 'icrs', unit=(u.deg, u.deg))  # @UndefinedVariable
+        c = SkyCoord(cluster['ra'], cluster['dec'], frame='icrs', unit=(u.deg, u.deg))  # @UndefinedVariable
         rastr = c.ra.to_string(unit=u.hour, sep='::') # @UndefinedVariable
         decstr = c.dec.to_string(unit=u.deg,sep='::') # @UndefinedVariable
         ephemstr = '%s,f|O,%s,%s, 5.,2000' % (cluster['name'],rastr,decstr)
