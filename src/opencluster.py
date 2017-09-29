@@ -79,22 +79,24 @@ class OpenCluster(object):
     def _setobsmode(self, obsmode):
         """
         sets sequence and mode parameters according to obsmode
+        V : I = 9.12 : 1
+        30,300,600 R = V * 2.754
         """
         
-        obsmodes = {'BVI': {'ExposureTime':     24.0,
-                            'ExposureIncrease': '1,5,25,1,5,25,1,3,9',
+        obsmodes = {'BVI': {'ExposureTime':     2.0,
+                            'ExposureIncrease': '3,30,300,2,20,200,1,10,100',
                             'FilterSequence':   'B,B,B,V,V,V,I,I,I',
                             'pernight':         1
                             },
-                    'BVR': {'ExposureTime':     24.0,
-                            'ExposureIncrease': '1,5,25,1,5,25,1,5,25',
+                    'BVR': {'ExposureTime':     3.0,
+                            'ExposureIncrease': '2,20,200,1,10,100,1,10,100',
                             'FilterSequence':   'B,B,B,V,V,V,R,R,R',
                             'pernight':         1
                             },
                     
-                    'UBVRI': {'ExposureTime':    24.0,
-                            'ExposureIncrease': '1,5,25,1,5,25,1,5,25,1,5,25,1,5,25',
-                            'FilterSequence':   'U,U,U,B,B,B,V,V,V,R,R,R,I,I,I',
+                    'UBV': {'ExposureTime':    2.0, # 
+                            'ExposureIncrease': '3,30,300,2,20,200,1,10,100',
+                            'FilterSequence':   'U,U,U,B,B,B,V,V,V',
                             'pernight':         1
                             },
                     
@@ -106,16 +108,16 @@ class OpenCluster(object):
                             'pernight':         1
                             },
                     
-                    'Hby': {'ExposureTime':     24.0,
-                            'ExposureIncrease': '5,25,5,25,5,25,5,25,5,25,5,25',
+                    'Hby': {'ExposureTime':     6.0,
+                            'ExposureIncrease': '1,10,1,10,5,50,10,100,5,50,10,100',
                             'FilterSequence':   'b,b,y,y,hbw,hbw,hbn,hbn,haw,haw,han,han',
                             'MoonDistance.Min': 15,
                             'AirmassTarget.Max':3.0,
                             'pernight':         1
                             },
                     
-                    'rot': {'ExposureTime':     24.0,
-                            'ExposureIncrease': '1,5,25',
+                    'rot': {'ExposureTime':     15.0, 
+                            'ExposureIncrease': '1,10,20',
                             'FilterSequence':   'V,V,R',
                             'pernight':         6 
                             }
@@ -375,7 +377,7 @@ class OpenCluster(object):
     
     @property
     def timeout(self):
-        """calculate timeout"""
+        """calculate timeout: obsolete after discussion with Th. Granzer"""
         return 0.0
         #return self.duration * self.fields * 1000.0
     
