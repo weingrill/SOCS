@@ -47,9 +47,9 @@ class ClusterGroup():
         self.zerofraction = opencluster.mode['zerofraction']
         self.duration = opencluster.duration
         
-        self.startdate = None
-        self.enddate = None
-        
+        self.startdate = opencluster.startdate
+        self.enddate = opencluster.enddate
+        assert(self.startdate<self.enddate)
         self.daughters = []
         
 
