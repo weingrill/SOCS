@@ -18,7 +18,7 @@ class ObservedClusters(object):
         Constructor
         '''
         from datasource import DataSource
-        from datetime import timedelta
+        #from datetime import timedelta
         wifsip = DataSource(database='stella', 
                            user='stella', 
                            host='pera.aip.de')
@@ -55,7 +55,7 @@ class ObservedClusters(object):
         #matplotlib.use('Agg')
         import matplotlib.pyplot as plt
         
-        fig = plt.figure(figsize=(25/2.54,18/2.54))
+        plt.figure(figsize=(25/2.54,18/2.54))
         #plt.plot_date(x=self.dates, y=self.count)
         #plt.title('%s (total: %d frames)' % (self.target, sum(self.count)))
         plt.title('Observed open clusters produced by SOCS/observed.py')
@@ -80,11 +80,11 @@ class ObservedClusters(object):
         from astronomy import jd
         import datetime
         
-        dates = [datetime.datetime(y, m, 01) for y in range(2013,2017) for m in range(1,13)]
+        dates = [datetime.datetime(y, m, 01) for y in range(2013,2018) for m in range(1,13)]
         datenames = [date.strftime('%b %Y') for date in dates]
         xticks = [jd(date) for date in dates]
         i0 = datenames.index('Sep 2013')
-        i1 = datenames.index('Sep 2016')
+        i1 = datenames.index('Dec 2017')
         plt.xticks(xticks[i0:i1], datenames[i0:i1], rotation=45) 
         plt.xlim(xticks[i0], xticks[i1])   
         if show:
