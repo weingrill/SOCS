@@ -51,13 +51,14 @@ class TimeLine(object):
         
         # find gaps larger than 10 days
         offsets = [0]
+        i = 0
         for i,datedelta in enumerate(datedeltas):
             if datedelta> datetime.timedelta(days=10):
                 offsets.append(i)
                 offsets.append(i+1)
                 
         if i not in offsets:
-            offsets.append(i)        
+            offsets.append(i)
         
         print offsets
         
