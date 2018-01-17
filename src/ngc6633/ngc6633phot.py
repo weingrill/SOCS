@@ -24,19 +24,19 @@ deleted  1249 stars:  679 remaining
 
 import config
 from datasource import DataSource
-from cairo._cairo import Matrix
+#from cairo._cairo import Matrix
 wifsip = DataSource(database=config.dbname, user=config.dbuser, host=config.dbhost)
 import matplotlib.pyplot as plt
 import numpy as np
 
 def fprint(s):
-    with open(config.datapath+'/ngc6633phot.log', 'at') as f:
+    with open(config.datapath+'/ngc6633phot.log', 'a') as f:
         f.write(s)
 
-def calibrate(objid, filtercol):
+def calibrate(objid, filtercolor):
     ffield = {'V': '"V"', 'B': '"B"', 'I': '"I"'}
     queryparams = {'objid': objid, 
-                   'ffield': ffield[filtercol]}
+                   'ffield': ffield[filtercolor]}
     query = """SELECT mag_isocor, magerr_isocor, %(ffield)s FROM phot, referencestars 
                 WHERE objid = '%(objid)s'
                 AND circle(phot.coord,0) <@ circle(referencestars.coord, 1.0/3600.0)
@@ -75,11 +75,18 @@ import pickle
 
 class Calibrate(object):
     
-    def __init__(self, filtercol):
-        if filtercol not in ['B','V']:
-            raise(ValueError,'Wrong filter color')
-        self.filtercol= filtercol
+    def __init__(self, filtercolor):
+        if filtercolor not in ['B','V']:
+            raise ValueError('Wrong filter color')
+        self.filtercol= filtercolor
         self.wifsip = DataSource(database=config.dbname, user=config.dbuser, host=config.dbhost)
+        self.mag = None
+        self.err = None
+        self.objids = None
+        self.refmag = None
+        self.starids = []
+        self.ra = None
+        self.dec = None
         
     def getreferencestars(self):
         query = 'SELECT starid, ra, dec, "B", "V" ' + \
@@ -129,10 +136,10 @@ class Calibrate(object):
                     WHERE object LIKE 'NGC 6633 BVI %%' AND filter='%(filtercol)s'
                     AND phot.objid = frames.objid
                     AND circle(phot.coord,0) <@ circle(POINT(%(ra)f,%(dec)f), 1.0/3600.0)
-                    AND flags < 4 AND mag_isocor>0""" % queryparams
+                    AND flags = 0 AND mag_isocor>0""" % queryparams
                 result = self.wifsip.query(query)
                 objids = [r[0] for r in result]
-                mags =  [r[1] for r in result]
+                #mags =  [r[1] for r in result]
                 starindex = self.starids.index(starid)
                 print starindex, starid, len(objids)
                 for objid, mag, err in result:
@@ -154,7 +161,6 @@ class Calibrate(object):
         np.save(config.datapath+newfilename, data)
             
     def array_toimage(self, matrix=None, filename=None):
-        from numpy import rint, isnan
         from PIL import Image  # @UnresolvedImport
         from functions import scaleto
         
@@ -166,10 +172,10 @@ class Calibrate(object):
         if filename is None:
             filename = 'mag%sarray.png'% self.filtercol
         
-        m1[isnan(m1)] = 0.0
+        m1[np.isnan(m1)] = 0.0
         simg = scaleto(m1,[0.0,255.0])
     
-        simg = rint(simg)
+        simg = np.rint(simg)
         simg = simg.astype('uint8')
         im = Image.fromarray(simg)
         
@@ -309,20 +315,20 @@ if __name__ == '__main__':
     exit()
     
     fprint('#objid filter expt field stars median std stars2 mean std2\n')
-    for filtercol in ['V', 'B']:
-        for expt in [60, 300]:
-            if filtercol == 'B': expt *=2
+    for main_filtercol in ['V', 'B']:
+        for expt in [60, 300]: # select distinct expt from frames where object like 'NGC 6633 BVI%';
+            if main_filtercol == 'B': expt *=2
             for field in ['C', 'NW', 'NE', 'SW', 'SE']:
-                queryparams = {'filtercol': filtercol, 
+                main_queryparams = {'filtercol': main_filtercol, 
                                'expt': str(expt),
                                'field': field}
-                query = "SELECT objid FROM frames " + \
-                        " WHERE object LIKE 'NGC 6633 BVI %(field)s' AND filter='%(filtercol)s' AND expt=%(expt)s;" % queryparams
+                main_query = "SELECT objid FROM frames " + \
+                        " WHERE object LIKE 'NGC 6633 BVI %(field)s' AND filter='%(filtercol)s' AND expt=%(expt)s;" % main_queryparams
                 #print query
-                objids = wifsip.query(query)
-                for objid in objids:
-                    print objid[0], filtercol, expt, field,
-                    fprint('%s %s %d %s ' % (objid[0], filtercol, expt, field))
-                    calibrate(objid[0], filtercol)
+                main_objids = wifsip.query(main_query)
+                for main_objid in main_objids:
+                    print main_objid[0], main_filtercol, expt, field,
+                    fprint('%s %s %d %s ' % (main_objid[0], main_filtercol, expt, field))
+                    calibrate(main_objid[0], main_filtercol)
                 
                 
