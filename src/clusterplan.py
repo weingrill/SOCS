@@ -1,10 +1,18 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 '''
 Created on Mar 19, 2015
 
 @author: Joerg Weingrill <jweingrill@aip.de>
 '''
+from datasource import DataSource
+import ephem
+from astropy.coordinates import SkyCoord  # @UnresolvedImport
+from astropy import units as u
+import numpy as np
+import matplotlib.pyplot as plt
+from tools import log
+import datetime
 
 class ClusterPlan(object):
     '''
@@ -18,7 +26,7 @@ class ClusterPlan(object):
         
         builds list of clusters either by criteria or by list given in clusterlist
         '''
-        from datasource import DataSource
+        
         
         self.wifsip = DataSource(database='stella', user='stella', host='pera.aip.de')
         
@@ -79,14 +87,12 @@ class ClusterPlan(object):
     
     def _eph2dt(self, ephemdate):
         """converts ephem.Date to datetime"""
-        import datetime
         return datetime.datetime.strptime( str(ephemdate), "%Y/%m/%d %H:%M:%S" )
 
     def plot(self):
         '''
         plots the milkyway density map and the selected clusters on the map.
         '''
-        import matplotlib.pyplot as plt
         from milkyway import MilkyWay
         plt.figure(figsize=(10.69, 7.27))
         mw = MilkyWay('/work2/jwe/tychomap.npy', magnitudes=True)
@@ -123,9 +129,6 @@ class ClusterPlan(object):
         """
         calculate the exposure for a solar like star
         """
-        import matplotlib.pyplot as plt
-        import numpy as np
-        
         isofile = '/home/jwe/data/iso_01.000_Gyr.dat'
         
         a = np.loadtxt(isofile)
@@ -169,12 +172,7 @@ class ClusterPlan(object):
         plt.show()
     
     def obstime(self):
-        import ephem
-        import numpy as np
-        import matplotlib.pyplot as plt
-        from tools import log
-        import datetime
-        _ = plt.figure(figsize=(29.6/2.54, 21./2.54))
+        plt.figure(figsize=(29.6/2.54, 21./2.54))
         darkhours = np.zeros(365)
         for c in self.data:
             print c['name']
@@ -207,8 +205,6 @@ class ClusterPlan(object):
         #plt.show()
     
     def darktime(self, date):
-        import ephem
-        
         izana = ephem.Observer()
         if date is None:
             date = ephem.Date('2015/8/2 00:00:00')
@@ -216,7 +212,7 @@ class ClusterPlan(object):
         izana.lat = '28.301195'
         izana.lon = '-16.509209'
         izana.horizon = '-0:34'
-        #izana.elevation = 2096
+        #kpno.elevation = 2096
         sun = ephem.Sun(izana)  # @UndefinedVariable
         
         #set astronomical dawn
@@ -228,10 +224,7 @@ class ClusterPlan(object):
         return darktime
         
     def time(self, cluster, date = None, verbose = False):
-        import ephem
-        from astropy.coordinates import SkyCoord  # @UnresolvedImport
-        from astropy import units as u
-        
+         
         
         izana = ephem.Observer()
         if date is None:
