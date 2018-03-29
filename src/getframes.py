@@ -1,14 +1,14 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 '''
 Created on May 3, 2013
 
-@author: jwe <jweingrill@aip.de>
+@author: Jörg Weingrill <jweingrill@aip.de>
 
 get files from M 48 BVI
 '''
 def getframes(obj, targetdir='/work2/jwe/stella/wifsip/', filtercol='V',
-              conditions={}, imcopy=False, listonly=False):
+              conditions=None, imcopy=False, listonly=False):
     from datasource import DataSource
     from subprocess import call
     
@@ -30,7 +30,10 @@ def getframes(obj, targetdir='/work2/jwe/stella/wifsip/', filtercol='V',
     if 'airmass' in conditions:
         params['airmass'] = conditions['airmass']
         query += '\nAND airmass < %(airmass)f ' % params
-              
+    if 'expt' in conditions:
+        params['expt'] = conditions['expt']
+        query += '\nAND expt = %(expt)f ' % params  
+                
     query = query + '\nORDER by frames.objid;'
     tab = wifsip.query(query)
     print len(tab),'files'
@@ -54,6 +57,7 @@ if __name__ == '__main__':
     parser.add_argument('-w', '--fwhm', type=float, help='fwhm limit')
     parser.add_argument('-b', '--background', type=float, help='background limit')
     parser.add_argument('-a', '--airmass', type=float, help='airmass limit')
+    parser.add_argument('-e', '--expt', type=float, help='exposuretime')
     
     parser.add_argument('-l', '--list', action='store_true',
                         help='list only, no frames will be downloaded')
@@ -63,11 +67,11 @@ if __name__ == '__main__':
                         help='target directory for images')
     args = parser.parse_args()
     
-    conditions = {}
-    if args.fwhm:       conditions['fwhm']       = args.fwhm
-    if args.background: conditions['background'] = args.background
-    if args.airmass:    conditions['airmass']    = args.airmass
-    
+    main_conditions = {}
+    if args.fwhm:       main_conditions['fwhm']       = args.fwhm
+    if args.background: main_conditions['background'] = args.background
+    if args.airmass:    main_conditions['airmass']    = args.airmass
+    if args.expt:       main_conditions['expt']       = args.expt
     #print args
     getframes(args.obj, targetdir=args.targetdir, filtercol=args.filtercol,
-              conditions = conditions, imcopy=args.imcopy, listonly=args.list)
+              conditions = main_conditions, imcopy=args.imcopy, listonly=args.list)
