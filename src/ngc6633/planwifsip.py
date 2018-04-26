@@ -4,11 +4,10 @@ Created on Apr 12, 2013
 @author: jwe <jweingrill@aip.de>
 '''
 
-import config
+import config  # @UnresolvedImport
+from opencluster import OpenCluster
 
 def do_rot(transfer=False):
-    from opencluster import OpenCluster
-
     ngc6633 = OpenCluster(objectname='NGC 6633', 
                           uname='NGC 6633 rot', 
                           obsmode='rot')
@@ -35,8 +34,6 @@ def do_rot(transfer=False):
     plt.close()
 
 def do_bvi(transfer=False):
-    from opencluster import OpenCluster
-
     ngc6633 = OpenCluster(objectname='NGC 6633', 
                           obsmode='BVI')
     ngc6633.startdate = '2017-08-25'
@@ -48,9 +45,36 @@ def do_bvi(transfer=False):
         sf.tofile(config.projectpath+'submit/')
         if transfer:
             sf.transfer()
+
+def do_uvby(transfer=False):
+    ngc6633 = OpenCluster(objectname='NGC 6633', 
+                          obsmode='uvby')
+    ngc6633.startdate = '2018-04-26'
+    ngc6633.enddate = '2018-06-01'
+    ngc6633_subframes = ngc6633.plan_wifsip(nfields=4)
+    for sf in ngc6633_subframes:
+        print sf.uname
+        sf.tofile(config.projectpath+'submit/')
+        if transfer:
+            sf.transfer()
+
+def do_Ha(transfer=False):
+    ngc6633 = OpenCluster(objectname='NGC 6633', 
+                          obsmode='Ha')
+    ngc6633.startdate = '2018-04-26'
+    ngc6633.enddate = '2018-06-01'
+    ngc6633_subframes = ngc6633.plan_wifsip(nfields=4)
+    for sf in ngc6633_subframes:
+        print sf.uname
+        sf.tofile(config.projectpath+'submit/')
+        if transfer:
+            sf.transfer()
+
         
 if __name__ == '__main__':
     import matplotlib
     matplotlib.use('WXAgg')
     #do_rot(transfer=True)
-    do_bvi(transfer=False)
+#    do_bvi(transfer=False)
+    do_uvby(transfer=True)
+    do_Ha(transfer=True)
