@@ -100,17 +100,17 @@ class OpenCluster(object):
                             'pernight':         1
                             },
                     
-                    'uvby': {'ExposureTime':    24.0,
-                            'ExposureIncrease': '1,1,1,1,5,5,5,5,25,25,25,25',
+                    'uvby': {'ExposureTime':    6.0,
+                            'ExposureIncrease': '1,1,1,1,10,10,10,10,100,100,100,100',
                             'FilterSequence':   'u,v,b,y,u,v,b,y,u,v,b,y',
                             'MoonDistance.Min': 15,
                             'AirmassTarget.Max':3.0,
                             'pernight':         1
                             },
                     
-                    'Hby': {'ExposureTime':     6.0,
-                            'ExposureIncrease': '1,10,1,10,5,50,10,100,5,50,10,100',
-                            'FilterSequence':   'b,b,y,y,hbw,hbw,hbn,hbn,haw,haw,han,han',
+                    'Ha': {'ExposureTime':     6.0,
+                            'ExposureIncrease': '1,10,100,1,10,100',
+                            'FilterSequence':   'haw,haw,haw,han,han,han',
                             'MoonDistance.Min': 15,
                             'AirmassTarget.Max':3.0,
                             'pernight':         1
@@ -119,6 +119,12 @@ class OpenCluster(object):
                     'rot': {'ExposureTime':     15.0, 
                             'ExposureIncrease': '1,10,20',
                             'FilterSequence':   'V,V,R',
+                            'pernight':         6 
+                            },
+                    
+                    'rottest': {'ExposureTime':     120.0, 
+                            'ExposureIncrease': '1,1,1',
+                            'FilterSequence':   'V,R,rp',
                             'pernight':         6 
                             }
                             
@@ -448,6 +454,8 @@ class OpenCluster(object):
         f.write('object.RA=%.5f\n' % self.object['RA'])
         f.write('object.Dec=%.6f\n' % self.object['Dec'])
         f.write('constraints.MoonDistance.Min=%d\n' % self.constraints['MoonDistance.Min'])
+        f.write('constraints.MoonHeight.Max=%d\n' % self.constraints['MoonHeight.Max'])
+        f.write('constraints.MoonPhase.Max=%d\n' % self.constraints['MoonPhase.Max'])
         f.write('constraints.SolHeight.Max=%.1f\n' % self.constraints['SolHeight.Max'])
         f.write('constraints.AirmassTarget.Max=%.1f\n' % self.constraints['AirmassTarget.Max'])
         f.write('constraints.AltTarget.Min=%.1f\n' % self.constraints['AltTarget.Min'])
