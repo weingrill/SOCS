@@ -21,3 +21,5 @@ syntax: regexp
 ^src/ngc2422/config\.py$
 syntax: regexp
 ^src/m50/config\.py$
+syntax: regexp
+^venv$
