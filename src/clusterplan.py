@@ -5,6 +5,7 @@ Created on Mar 19, 2015
 
 @author: Joerg Weingrill <jweingrill@aip.de>
 '''
+from __future__ import absolute_import, division, print_function
 from datasource import DataSource
 import ephem
 from astropy.coordinates import SkyCoord  # @UnresolvedImport
@@ -40,10 +41,10 @@ class ClusterPlan(object):
             query = """SELECT name,ra,dec,diam,d,ebv,logage 
                 FROM clusters
                 WHERE name in (%s)""" % clusterstring
-        print clusterlist, query
+        print(clusterlist, query)
         
         result = self.wifsip.query(query)
-        print '%d clusters found' % len(result)
+        print('%d clusters found' % len(result))
         if len(result)==0:
             raise ValueError('no clusters meet the criteria')
         
@@ -122,7 +123,7 @@ class ClusterPlan(object):
         lists the clusters that fulfill the criteria
         '''
         for d in self.data:
-            print '%-15s %4dpc %4dMyr E(B-V)=%.2f %2d' % (d['name'],d['d'],d['age'],d['ebv'],d['diam'])
+            print('%-15s %4dpc %4dMyr E(B-V)=%.2f %2d' % (d['name'],d['d'],d['age'],d['ebv'],d['diam']))
             #print self.time(d)
     
     def calc(self):
@@ -152,9 +153,9 @@ class ClusterPlan(object):
         bv_int = np.polyval(massbvp, mass)
         
         #p1 = [-1.33,  7.27,  0.75]
-        print '[' + ', '.join(['%.2f'%pi for pi in p]) + ']'
+        print('[' + ', '.join(['%.2f'%pi for pi in p]) + ']')
         y = np.polyval(p, bv)
-        print np.polyval(p, [0.4,1.4])
+        print(np.polyval(p, [0.4,1.4]))
         
         plt.scatter(iso_bv, iso_mv)
         
@@ -171,25 +172,48 @@ class ClusterPlan(object):
         plt.minorticks_on()
         plt.show()
     
+    def loadfromfile(self, filename):
+        with open(filename, 'r') as f:
+            lines = f.readlines()
+        dates = []
+        hours = []
+        darkhours = []
+        
+        for line in lines:
+            split_line = line.split()
+            date = ' '.join(split_line[0:2])
+            dates.append(datetime.datetime.strptime(date, "%Y/%m/%d %H:%M:%S"))
+            hours.append(float(split_line[2]))
+            darkhours.append(float(split_line[3]))
+        hours = np.array(hours)
+        darkhours = np.array(darkhours)
+        return dates, hours, darkhours
+        
+    
     def obstime(self):
         plt.figure(figsize=(29.6/2.54, 21./2.54))
         darkhours = np.zeros(365)
         for c in self.data:
-            print c['name']
-            date0 = ephem.Date('2017/1/1 00:00:00')
-            hours = np.zeros(365)
-            dates = []
-            for day in range(365):
-                ephemdate = ephem.Date(date0 + day)
-                t = self.time(c, date = ephemdate)
-                dates.append(self._eph2dt(ephemdate))
-                hours[day] = t
-                if darkhours[day] == 0.0:
-                    darkhours[day] = self.darktime(ephemdate) 
-                log('/work2/jwe/SOCS/data/obstime %(name)s.txt'% c, '%-20.20s %5.2f %5.2f %4.2f' % (ephemdate, t, darkhours[day], t/darkhours[day]))
+            print(c['name'])
+            filename = '/work2/jwe/SOCS/data/obstime %(name)s.txt'% c
+            try:
+                dates, hours, darkhours = self.loadfromfile(filename)
+            except IOError:
                 
+                date0 = ephem.Date('2017/1/1 00:00:00')
+                hours = np.zeros(365)
+                dates = []
+                for day in range(365):
+                    ephemdate = ephem.Date(date0 + day)
+                    t = self.time(c, date = ephemdate)
+                    dates.append(self._eph2dt(ephemdate))
+                    hours[day] = t
+                    if darkhours[day] == 0.0:
+                        darkhours[day] = self.darktime(ephemdate) 
+                    log(filename, '%-20.20s %5.2f %5.2f %4.2f' % (ephemdate, t, darkhours[day], t/darkhours[day]))
+                    
             
-            plt.plot(dates,hours, label=c['name'])
+            plt.plot(dates, hours, label=c['name'])
         plt.plot(dates, darkhours, 'k--')
         plt.grid()
         plt.yticks(np.arange(12))
@@ -201,7 +225,7 @@ class ClusterPlan(object):
         plt.xlim(dates[0], dates[-1])
         plt.title('clusterplan obstime')
         plt.legend(loc=9, fontsize='small')
-        plt.savefig('/work2/jwe/SOCS/plots/clusterplan obstime.pdf')
+        plt.savefig('/work2/jwe/SOCS/plots/clusterplan obstime %s.pdf' % c['name'])
         #plt.show()
     
     def darktime(self, date):
@@ -267,7 +291,7 @@ class ClusterPlan(object):
         t0, t1 = None, None
         
         for t,e in eventlist:
-            if verbose: print t,e
+            if verbose: print(t,e)
             if e == 'sunset': 
                 sundown = True
                 if clusterup: 
@@ -287,7 +311,7 @@ class ClusterPlan(object):
                 clusterup = False
                 if sundown: t1 = t
                 
-        if verbose: print t0,t1
+        if verbose: print(t0,t1)
         if t0 is None and t1 is None:
             return 0.0
         return (ephem.Date(t1)-ephem.Date(t0))*24.0
