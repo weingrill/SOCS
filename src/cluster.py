@@ -84,6 +84,28 @@ class Cluster(dict):
         """
         from numpy import log10
         return 5.0*log10(self['d']) - 5.0 + 4.862
+    
+    @property
+    def age(self):
+        return 10.0**(self['logage'] - 6.0)
+    
+    def __str__(self, *args, **kwargs):
+        try:
+            s = 'cluster:          %s\n' % self['name'] +\
+            'coordinates:      %s %s\n' % self.coordinatestring +\
+            'proper motions:   %.2f %.2f\n' % (self['pmra'],self['pmdec']) +\
+            'radial velocity:  %.2f\n' % self['rv'] +\
+            'diameter:         %.1f\n' % self['diam'] +\
+            'distance:         %d\n' % self['d'] +\
+            'E(B - V):         %.2f\n' % self['ebv']
+            'distance modulus: %.2f\n' % self.distancemodulus +\
+            'solar magnitude:  %.2f\n' % self.solarmagnitude
+            'log age           %.3f\n' % self['logage'] +\
+            'age               %.0f\n' % self.age
+        except TypeError:
+            return ''
+            
+        return s
 
 if __name__ == '__main__':
     import argparse
@@ -99,22 +121,22 @@ if __name__ == '__main__':
     c = Cluster(args.clustername)
     c.separator = ':'
     if args.keys:
-        for key in c.keys(): print key 
+        for key in c.keys(): print(key) 
     elif args.p:
-        print c[args.p]
+        print(c[args.p])
     else:
-        print 'cluster:          %s' % c['name']
-        print 'coordinates:      %s %s' % c.coordinatestring
-        print 'proper motions    %.2f %.2f' % (c['pmra'],c['pmdec'])
-        print 'radial velocity   %.2f' % c['rv']
-        print 'diameter:         %.1f' % c['diam']
-        print 'distance:         %d' % c['d']
-        print 'E(B - V):         %.2f' % c['ebv']
+        print( 'cluster:          %s' % c['name'])
+        print('coordinates:      %s %s' % c.coordinatestring)
+        print('proper motions    %.2f %.2f' % (c['pmra'],c['pmdec']))
+        print('radial velocity   %.2f' % c['rv'])
+        print('diameter:         %.1f' % c['diam'])
+        print('distance:         %d' % c['d'])
+        print('E(B - V):         %.2f' % c['ebv'])
         try:
-            print '[Fe/H]:           %.2f' % c['me']
+            print('[Fe/H]:           %.2f' % c['me'])
         except TypeError:
             pass
-        print 'distance modulus: %.2f' % c.distancemodulus 
-        print 'solar magnitude:  %.2f' % c.solarmagnitude
-        print 'log age           %.3f' % c['logage']
+        print('distance modulus: %.2f' % c.distancemodulus)
+        print('solar magnitude:  %.2f' % c.solarmagnitude)
+        print('log age           %.3f' % c['logage'])
             
