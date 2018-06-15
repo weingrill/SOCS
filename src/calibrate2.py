@@ -7,7 +7,7 @@ import pickle
 try:
     import config
 except ImportError:
-    print "Please define config file first"
+    print("Please define config file first")
     exit()
 
 def log(filename, message):
@@ -37,7 +37,7 @@ class Calibrate2(object):
         self.starids = set()
         self.datafilebase = config.datapath+self.field+'_'+self.filtername+'_'
         self.plotfilebase = config.datapath+self.field+'_'+self.filtername
-        print self.field
+        print(self.field)
     
     def _getobjids(self):
         query = """SELECT objid,hjd 
@@ -60,7 +60,7 @@ class Calibrate2(object):
     def get_matched(self, verbose=False, store=True):
         from numpy import zeros
         
-        print 'getting matched stars ...'
+        print('getting matched stars ...')
         
         try:
             picklefile = open(self.datafilebase+'starids.pickle', 'rb')
@@ -73,13 +73,13 @@ class Calibrate2(object):
         except IOError:
             starnumbers = zeros(len(self.objids))
             for objid in self.objids:
-                if verbose: print objid,
+                if verbose: print(objid),
                 query = """SELECT id 
                 FROM matched
                 WHERE matched.objid='%s'
                 ORDER by id;""" % objid
                 stars = [r[0] for r in self.wifsip.query(query)]
-                if verbose: print len(stars)
+                if verbose: print(len(stars))
                 
                 for star in stars:
                     self.starids.add(star)
@@ -93,8 +93,8 @@ class Calibrate2(object):
                 picklefile = open(self.datafilebase+'star.pickle', 'wb')
                 pickle.dump(self.stars, picklefile)
                 picklefile.close()    
-        print self.epochs, 'objids'
-        print self.numstars, 'unique stars found'
+        print(self.epochs, 'objids')
+        print(self.numstars, 'unique stars found')
         
     def create(self, store=False):
         def dot():
@@ -102,7 +102,7 @@ class Calibrate2(object):
             sys.stdout.write('.')
         from numpy import zeros,nan,load, save
         
-        print 'creating array ...'
+        print( 'creating array ...')
         
         self.a = zeros([self.epochs,self.numstars])
         try:
@@ -112,7 +112,7 @@ class Calibrate2(object):
             assert(len(stararr)>0)
             
             for objid in self.objids:
-                print '%.2f %s' % (100.0*self.objids.index(objid)/len(self.objids), objid),
+                print('%.2f %s' % (100.0*self.objids.index(objid)/len(self.objids), objid),)
                 phot = {}
                 query = """
                 SELECT id, phot.mag_auto
@@ -137,15 +137,15 @@ class Calibrate2(object):
                             self.a[epoch, star] = nan
                     else:
                         self.a[epoch, star] = nan
-                print '.'
+                print('.')
                 
-            print 'saving photometric matrix ...'            
+            print('saving photometric matrix ...')            
             if store: save(self.datafilebase+'photmatrix.npy', self.a)
-        print 'shape of photometric matrix: ', self.a.shape
+        print('shape of photometric matrix: ', self.a.shape)
 
     def updateframe(self, frame, corr):
         from numpy import isnan
-        print frame,corr
+        print(frame,corr)
         if isnan(corr):
             query = """UPDATE frames SET corr = NULL
                     WHERE objid = '%s';""" % frame
@@ -159,18 +159,17 @@ class Calibrate2(object):
         """
         perform sigma clipping on each lightcurve
         """
-        from numpy import save,load, nan
-        from scipy.stats import nanstd, nanmean
+        from numpy import save,load, nan, nanstd, nanmean
         try:
             self.a = load(self.datafilebase+'clippedmatrix.npy')
         except IOError:
-            print 'Clipping ...',self.numstars,'stars'
+            print('Clipping ...',self.numstars,'stars')
             
             #if a star  has datapoints exceeding sigma times std: make them nan 
             for j in range(self.numstars):
                 std = nanstd(self.a[:,j])
                 m = nanmean(self.a[:,j])
-                if verbose: print '%s %.3f' % (self.starids[j], sigma*std)
+                if verbose: print('%s %.3f' % (self.starids[j], sigma*std))
                     
                 self.a[abs(self.a[:,j]-m) > sigma*std,j] = nan
                 
@@ -184,7 +183,7 @@ class Calibrate2(object):
         try:
             self.a = load(self.datafilebase+'cleanedmatrix.npy')
         except IOError:
-            print 'Cleaning ...',self.epochs,'epochs'
+            print('Cleaning ...',self.epochs,'epochs')
 
             delvec0 = []
             newobjids = []
@@ -192,7 +191,8 @@ class Calibrate2(object):
             #if an epoch shows less than 10% of the stars: remove it
             for i in range(self.epochs):
                 objidvec = self.a[i,:]
-                if verbose: print objidvec[isfinite(objidvec)].size,self.numstars
+                if verbose: 
+                    print(objidvec[isfinite(objidvec)].size, self.numstars)
                 if objidvec[isfinite(objidvec)].size < self.numstars/10:
                     delvec0.append(i)
                 else:
@@ -200,7 +200,7 @@ class Calibrate2(object):
             #print delvec0
             
             
-            print 'Cleaning ...',self.numstars,'stars'
+            print('Cleaning ...',self.numstars, 'stars')
             
             delvec1 = []
             newstarlist = []
@@ -209,7 +209,7 @@ class Calibrate2(object):
             for j in range(self.numstars):
                 starvec = self.a[:,j]
                 if verbose: 
-                    print starvec[isfinite(starvec)].size, self.epochs
+                    print( starvec[isfinite(starvec)].size, self.epochs)
                 if starvec[isfinite(starvec)].size < self.epochs/10:
                     delvec1.append(j)
                 else:
@@ -218,17 +218,16 @@ class Calibrate2(object):
             self.a = delete(self.a, delvec0, 0)
             self.a = delete(self.a, delvec1, 1)
             self.objids = newobjids
-            print 'deleted ',len(delvec0),'objids'
+            print( 'deleted ',len(delvec0),'objids')
             self.starids = set(newstarlist)
-            print 'deleted ',len(delvec1),'stars'
+            print( 'deleted ',len(delvec1),'stars')
             if store: save(self.datafilebase+'cleanedmatrix.npy', self.a)    
 
     
     def calibrate(self):
-        from numpy import isfinite
-        from scipy.stats import nanmean, nanstd
+        from numpy import isfinite,  nanmean, nanstd
         
-        print 'Calibration ...'
+        print( 'Calibration ...')
         m = nanmean(self.a, axis=0)
         self.mags = m
         # m now contains the mean magnitude for each star
@@ -277,7 +276,7 @@ class Calibrate2(object):
         from PIL import Image  # @UnresolvedImport
         from functions import scaleto
         
-        import pyfits
+        from astropy.io import fits as pyfits
         
         hdu = pyfits.PrimaryHDU(self.a)
         hdu.writeto(config.plotpath+self.field+'.fits', clobber=True)
