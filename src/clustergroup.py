@@ -81,7 +81,7 @@ class ClusterGroup():
         creates the XML structure and writes it to the given filename
         """
         
-        from lxml import etree as ET
+        from lxml import etree as ET  # @UnresolvedImport
         from datetime import datetime as dt
         import os
         
@@ -240,9 +240,9 @@ class ClusterGroup():
         #xml goes dirctly to submit
         target='sro@habanero:/stella/home/www/uploads/weingrill/save/'
         time.sleep(1) # otherwise submit.jnlp gets confused
-        print 'scp %s %s' % (source, target)
+        print('scp %s %s' % (source, target))
         call(['/usr/bin/scp', source, target])
-        print os.path.dirname(source)
+        print(os.path.dirname(source))
         _, filename = os.path.split(source)
         call(['/usr/bin/ssh', 'operator@ciruelo', 'bin/groupsubmit.sh %s' % filename])
         
