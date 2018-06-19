@@ -3,6 +3,13 @@ Created on Dec 3, 2014
 
 @author: jwe
 '''
+from datasource import DataSource
+from astropy import units as u
+from astropy.coordinates import SkyCoord  # @UnresolvedImport
+from io import StringIO
+import matplotlib.pyplot as plt
+import numpy as np
+import _config
 
 class Clusters(object):
     '''
@@ -14,9 +21,9 @@ class Clusters(object):
         '''
         Constructor
         '''
-        from datasource import DataSource
+        
     
-        self.table = DataSource(database='wifsip', user='sro', host='pina.aip.de')
+        self.table = DataSource(database=_config.dbname, user=_config.dbuser, host=_config.dbhost)
         
     def create_table(self):
         query="""DROP TABLE clusters;
@@ -48,10 +55,7 @@ class Clusters(object):
         self.table.execute(query)
         
     def fromfile(self, filename='/work2/jwe/SOCS/clusters.txt'):
-        from astropy import units as u
-        from astropy.coordinates import SkyCoord  # @UnresolvedImport
-        import StringIO
-
+ 
         f = open(filename,'rt')
         lines = f.readlines()
         f.close()
@@ -104,12 +108,12 @@ class Clusters(object):
                       'coord': '(%f,%f)' % (c.ra.degree, c.dec.degree)}
             #print record
             def nstr(s):
-                if len(str(s).strip())==0: return '\N'
+                if len(str(s).strip())==0: return '\\N'
                 elif type(s) is str: return str(s) 
                 else: return str(s)
             valline = '\t'.join([nstr(v) for v in record.values()])
-            valline = valline.replace('nan', '\N')
-            print valline
+            valline = valline.replace('nan', '\\N')
+            print(valline)
             values += valline + '\n'
 
                 
@@ -121,35 +125,70 @@ class Clusters(object):
             self.table.commit()
 
     def query(self):
-        import matplotlib.pyplot as plt
-        from numpy import array
         
         query = """SELECT name, ra, dec, ebv, diam from clusters
         WHERE (name like 'NGC %' or name like 'IC %') 
         AND diam>10 AND diam<60
-        AND d<1000
-        AND dec>-10.0
+        AND d<1500
+        AND dec>-15.0
         AND ebv<0.3
-        AND logage<=9
+        AND logage>8.0 AND logage<=9.5
         AND abs(rv)>2.0;"""
         result = self.table.query(query)
         names = [r[0] for r in result]
-        ra = array([r[1] for r in result])
-        dec = array([r[2] for r in result])
-        ebv = array([r[3] for r in result])
-        diam = array([r[4] for r in result])
+        ra = np.array([r[1] for r in result])
+        dec = np.array([r[2] for r in result])
+        ebv = np.array([r[3] for r in result])
+        diam = np.array([r[4] for r in result])
         
-        plt.scatter(ra/15., dec, s=diam*4, c = ebv)
-        for i in zip(ra,dec,names):
-            plt.text(i[0]/15., i[1], i[2])
-        #plt.draw()  
-        plt.xticks()
-        plt.xlim(24,0)
-        plt.ylim(-10,65)
-        plt.show()            
-        print len(names)
-        print '\n'.join(names)
-cl = Clusters()
-#cl.create_table()
-#cl.fromfile()
-cl.query()
+        mycmap = plt.cm.get_cmap('Reds')
+        #mycmap.set_under('w')fig, ax_f = plt.subplots()
+
+        _, ax1 = plt.subplots(figsize=(10,7))
+        plt.scatter(ra/15., dec, s=diam*4, cmap=mycmap, c = ebv)
+        for rai, deci, iname in zip(ra, dec, names):
+            if iname in ['IC 4756', 'NGC 2682', 'NGC 2319', 'NGC 2374', 'NGC 7209', 'NGC 7243', 'NGC 7082', 'NGC 225']:
+                horizontalalignment = 'right'
+                withdash = None
+                dashlength = None 
+            elif iname in ['NGC 2413']:
+                horizontalalignment = 'right'
+                withdash=True 
+                dashlength=20.0
+            else:
+                horizontalalignment = 'left'
+                withdash = None
+                dashlength = None
+            if withdash:
+                plt.text(rai/15., deci, iname, withdash=withdash, dashlength=dashlength, horizontalalignment = horizontalalignment)
+            else:
+                plt.text(rai/15., deci, iname, horizontalalignment = horizontalalignment)
+        #plt.draw()
+        ax2 = ax1.twiny() 
+        
+        print(np.arange(13,0,-1))
+        ax1.set_xlabel('right ascension')
+        ax1.set_ylabel('declination')
+        ax2.set_xlabel('culmination month')
+        ax1.set_xticks(np.arange(24))
+        ax1.set_yticks(np.arange(-15, 65, 5))
+        ax2.set_xticks(np.arange(0,13)+0.4333)
+        ax2.set_xticklabels(['9','8','7','6','5','4','3','2','1','12','11','10'])
+        ax1.set_xlim(24, 0)
+        #ax2.set_xlim(12, 0)
+        ax1.set_ylim(-15, 65)
+        ax1.grid()
+        plt.minorticks_on()
+        cbar = plt.colorbar()
+        #cbar.ax.set_yticklabels(['0','1','2','>3'])
+        cbar.set_label('E(B - V)', rotation=270)
+        plt.savefig('/work2/jwe/SOCS/plots/cluster_query.pdf')
+        plt.close()            
+        print( len(names))
+        print( '\n'.join(names))
+        
+if __name__ == '__main__':
+    cl = Clusters()
+    #cl.create_table()
+    #cl.fromfile()
+    cl.query()
