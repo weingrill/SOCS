@@ -3,6 +3,8 @@ Created on Oct 3, 2013
 
 @author: jwe <jweingrill@aip.de>
 '''
+import datetime as dt
+import warnings
 
 def airmass(altitude):
     """converts altitude to airmass"""
@@ -30,8 +32,8 @@ class OpenCluster(object):
         """
         
         self.objectname = objectname
-        self.startdate = '2013-03-21'
-        self.enddate = '2018-12-31'
+        self.startdate = self._today()
+        self.enddate = self._inhalfayear()
         self.priority = 1.0
         self.telescope = 'STELLA-I'
         self.withfocus = True
@@ -42,6 +44,7 @@ class OpenCluster(object):
         if uname is None:
             self.uname = '%s %s' % (objectname, obsmode)
         else:
+            warnings.warn('Setting of uname is deprecated')
             self.uname = uname
         self.propid = 'cluster.survey'
         self.abstract = 'Photometric monitoring of open stellar clusters'
@@ -76,6 +79,22 @@ class OpenCluster(object):
         if self.object['RA'] is None or self.object['Dec'] is None:
             self.get_coordiantes()
     
+    def _today(self):
+        """
+        returns today in the form "yyyy-mm-dd"
+        """
+        now = dt.datetime.now()
+        return now.strftime('%Y-%m-%d')
+    
+    def _inhalfayear(self):
+        """
+        returns 180 days in the future from startdate
+        """
+        start_date = dt.datetime.strptime(self.startdate, '%Y-%m-%d')
+        end_date = start_date + dt.timedelta(days=180)
+        return end_date.strftime('%Y-%m-%d')
+           
+    
     def _setobsmode(self, obsmode):
         """
         sets sequence and mode parameters according to obsmode
@@ -83,53 +102,8 @@ class OpenCluster(object):
         30,300,600 R = V * 2.754
         """
         
-        obsmodes = {'BVI': {'ExposureTime':     2.0,
-                            'ExposureIncrease': '3,30,300,2,20,200,1,10,100',
-                            'FilterSequence':   'B,B,B,V,V,V,I,I,I',
-                            'pernight':         1
-                            },
-                    'BVR': {'ExposureTime':     3.0,
-                            'ExposureIncrease': '2,20,200,1,10,100,1,10,100',
-                            'FilterSequence':   'B,B,B,V,V,V,R,R,R',
-                            'pernight':         1
-                            },
-                    
-                    'UBV': {'ExposureTime':    2.0, # 
-                            'ExposureIncrease': '3,30,300,2,20,200,1,10,100',
-                            'FilterSequence':   'U,U,U,B,B,B,V,V,V',
-                            'pernight':         1
-                            },
-                    
-                    'uvby': {'ExposureTime':    6.0,
-                            'ExposureIncrease': '1,1,1,1,10,10,10,10,100,100,100,100',
-                            'FilterSequence':   'u,v,b,y,u,v,b,y,u,v,b,y',
-                            'MoonDistance.Min': 15,
-                            'AirmassTarget.Max':3.0,
-                            'pernight':         1
-                            },
-                    
-                    'Ha': {'ExposureTime':     6.0,
-                            'ExposureIncrease': '1,10,100,1,10,100',
-                            'FilterSequence':   'haw,haw,haw,han,han,han',
-                            'MoonDistance.Min': 15,
-                            'AirmassTarget.Max':3.0,
-                            'pernight':         1
-                            },
-                    
-                    'rot': {'ExposureTime':     15.0, 
-                            'ExposureIncrease': '1,10,20',
-                            'FilterSequence':   'V,V,R',
-                            'pernight':         6 
-                            },
-                    
-                    'rottest': {'ExposureTime':     120.0, 
-                            'ExposureIncrease': '1,1,1',
-                            'FilterSequence':   'V,R,rp',
-                            'pernight':         6 
-                            }
-                            
-                    }
-
+        from obsmodes import obsmodes
+        
         if not (obsmode in obsmodes):
             raise TypeError('%s not a valid observation mode' % obsmode)
         
@@ -200,10 +174,10 @@ class OpenCluster(object):
         ocluster = ephem.readdb(ephemstr)
         ocluster.compute()
         
-        print 'Moonrise:', stella.previous_rising(moon)
-        print 'Moonset: ', stella.next_setting(moon)
-        print 'Sunrise: ', stella.previous_rising(sun)
-        print 'Sunset:  ', stella.next_setting(sun)
+        print( 'Moonrise:', stella.previous_rising(moon))
+        print( 'Moonset: ', stella.next_setting(moon))
+        print( 'Sunrise: ', stella.previous_rising(sun))
+        print( 'Sunset:  ', stella.next_setting(sun))
         
         if obsdate is None:
             today = datetime.datetime.today()
@@ -376,8 +350,8 @@ class OpenCluster(object):
             else:
                 repeat += 1
                 duration += expt*float(s)
-        if self.sequence['ExposureRepeat']<>repeat:
-            print "Warning: ExposureRepeat different!"      
+        if self.sequence['ExposureRepeat'] != repeat:
+            print("Warning: ExposureRepeat different!")     
         self.sequence['ExposureRepeat'] = repeat
         return duration
     
@@ -594,11 +568,11 @@ class OpenCluster(object):
         source = self.filename
         target='sro@stella:/stella/home/www/uploads/weingrill/save/'
         time.sleep(1) # otherwise submit.jnlp gets confused
-        print 'scp %s %s' % (source, target)
+        print('scp %s %s' % (source, target))
         call(['/usr/bin/scp', source, target])
-        print os.path.dirname(source)
+        print(os.path.dirname(source))
         _, filename = os.path.split(source)
-        print'executing operator@ciruelo:autosubmit.sh %s' % filename
+        print('executing operator@ciruelo:autosubmit.sh %s' % filename)
         call(['/usr/bin/ssh', 'operator@ciruelo', 'bin/autosubmit.sh %s' % filename])
         
     def tycho(self):
