@@ -21,7 +21,7 @@ from clustergroup import ClusterGroup
 def do_rot(transfer=False):
     import datetime
 
-    ngc6940rot = OpenCluster(objectname='NGC 6940', uname='NGC 6940 rot', obsmode='rot')
+    ngc6940rot = OpenCluster(objectname='NGC 6940', obsmode='rot')
     ngc6940rot.priority = 0.5
     ngc6940rot.mode['pernight'] = 6
 
@@ -33,7 +33,7 @@ def do_rot(transfer=False):
     ngc6940rot_group.enddate =  datetime.datetime(2017, 12, 29)
     
     for sf in ngc6940rot_subframes:
-        print sf.uname, sf.duration
+        print( sf.uname, sf.duration)
         sf.tofile(config.projectpath)
         ngc6940rot_group.add_daughter(sf.uname)
         if transfer: 
@@ -42,6 +42,27 @@ def do_rot(transfer=False):
     if transfer: 
         ngc6940rot_group.transfer()
 
+def do_frot(transfer=False):
+    ngc6940frot = OpenCluster(objectname='NGC 6940', obsmode='frot')
+    ngc6940frot.mode['pernight'] = 6
+
+    ngc6940frot.title = 'SOCS'
+    ngc6940frot.abstract = 'Photometric monitoring of open stellar clusters'
+    ngc6940frot_subframes = ngc6940frot.plan_wifsip(nfields=4)
+    ngc6940frot_group = ClusterGroup(ngc6940frot)
+    #ngc6940frot_group.startdate =  datetime.datetime(2017, 4, 15) 
+    #ngc6940frot_group.enddate =  datetime.datetime(2017, 12, 29)
+    
+    for sf in ngc6940frot_subframes:
+        print( sf.uname, sf.duration)
+        sf.tofile(config.projectpath)
+        ngc6940frot_group.add_daughter(sf.uname)
+        if transfer: 
+            sf.transfer()
+    ngc6940frot_group.tofile(config.projectpath)
+    if transfer: 
+        ngc6940frot_group.transfer()
+
 def do_bvr(transfer=False):
     ngc6940bvr = OpenCluster(objectname='NGC 6940', 
                           obsmode='BVR')
@@ -49,7 +70,7 @@ def do_bvr(transfer=False):
     ngc6940bvr.enddate = '2018-07-05'
     ngc6940bvr_subframes = ngc6940bvr.plan_wifsip(nfields=5)
     for sf in ngc6940bvr_subframes:
-        print sf.uname
+        print( sf.uname)
         sf.tofile(config.projectpath+'submit/')
         if transfer:
             sf.transfer()
@@ -61,7 +82,7 @@ def do_uvby(transfer=False):
     ngc6940uvby.enddate = '2018-07-05'
     ngc6940uvby_subframes = ngc6940uvby.plan_wifsip(nfields=5)
     for sf in ngc6940uvby_subframes:
-        print sf.uname
+        print( sf.uname)
         sf.tofile(config.projectpath+'submit/')
         if transfer:
             sf.transfer()
@@ -71,4 +92,5 @@ def do_uvby(transfer=False):
 if __name__ == '__main__':
     #do_rot(transfer=True)
     #do_bvr(transfer=True)
-    do_uvby(transfer=True)
+    #do_uvby(transfer=True)
+    do_frot(transfer=True)
