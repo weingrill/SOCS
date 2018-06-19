@@ -8,6 +8,15 @@ Created on Apr 2, 2015
 Global properties of parsed target: {imagetype=object, night=NightRemain, accelerate=1.0, rateretry=10, ratewait=60000, obsbad=false, obsgood=false}
 
 '''
+from opencluster import OpenCluster
+from astropy.time import Time
+from lxml import etree as ET  # @UnresolvedImport
+from datetime import datetime as dt
+import os
+from subprocess import call
+import time
+        
+
 class ClusterGroup():
     """
     creates a XML group file for a group of frames
@@ -30,7 +39,6 @@ class ClusterGroup():
         """
         Set basic constraints derived from the OpenCluster class
         """
-        from opencluster import OpenCluster
         if not type(opencluster) is OpenCluster:
             raise TypeError('expecting OpenCluster Object')
         self.ra = opencluster.object['RA']
@@ -81,9 +89,6 @@ class ClusterGroup():
         creates the XML structure and writes it to the given filename
         """
         
-        from lxml import etree as ET  # @UnresolvedImport
-        from datetime import datetime as dt
-        import os
         
         def addtext(parent, tag, value):
             """
@@ -153,7 +158,6 @@ class ClusterGroup():
         # - Select
 
         # calculate the JD for beginning and end of observation
-        from astropy.time import Time  # @UnresolvedImport
         startjd = Time(self.startdate).jd 
         endjd = Time(self.enddate).jd 
         if startjd > endjd:
@@ -221,17 +225,14 @@ class ClusterGroup():
         s =  ET.tostring(tree, encoding="UTF-8", doctype=doctype, pretty_print=True)
         # remember the path for later use of transfer method
         self.filepath = path
-        f = open(os.path.join(path,self.filename), 'wt')
-        f.write(s)
-        f.close()
+        with open(os.path.join(path,self.filename), 'wb') as f:
+            f.write(s)
+        
         
     def transfer(self, path=None):
         """
         a plain copy from Opencluster.transfer method
         """
-        from subprocess import call
-        import time
-        import os
         
         # if path has not been set use the one, where the file has been created. 
         if path is None:
