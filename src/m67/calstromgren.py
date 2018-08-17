@@ -129,7 +129,7 @@ class CalStromgren(object):
         
         A = np.vstack([ones, obeta, cby]).T
         c, kbeta, kby = np.linalg.lstsq(A, cbeta)[0]
-        print 'c = %.4f; kbeta = %.4f; kby = %.4f' %(c, kbeta, kby)
+        print('c = %.4f; kbeta = %.4f; kby = %.4f' %(c, kbeta, kby))
         
         o1beta = kbeta * obeta + kby * cby + c
         #betaoffset = np.nanmean(obeta-cbeta)
@@ -169,17 +169,17 @@ class CalStromgren(object):
         
         A = np.vstack([ones, b, y]).T
         c, kb, ky = np.linalg.lstsq(A, cby)[0]
-        print kb, ky, c
-        
+        print(kb, ky, c)
+
         oby = kb*b + ky*y +c
         
         A = np.vstack([ones, v, b, y]).T
         c, kv, kb, ky = np.linalg.lstsq(A, m1)[0]
-        print 'm1', kv, kb, ky, c
+        print('m1', kv, kb, ky, c)
         om1 = kv*v + kb*b + ky*y + c
         
         c, ku, kv, kb = np.linalg.lstsq(A, c1)[0]
-        print 'c1', ku, kv, kb, c
+        print('c1', ku, kv, kb, c)
         oc1 = ku*u + kv*v + kb*b + c
         
         plt.plot(cby, oby, 'bo')
@@ -213,12 +213,12 @@ class CalStromgren(object):
         uvoffset = np.nanmean(ouv-cuv)
         vboffset = np.nanmean(ovb-cvb)
         betaoffset = np.nanmean(obeta-cbeta)
-        
-        print 'b - y: %.4f %.4f' % (byoffset,np.nanstd(oby-cby))
-        print 'u - v: %.4f %.4f' % (uvoffset,np.nanstd(ouv-cuv))
-        print 'v - b: %.4f %.4f' % (vboffset,np.nanstd(ovb-cvb))
-        print 'beta : %.4f %.4f' % (betaoffset,np.nanstd(obeta-cbeta))
-        
+
+        print('b - y: %.4f %.4f' % (byoffset, np.nanstd(oby - cby)))
+        print('u - v: %.4f %.4f' % (uvoffset, np.nanstd(ouv - cuv)))
+        print('v - b: %.4f %.4f' % (vboffset, np.nanstd(ovb - cvb)))
+        print('beta : %.4f %.4f' % (betaoffset, np.nanstd(obeta - cbeta)))
+
         fig = plt.figure()
 
         ax1 = fig.add_subplot(411)

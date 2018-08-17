@@ -9,9 +9,7 @@ Updated May 20, 2016
 start 2016-03-30 jd = 2457477.5
 end   2016-12-15 jd = 2457752.5
 
-25.05.2016 18:30:31 [WARN] ObservingHelper…:841 MoonHeight not valid {Max=null}
-25.05.2016 18:30:31 [WARN] ObservingHelper…:841 MoonPhase not valid {Max=null}
-25.05.2016 18:30:32 [WARN] DOMTarget.parse…:280 No image type specified
+21.06.2018 13:25:51 [WARN] SporeTarget.par…:284 No image type specified
 
 '''
 import config  # @UnresolvedImport
@@ -50,9 +48,7 @@ def do_frot(transfer=False):
     ngc6940frot.abstract = 'Photometric monitoring of open stellar clusters'
     ngc6940frot_subframes = ngc6940frot.plan_wifsip(nfields=4)
     ngc6940frot_group = ClusterGroup(ngc6940frot)
-    #ngc6940frot_group.startdate =  datetime.datetime(2017, 4, 15) 
-    #ngc6940frot_group.enddate =  datetime.datetime(2017, 12, 29)
-    
+        
     for sf in ngc6940frot_subframes:
         print( sf.uname, sf.duration)
         sf.tofile(config.projectpath)

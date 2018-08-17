@@ -2,3 +2,8 @@ astropy
 matplotlib
 numpy
 pyephem
+psycopg2-binary
+pillow
+lxml
+scipy
+git+https://github.com/aipescience/django-daiquiri-tap

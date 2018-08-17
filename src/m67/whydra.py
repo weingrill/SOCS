@@ -6,6 +6,22 @@ Created on Aug 21, 2013
 @author: Joerg Weingrill <jweingrill@aip.de>
 '''
 import config
+import ephem
+import datetime
+import pytz
+import astronomy as ast
+from datasource import DataSource
+from cluster import Cluster
+from urllib.request import urlopen
+import matplotlib
+import astronomy as ast
+import numpy as np
+from functions import scaleto
+import subprocess
+
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+
 hydrasimpath = '/home/jwe/bin/hydra_simulator/'
 hydrapath = '/home/jwe/bin/hydra_simulator/whydra/'
 
@@ -26,13 +42,7 @@ class WHydra(object):
         '''
         Constructor
         '''
-        import ephem
-        import datetime
-        import pytz
-        import astronomy as ast
-        from datasource import DataSource
-        from cluster import Cluster
-        
+
         self.field_name = field_name
 
         self.wifsip = DataSource(database=config.dbname, user=config.dbuser, host=config.dbhost)
@@ -55,7 +65,7 @@ class WHydra(object):
         
         # LST at mid-exposure in decimal hours
         lst = kpno.sidereal_time()
-        print 'local siderial time: ',lst
+        print('local siderial time: ', lst)
         self.siderial_time = ast.hms2hh(str(lst))
         self.exposure_length = 40.0/60.0 # in hours
         self.wavelength = 5125 # in Angstroem
@@ -84,20 +94,18 @@ class WHydra(object):
         self.fops = 6
         self.tweakcenter = False
         self.tweakangle = False
-        
-        print 'center', self.center
-        print 'E(B-V)', self.ebv
-        print 'DM', self.dm
-        
+
+        print('center', self.center)
+        print('E(B-V)', self.ebv)
+        print('DM', self.dm)
+
     def _get_center(self):
         data = self.wifsip.query("""select avg(ra),avg(dec) from m67;""")
         return (data[0][0],data[0][1])
 
     def priorities(self, verbose = False):
         """updates the priorities in the m67 table"""
-        import numpy as np
-        from functions import scaleto
-        
+
         def makeplot(bv, v, p, filename=None):
             """plot the priorities"""
             import matplotlib
@@ -132,8 +140,7 @@ class WHydra(object):
                 pyplot.savefig(filename, dpi=300)
             pyplot.close()
 
-            
-        print 'calculate priorities ...'
+        print('calculate priorities ...')
         self.wifsip.execute("UPDATE m67 SET priority=NULL, pointing=NULL;")
         self.wifsip.execute("""UPDATE m67 
             SET priority=1.0 
@@ -151,10 +158,11 @@ class WHydra(object):
         pmb = np.array([d[3] for d in data])
         
         p1 = scaleto(pmb, [0.0, 1.0])
-        
-        print len(seq),'stars brighter V<16'
+
+        print(len(seq), 'stars brighter V<16')
         for i in range(len(seq)):
-            if verbose: print '%4d: %.3f --> %.3f' % (seq[i], v[i],p1[i])
+            if verbose:
+                print('%4d: %.3f --> %.3f' % (seq[i], v[i], p1[i]))
             self.wifsip.execute("""UPDATE m67
                           SET priority = priority * %f
                           WHERE seq = %d;""" % (p1[i], seq[i]), commit=False)
@@ -174,7 +182,7 @@ class WHydra(object):
         """set pointings according to hydrasim output"""
         #TODO: to be redone! 
         targets = ",".join([str(t) for t in self.targeted])
-        print targets
+        print(targets)
         query = """UPDATE m67 
                    SET pointing=%d
                    WHERE seq in (%s)""" % (pointing,targets)
@@ -213,7 +221,7 @@ class WHydra(object):
         WHERE vmag>10 and vmag<13 
         ORDER BY vmag;"""
         fops = self.wifsip.query(query)
-        print len(fops),'FOPs stars'
+        print(len(fops), 'FOPs stars')
         for f in fops:
             target = {}
             target['id'] = 6001 + int(f[3])
@@ -231,7 +239,7 @@ class WHydra(object):
         LIMIT 999;"""
         
         extra = self.wifsip.query(query)
-        print len(extra),'extra stars'
+        print(len(extra), 'extra stars')
         for d in extra:
             target = {}
             target['id'] = 7000 + int(d[3])
@@ -253,8 +261,8 @@ class WHydra(object):
         for ra in ras:
             for de in decs:
                 skypos.append((ra,de))
-        print len(skypos),'sky positions'
-        
+        print(len(skypos), 'sky positions')
+
         for radec in skypos:
                 target = {}
                 target['id'] = 9000 + skypos.index(radec)
@@ -288,13 +296,13 @@ class WHydra(object):
             dec = ast.dd2dms(t['dec'])
             s = '%04d %-20s %02d %02d %06.3f %+02.2d %02d %05.2f %1s\n' % \
                 (t['id'],t['name'],ra[0],ra[1],ra[2], dec[0], dec[1], dec[2], t['class'])
-            if verbose: print s.rstrip('\n')
+            if verbose:
+                print(s.rstrip('\n'))
             f.write(s)
         f.close()
         #s = 'pointing\tR.A.\tDec\tmag\tcomment'
 
     def fromfile(self, filename = None):
-        import astronomy as ast
         if filename is None:
             filename = hydrapath+self.field_name+'.hydra'
         
@@ -341,10 +349,6 @@ class WHydra(object):
                         self.table.append(target)
                         
     def make_plot(self, filename):
-        import matplotlib
-        matplotlib.use('Agg')
-        import matplotlib.pyplot as plt
-        
         plt.figure(figsize=[18/2.54,18/2.54])
         fov = plt.Circle((self.center[0], self.center[1]), 0.5, facecolor='none', edgecolor='g')
         fig = plt.gcf()
@@ -377,8 +381,7 @@ class WHydra(object):
         write the commands file and
         execute the shell script
         """
-        import subprocess
-        
+
         f = open('/home/jwe/bin/hydra_simulator/cmds.%s' % self.field_name,'wt')
         f.write('%s.ast\n' % self.field_name)
         f.write('%s\n' % self.field_name)
@@ -400,8 +403,7 @@ class WHydra(object):
         """
         fetches the current concentricities file from the WIYN web page
         """
-        import urllib2
-        response = urllib2.urlopen('http://www.wiyn.org/concentricities')
+        response = urlopen('http://www.wiyn.org/concentricities')
         html = response.read()
         f = open(hydrapath+'concentricities','wt')
         f.write(html)

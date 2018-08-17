@@ -74,7 +74,7 @@ class Calibration(object):
                 log(config.datapath+'cal.dat', '%s %.6f %.6f %.3f %.4f %.4f %3d %.4f %.4f %3d' % \
                     (star['starid'],star['ra'], star['dec'], star['b-y'], mag['b'],err['b'],n['b'],mag['y'],err['y'],n['y']))
             except TypeError:
-                print star['starid']
+                print(star['starid'])
             
     
     def calstars(self):

@@ -6,6 +6,9 @@ Created on Feb 5, 2015
 @author: Joerg Weingrill <jweingrill@aip.de>
 '''
 import config
+from astropy.io import fits as pyfits
+import numpy as np
+
 
 class Yadav(object):
     '''
@@ -22,8 +25,6 @@ class Yadav(object):
         self.wifsip = DataSource(database=config.dbname, user=config.dbuser, host=config.dbhost)
         
     def fromfile(self, filename=None):
-        import pyfits
-        
         hdulist = pyfits.open(filename)
         self.data = hdulist[1].data
         self.keys = []
@@ -32,9 +33,8 @@ class Yadav(object):
         hdulist.close()
     
     def todatabase(self):
-        import numpy as np
         for d in self.data:
-            print d['seq']
+            print(d['seq'])
             record = {}
             for key in self.keys:
                 record[key] = d[key]

@@ -20,7 +20,7 @@ def do_uvby(transfer=False, plot=False):
     m67uvby_group = ClusterGroup(m67uvby)
     
     for sf in m67uvby_subframes:
-        print sf.uname
+        print(sf.uname)
         sf.tofile(config.projectpath)
         m67uvby_group.add_daughter(sf.uname)
         if transfer: sf.transfer()
@@ -40,7 +40,7 @@ def do_hby(transfer=False):
     m67hby_group = ClusterGroup(m67hby)
     
     for sf in m67hby_subframes:
-        print sf.uname
+        print(sf.uname)
         sf.tofile(config.projectpath)
         m67hby_group.add_daughter(sf.uname)
         if transfer: sf.transfer()
@@ -58,7 +58,7 @@ def do_rot(transfer=False):
     m67rot_group = ClusterGroup(m67rot)
     
     for sf in m67rot_subframes:
-        print sf.uname
+        print(sf.uname)
         sf.tofile(config.projectpath)
         m67rot_group.add_daughter(sf.uname)
         if transfer: sf.transfer()
@@ -75,7 +75,7 @@ def do_cmd(transfer=False):
     m67cmd_group = ClusterGroup(m67cmd)
     
     for sf in m67cmd_subframes:
-        print sf.uname
+        print(sf.uname)
         sf.tofile(config.projectpath)
         m67cmd_group.add_daughter(sf.uname)
         if transfer: sf.transfer()
