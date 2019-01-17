@@ -3,8 +3,9 @@
 from cluster import Cluster
 from matplotlib import pyplot as plt
 import numpy as np
-from daiquiri_tap import DaiquiriTap
 from _config import TOKEN
+import pyvo as vo
+
 
 # from matplotlib.mlab import dist
 
@@ -12,7 +13,7 @@ __author__ = "Joerg Weingrill"
 __copyright__ = "Copyright 2018 organization_name"
 __credits__ = ["Joerg Weingrill"]
 __license__ = "GPL"
-__version__ = "0.0.1"
+__version__ = "1.1.2"
 __maintainer__ = "Joerg Weingrill"
 __email__ = "jweingrill@aip.de"
 __status__ = "Development"
@@ -91,9 +92,18 @@ class GaiaCluster(object):
         '''
         The is the code sample to access https://gaia.aip.de/tap with your token account. 
         Please copy this file and replace 'your_token' with your authorization token from https://gaia.aip.de/accounts/token/
+
+        SELECT TOP 100000 source_id, ra, dec, phot_g_mean_mag AS gmag, bp_rp AS brmag, pmra, pmdec, 1000./parallax AS dist
+        FROM gdr2.gaia_source
+        WHERE CONTAINS(POINT('ICRS', ra, dec), CIRCLE('ICRS', 82.1666666667, 35.8483333333, 1.0)) = 1
+        AND phot_g_mean_mag < 18.5
+        AND phot_bp_mean_mag-phot_rp_mean_mag > 0.0 AND phot_bp_mean_mag-phot_rp_mean_mag < 2.5
+        AND 1000./parallax > 700.0 AND 1000./parallax < 2100.0
+        AND CONTAINS(POINT('', pmra, pmdec), CIRCLE('', 1.49, -4.48, 2.0)) = 1
+
         '''
 
-        service = DaiquiriTap(url='https://gaia.aip.de/tap', token=TOKEN)
+
 
         # Here you create the job with the query.
         # WHERE CONTAINS(POINT('ICRS', ra, dec), CIRCLE('ICRS', 282.825, 10.3183, 0.5)) = 1
@@ -118,20 +128,55 @@ class GaiaCluster(object):
                   'pmra': self.pmra,
                   'pmdec': self.pmdec,
                   'pmradius': self.pmradius}
-        querystring = '''SELECT TOP 100000 source_id, ra, dec, phot_g_mean_mag AS gmag, bp_rp AS brmag, pmra, pmdec, 1000./parallax AS dist
-        FROM gdr2.gaia_source 
-        WHERE CONTAINS(POINT('ICRS', ra, dec), CIRCLE('ICRS', %(ra)f, %(dec)f, %(radius)f)) = 1 
-        AND phot_g_mean_mag < 18.5 
-        AND phot_bp_mean_mag-phot_rp_mean_mag > 0.0 AND phot_bp_mean_mag-phot_rp_mean_mag < 2.5
-        AND 1000./parallax > %(min_dist)f AND 1000./parallax < %(max_dist)f
-        AND CONTAINS(POINT('', pmra, pmdec), CIRCLE('', %(pmra)f, %(pmdec)f, %(pmradius)f)) = 1''' % params
+        print(params)
+        """
+        querystring = "SELECT TOP 100000 source_id, ra, dec, phot_g_mean_mag AS gmag, bp_rp AS brmag, pmra, pmdec, 1000./parallax AS dist "\
+            " FROM gdr2.gaia_source "\
+            " WHERE CONTAINS(POINT('ICRS', ra, dec), CIRCLE('ICRS', %(ra)f, %(dec)f, %(radius)f)) = 1 "\
+            " AND phot_g_mean_mag < 18.5 "\
+            " AND phot_bp_mean_mag-phot_rp_mean_mag > 0.0 AND phot_bp_mean_mag-phot_rp_mean_mag < 2.5 "\
+            " AND 1000./parallax > %(min_dist)f AND 1000./parallax < %(max_dist)f "\
+            " AND CONTAINS(POINT('', pmra, pmdec), CIRCLE('', %(pmra)f, %(pmdec)f, %(pmradius)f)) = 1 " % params
+        """
+        querystring = "SELECT source_id, ra, dec, phot_g_mean_mag AS gmag, bp_rp AS brmag, pmra, pmdec, 1000. / parallax AS dist "\
+                " FROM gdr2.gaia_source "\
+                " WHERE pos @ scircle(spoint(RADIANS(82.1666666667), RADIANS(35.8483333333)), RADIANS(1.0)) "\
+                " AND phot_g_mean_mag < 18.5 "\
+                " AND phot_bp_mean_mag - phot_rp_mean_mag > 0.0 AND phot_bp_mean_mag - phot_rp_mean_mag < 2.5 "\
+                " AND 1000. / parallax > 700.0 AND 1000. / parallax < 2100.0 "\
+                " AND spoint(RADIANS(pmra), RADIANS(pmdec)) @ scircle(spoint(RADIANS(1.49), RADIANS(-4.48)), RADIANS(2.0)) LIMIT 100000;"
+
+        adqlquery = """
+        SELECT TOP 100000 source_id, ra, dec, phot_g_mean_mag AS gmag, bp_rp AS brmag, pmra, pmdec, 1000./parallax AS dist FROM gdr2.gaia_source WHERE CONTAINS(POINT('ICRS', ra, dec), CIRCLE('ICRS', 82.1666666667, 35.8483333333, 1.0)) = 1 AND phot_g_mean_mag < 18.5 AND phot_bp_mean_mag-phot_rp_mean_mag > 0.0 AND phot_bp_mean_mag-phot_rp_mean_mag < 2.5 AND 1000./parallax > 700.0 AND 1000./parallax < 2100.0 AND CONTAINS(POINT('ICRS', pmra, pmdec), CIRCLE('ICRS', 1.49, -4.48, 2.0)) = 1
+        """
+        adqlquery = """SELECT TOP 100000 source_id, ra, dec, phot_g_mean_mag AS gmag, bp_rp AS brmag, pmra, pmdec, 1000./parallax AS dist FROM gdr2.gaia_source """
+        psqlquery = """SELECT ra, dec, phot_g_mean_mag AS gmag
+FROM gdr2.gaia_source
+WHERE pos @ scircle(spoint(4.2917, -0.4629), 0.008)
+AND phot_g_mean_mag < 15"""
+        # init tap service
+        tap_service = vo.dal.TAPService('https://gaia.aip.de/tap')
+
+        # optional: use your API token to use your account
+        vo.utils.http.session.headers['Authorization'] = 'Token ' + TOKEN
+
+        # run a syncronous query
+        #tap_result = tap_service.run_sync(querystring, language='postgresql')
+        #tap_result = tap_service.run_sync(adqlquery)
+        #tap_result = tap_service.run_sync(psqlquery, language='postgresql')
+        job = tap_service.submit_job(psqlquery, language='postgresql')
+        if job.phase is None:
+            print('¯\_ツ_/¯')
+        else:
+            job.run().wait()
+
+        tap_result = job.fetch_result()
+
+        self.data = tap_result.to_table()
+
         # name = 'Gaia DR2 SOCS %s' % self.clustername
         output_file = '/work2/jwe/SOCS/data/%s.vot' % self.clustername
-        job = service.launch_job(querystring, output_file=output_file, dump_to_file=True)
-        # print(job)
-        self.data = job.get_results()
-        # job.set_output_file(output_file)
-        # job.save_results(verbose=True)
+
 
     def plot(self):
         r = self.data
@@ -202,7 +247,7 @@ if __name__ == '__main__':
     # c = GaiaCluster('NGC 752', ra=29.28, dec=37.77, pmra=9.86, pmdec=-11.69, diam=180.0, pmradius=2.0, dist=448.9)
     # c = GaiaCluster('NGC 1528', ra=63.87, dec=51.21, pmra=2.22, pmdec=-2.25, diam=90.0, pmradius=1.1, dist=1054.2)
     # c = GaiaCluster('NGC 1647', ra=71.50, dec=19.12, pmra=-1.01, pmdec=-1.53, diam=120.0, pmradius=2.0, dist=593.9)
-    # c = GaiaCluster('NGC 1912', pmra=1.49, pmdec=-4.48, diam=120.0, pmradius=2.0) # double cluster
+    c = GaiaCluster('NGC 1912', pmra=1.49, pmdec=-4.48, diam=120.0, pmradius=2.0) # double cluster
     # c = GaiaCluster('NGC 1996', pmra=0.94, pmdec=-3.21, dist=1710.5 )
     # c = GaiaCluster('NGC 2126', pmra=1.49, pmdec=-3, diam=120.0, pmradius=4.0)
     # c = GaiaCluster('NGC 2236', ra=97.41, dec=6.84, pmra=-0.77, pmdec=0.05, diam=20.0, pmradius=1.1, dist=2749.2)
@@ -237,7 +282,7 @@ if __name__ == '__main__':
     # c = GaiaCluster('NGC 2184', diam=120.0, dist=995.6)
     # c = GaiaCluster('Trumpler 3', ra=48.02, dec=63.20, pmra=-3.37, pmdec=-0.11, diam=111.5, pmradius=1.5, dist=687.3)
     # c = GaiaCluster('Ruprecht 147', ra=289.15, dec=-16.25, pmra=-0.88, pmdec=-26.50, diam=120, pmradius=3.2, dist=310.2)
-    c = GaiaCluster('NGC 6885', pmradius=10, diam=40, dist=650, depth=100)
+    # c = GaiaCluster('NGC 6885', pmradius=10, diam=40, dist=650, depth=100)
     # c = GaiaCluster('NGC 6991', ra=313.67, dec=47.40, pmra=5.55, pmdec=8.60, diam=60, pmradius=2.9, dist=561.9)
     c.gaiaquery()
     c.plot()
