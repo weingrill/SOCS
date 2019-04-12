@@ -14,6 +14,8 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
+gap_length =10
+
 
 class TimeLine(object):
     '''
@@ -25,7 +27,7 @@ class TimeLine(object):
         Constructor
         '''
         self.target = target
-        print(self.target)
+
         wifsip = DataSource(database='stella',
                             user='stella',
                             host='pera.aip.de')
@@ -54,9 +56,12 @@ class TimeLine(object):
                 " AND expt>%(expt)d AND filter='V'" \
                 " AND %(date_limit)s " \
                 "ORDER BY datum;" % params
-        print(query)
+
         result = wifsip.query(query)
-        print(len(result))
+
+        if len(result)==0:
+            print("No observations found")
+            return
         self.dates = [r[0] for r in result]
         self.count = [r[1] for r in result]
 
@@ -68,14 +73,13 @@ class TimeLine(object):
         offsets = [0]
         i = 0
         for i, datedelta in enumerate(datedeltas):
-            if datedelta > datetime.timedelta(days=10):
+            if datedelta > datetime.timedelta(days=gap_length):
                 offsets.append(i)
                 offsets.append(i + 1)
 
         if i not in offsets:
             offsets.append(i)
 
-        print(offsets)
         start = 0
         end = len(self.dates)
 
@@ -88,7 +92,7 @@ class TimeLine(object):
             for o1, o2 in zip(offsets[1:], offsets[:-1]):
                 length = self.dates[o1] - self.dates[o2]
                 print(length.days, self.dates[o1], self.dates[o2], np.sum(self.count[o2:o1]))
-                if length.days > self.length.days and np.sum(self.count[o2:o1]) > 10:
+                if length.days > self.length.days and np.sum(self.count[o2:o1]) > gap_length:
                     self.length = length
                     start = o2
                     end = o1
