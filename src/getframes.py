@@ -1,18 +1,33 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-'''
-Created on May 3, 2013
+__author__ = "Joerg Weingrill"
+__copyright__ = "Copyright 2018 Leibniz-Insitute for Astrophysics Potsdam (AIP)"
+__credits__ = ["Joerg Weingrill"]
+__license__ = "GPL"
+__version__ = "2.0.0"
+__maintainer__ = "Joerg Weingrill"
+__email__ = "jweingrill@aip.de"
+__status__ = "Development"
+__date__ = "2013-05-03"
 
-@author: Jörg Weingrill <jweingrill@aip.de>
-
-get files from M 48 BVI
-'''
 from datasource import DataSource
 from subprocess import call
+import os
+import os.path
 
 
 def getframes(obj, targetdir='/work2/jwe/stella/wifsip/', filtercol='V',
               conditions=None, imcopy=False, listonly=False):
+    """
+
+    :param obj: name of the object to retrieve
+    :param targetdir: target directory, where the files are copied to
+    :param filtercol: Filter color to choose e.g. 'V' or 'B' or 'I'
+    :param conditions: additional conditions like airmass limit, background limit (Moon!)
+    :param imcopy: uses imcopy to convert fitz files to fits files
+    :param listonly: does not scp, just lists the files
+    :return: nothing
+    """
     params = {'object': obj,
               'filtercol': filtercol}
 
@@ -38,15 +53,22 @@ def getframes(obj, targetdir='/work2/jwe/stella/wifsip/', filtercol='V',
     query = query + '\nORDER by frames.objid;'
     tab = wifsip.query(query)
     print(len(tab), 'files')
-    for path, filename, fwhm, backgrnd, airmass in tab:
-        print("%s/%s %.1f %.1f %.2f" % (path, filename, fwhm, backgrnd, airmass))
+    if not os.path.exists(targetdir):
+        os.makedirs(targetdir)
+    for sciencepath, filename, fwhm, backgrnd, airmass in tab:
+        # old path listed in the database:
+        # /stella/wifsip/reduced/20160904/science20160903A-0057EXP0002
+        # new path on pina:
+        # /stella/home/stella/wifsip/reduced/20160904/science20160903A-0057EXP0001.fitz
+        newpath = sciencepath.replace('/stella/wifsip/reduced/', '/stella/home/stella/wifsip/reduced/')
+        print("%s %.1f %.1f %.2f" % (os.path.join(newpath, filename + '.fitz'), fwhm, backgrnd, airmass))
         # if listonly is set, we break the loop here
         if listonly: continue
-        call(['scp', 'sro@pina.aip.de:' + path + '/' + filename + '.fitz ', targetdir])
+        call(['scp', 'sro@pina.aip.de:' + os.path.join(newpath, filename + '.fitz'), targetdir])
         source = '%s/%s.fitz[1]' % (targetdir, filename)
         target = '%s/%s.fits' % (targetdir, filename)
         if imcopy:
-            call(['/home/jwe/bin/imcopy', source, target])
+            call(['imcopy', source, target])
 
 
 if __name__ == '__main__':
